@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>أهم الكلمات الإنجليزية | معجم عربي إنجليزي</title>
+<title>GPM Accounting — Golf Porto Marina</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
@@ -714,6 +714,236 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 </head>
 <body>
 
+<!-- ══════════════════════════════════════════════
+     MICROSOFT LOGIN LAYER
+══════════════════════════════════════════════ -->
+<style>
+/* ── Login overlay ── */
+#gpmLoginOverlay{
+  position:fixed;inset:0;z-index:99999;
+  background:#06060f;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;
+  transition:opacity .5s,transform .5s;
+}
+#gpmLoginOverlay.hiding{opacity:0;transform:scale(.97);pointer-events:none}
+#gpmLoginOverlay.gone{display:none}
+
+/* Animated background */
+.lgo-canvas{position:fixed;inset:0;overflow:hidden;pointer-events:none}
+.lgo-orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.18;animation:lgoOrb 14s ease-in-out infinite alternate}
+.lgo-orb:nth-child(1){width:700px;height:700px;background:#533483;top:-250px;right:-250px;animation-delay:0s}
+.lgo-orb:nth-child(2){width:500px;height:500px;background:#e94560;bottom:-150px;left:-150px;animation-delay:-5s}
+.lgo-orb:nth-child(3){width:350px;height:350px;background:#0078d4;top:45%;left:42%;animation-delay:-10s}
+@keyframes lgoOrb{from{transform:translate(0,0) scale(1)}to{transform:translate(40px,-40px) scale(1.15)}}
+.lgo-grid{position:fixed;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(83,52,131,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(83,52,131,.06) 1px,transparent 1px);
+  background-size:44px 44px}
+
+/* Card */
+.lgo-card{
+  position:relative;z-index:2;
+  background:rgba(12,12,24,.92);backdrop-filter:blur(28px);
+  border:1px solid rgba(83,52,131,.28);
+  border-radius:28px;padding:52px 48px;
+  width:100%;max-width:460px;
+  box-shadow:0 0 0 1px rgba(83,52,131,.1),0 50px 100px rgba(0,0,0,.7);
+  overflow:hidden;
+}
+.lgo-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(83,52,131,.8),rgba(233,69,96,.6),transparent)}
+
+.lgo-logo{
+  width:80px;height:80px;
+  background:linear-gradient(135deg,#0f3460 0%,#533483 50%,#e94560 100%);
+  border-radius:22px;display:flex;align-items:center;justify-content:center;
+  font-size:38px;margin:0 auto 28px;
+  box-shadow:0 10px 36px rgba(83,52,131,.5);
+  animation:lgoPulse 3.5s ease-in-out infinite;
+}
+@keyframes lgoPulse{0%,100%{box-shadow:0 10px 36px rgba(83,52,131,.5)}50%{box-shadow:0 10px 50px rgba(233,69,96,.6)}}
+
+.lgo-title{
+  text-align:center;font-size:2rem;font-weight:900;margin-bottom:6px;
+  background:linear-gradient(135deg,#e8e8f0 0%,#a8d8ff 50%,#c4b5fd 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.lgo-sub{text-align:center;color:#7878a0;font-size:.92rem;margin-bottom:8px}
+.lgo-badge{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-bottom:36px;
+  font-size:.72rem;color:#4a90d9;
+  background:rgba(0,120,212,.08);border:1px solid rgba(0,120,212,.18);
+  border-radius:8px;padding:7px 14px;
+}
+.lgo-badge::before{content:'🔒';font-size:.85rem}
+
+.lgo-ms-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:14px;
+  padding:17px 28px;border-radius:14px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#003a80,#0078d4);color:#fff;
+  font-family:'Tajawal',sans-serif;font-size:1.05rem;font-weight:700;
+  box-shadow:0 8px 24px rgba(0,120,212,.4);transition:all .25s;
+  position:relative;overflow:hidden;
+}
+.lgo-ms-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent);opacity:0;transition:opacity .2s}
+.lgo-ms-btn:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,120,212,.55)}
+.lgo-ms-btn:hover::after{opacity:1}
+.lgo-ms-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:0 4px 12px rgba(0,120,212,.2)}
+
+/* Microsoft colored logo */
+.ms4{width:24px;height:24px;display:grid;grid-template-columns:1fr 1fr;gap:3px;flex-shrink:0}
+.ms4 span{border-radius:2px}
+.ms4 span:nth-child(1){background:#f25022}
+.ms4 span:nth-child(2){background:#7fba00}
+.ms4 span:nth-child(3){background:#00a4ef}
+.ms4 span:nth-child(4){background:#ffb900}
+
+.lgo-spin{width:22px;height:22px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:lgoSpin .7s linear infinite;flex-shrink:0}
+@keyframes lgoSpin{to{transform:rotate(360deg)}}
+
+.lgo-divider{display:flex;align-items:center;gap:12px;margin:22px 0;color:#7878a0;font-size:.75rem}
+.lgo-divider::before,.lgo-divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.07)}
+
+.lgo-info{background:rgba(0,120,212,.07);border:1px solid rgba(0,120,212,.18);border-radius:12px;padding:16px 18px;font-size:.78rem;color:#7878a0;line-height:1.8}
+.lgo-info strong{color:#60a5fa;display:block;margin-bottom:5px;font-size:.82rem}
+.lgo-info code{font-size:.7rem;color:#93c5fd;background:rgba(0,120,212,.12);padding:2px 6px;border-radius:4px}
+
+.lgo-err{display:none;margin-top:16px;background:rgba(233,69,96,.1);border:1px solid rgba(233,69,96,.3);border-radius:12px;padding:14px 16px;font-size:.78rem;color:#f87171;line-height:1.7}
+.lgo-err.show{display:block}
+.lgo-err strong{display:block;margin-bottom:5px;color:#f87171}
+.lgo-err code{font-size:.69rem;background:rgba(233,69,96,.1);padding:2px 6px;border-radius:4px}
+
+.lgo-footer{position:relative;z-index:2;margin-top:28px;text-align:center;font-size:.7rem;color:#4a4a6a}
+.lgo-footer span{color:#533483}
+
+/* SP panel in topbar */
+#spPanel{
+  display:none;align-items:center;gap:8px;padding:5px 12px;
+  border-radius:10px;border:1px solid rgba(0,120,212,.25);
+  background:rgba(0,120,212,.08);font-size:.78rem;cursor:pointer;
+  transition:all .18s;white-space:nowrap;
+}
+#spPanel:hover{border-color:rgba(0,120,212,.5);background:rgba(0,120,212,.15)}
+#spPanel .sp-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:spBlink 2s ease-in-out infinite}
+@keyframes spBlink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* SP Modal */
+#spModal{
+  position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+#spModal.open{display:flex}
+.sp-modal-box{
+  background:#0d0d1a;border:1px solid rgba(83,52,131,.3);
+  border-radius:20px;width:100%;max-width:900px;max-height:90vh;
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 40px 100px rgba(0,0,0,.7);
+}
+.sp-modal-top{
+  display:flex;align-items:center;gap:12px;padding:16px 20px;
+  background:linear-gradient(135deg,#0f3460,#533483);flex-shrink:0;
+}
+.sp-modal-title{font-weight:800;font-size:.95rem;flex:1}
+.sp-modal-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.sp-modal-close:hover{background:rgba(255,255,255,.25)}
+.sp-modal-body{flex:1;overflow:auto;padding:20px}
+.sp-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.sp-stat{background:rgba(18,18,31,.8);border:1px solid rgba(83,52,131,.2);border-radius:12px;padding:12px 18px;display:flex;align-items:center;gap:10px;min-width:140px}
+.sp-stat-val{font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;color:#f5a623}
+.sp-stat-lbl{font-size:.68rem;color:#7878a0}
+.sp-list-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:18px}
+.sp-list-card{background:rgba(18,18,31,.85);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;cursor:pointer;transition:all .2s}
+.sp-list-card:hover{border-color:rgba(83,52,131,.4);transform:translateY(-2px);background:rgba(83,52,131,.1)}
+.sp-list-card .lc-name{font-weight:700;font-size:.88rem;margin-bottom:4px}
+.sp-list-card .lc-count{font-family:'Space Mono',monospace;font-size:.7rem;color:#f5a623}
+.sp-list-card .lc-date{font-size:.65rem;color:#7878a0}
+
+/* SP Detail view */
+.sp-det-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.sp-back{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#7878a0;font-family:'Tajawal',sans-serif;font-size:.8rem;cursor:pointer;transition:all .15s}
+.sp-back:hover{border-color:rgba(83,52,131,.5);color:var(--accent)}
+.sp-det-search{flex:1;min-width:160px;padding:8px 12px;background:rgba(18,18,31,.9);border:1.5px solid rgba(255,255,255,.1);border-radius:8px;color:#e8e8f0;font-family:'Tajawal',sans-serif;font-size:.83rem;outline:none;direction:ltr}
+.sp-det-search:focus{border-color:rgba(0,120,212,.5)}
+.sp-xl-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#1a7a4a,#22a060);color:#fff;font-family:'Tajawal',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s}
+.sp-xl-btn:hover{opacity:.87;transform:translateY(-1px)}
+.sp-tbl-wrap{border-radius:12px;border:1px solid rgba(255,255,255,.07);overflow:auto;max-height:50vh}
+.sp-tbl{width:100%;border-collapse:collapse;min-width:500px;font-size:.8rem}
+.sp-tbl thead th{background:#080810;color:#7878a0;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;padding:10px 12px;white-space:nowrap;border-bottom:2px solid #0078d4;position:sticky;top:0;z-index:5}
+.sp-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,.03);cursor:default;transition:background .1s}
+.sp-tbl tbody tr:hover{background:rgba(83,52,131,.1)}
+.sp-tbl tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+.sp-tbl td{padding:8px 12px;vertical-align:middle;color:#e8e8f0}
+.sp-tbl .td-idx{color:#7878a0;font-family:'Space Mono',monospace;font-size:.63rem;width:40px;text-align:center}
+.sp-tbl .td-en{direction:ltr;font-family:'Space Mono',monospace;color:#a8d8ff}
+.sp-pages{display:flex;justify-content:center;align-items:center;gap:5px;padding:12px;flex-wrap:wrap}
+.sp-pbt{padding:5px 11px;border-radius:6px;border:1px solid rgba(255,255,255,.1);background:rgba(18,18,31,.9);color:#e8e8f0;font-family:'Space Mono',monospace;font-size:.7rem;cursor:pointer;transition:all .13s}
+.sp-pbt:hover{border-color:#0078d4;color:#0078d4}
+.sp-pbt.act{background:#0078d4;border-color:#0078d4;color:#fff}
+.sp-pbt:disabled{opacity:.3;cursor:default}
+.sp-big-spin{display:flex;flex-direction:column;align-items:center;gap:12px;padding:60px;color:#7878a0;grid-column:1/-1}
+.sp-spin{width:40px;height:40px;border:3px solid rgba(255,255,255,.08);border-top-color:#0078d4;border-radius:50%;animation:lgoSpin .8s linear infinite}
+
+/* User chip in topbar */
+.lgo-user-chip{
+  display:none;align-items:center;gap:8px;padding:5px 12px;
+  border-radius:10px;border:1px solid rgba(83,52,131,.25);
+  background:rgba(83,52,131,.1);font-size:.78rem;
+}
+.lgo-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#533483,#e94560);display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;flex-shrink:0}
+.lgo-logout{padding:6px 14px;border-radius:8px;border:1px solid rgba(233,69,96,.3);background:rgba(233,69,96,.08);color:#e94560;font-size:.75rem;font-family:'Tajawal',sans-serif;cursor:pointer;transition:all .15s;display:none}
+.lgo-logout:hover{background:rgba(233,69,96,.2)}
+</style>
+
+<!-- Login Overlay -->
+<div id="gpmLoginOverlay">
+  <div class="lgo-canvas">
+    <div class="lgo-orb"></div><div class="lgo-orb"></div><div class="lgo-orb"></div>
+  </div>
+  <div class="lgo-grid"></div>
+  <div class="lgo-card">
+    <div class="lgo-logo">⛳</div>
+    <div class="lgo-title">Golf Porto Marina</div>
+    <div class="lgo-sub">نظام المحاسبة المتكامل</div>
+    <div class="lgo-badge">تسجيل دخول آمن عبر Microsoft 365</div>
+
+    <button class="lgo-ms-btn" id="gpmLoginBtn" onclick="gpmDoLogin()">
+      <div class="ms4"><span></span><span></span><span></span><span></span></div>
+      تسجيل الدخول بحساب Microsoft
+    </button>
+
+    <div class="lgo-divider">معلومات الاتصال</div>
+
+    <div class="lgo-info">
+      <strong>🔗 SharePoint — GPM Account</strong>
+      سيتم ربط النظام تلقائياً بـ SharePoint بعد تسجيل الدخول لمزامنة البيانات وعرض Lists مباشرة.
+      <br><br>
+      <code>acapitalamergroup.sharepoint.com/sites/gpmaccount</code>
+    </div>
+    <div class="lgo-err" id="gpmLoginErr"></div>
+  </div>
+  <div class="lgo-footer">
+    ⛳ Golf Porto Marina Accounting &nbsp;·&nbsp; <span>Powered by Microsoft 365</span>
+  </div>
+</div>
+
+<!-- SP Modal (lists browser) -->
+<div id="spModal">
+  <div class="sp-modal-box">
+    <div class="sp-modal-top">
+      <span style="font-size:1.1rem">📋</span>
+      <div class="sp-modal-title">SharePoint — القوائم المتاحة</div>
+      <div id="spModalUser" style="font-size:.75rem;color:rgba(255,255,255,.6)"></div>
+      <button class="sp-modal-close" onclick="spCloseModal()">✕</button>
+    </div>
+    <div class="sp-modal-body" id="spModalBody">
+      <div class="sp-big-spin"><div class="sp-spin"></div><div>جاري الاتصال...</div></div>
+    </div>
+  </div>
+</div>
+
+
 <div class="prog-overlay" id="prog">
   <div class="prog-box">
     <div class="prog-spin"></div>
@@ -737,6 +967,22 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
     <div class="gpm-sb-logo">⛳</div>
     <div class="gpm-sb-title">Golf Porto Marina<small>Accounting</small></div>
     <button class="gpm-toggle" onclick="gpmToggle()">◀</button>
+  </div>
+  <!-- MS user + SP connect -->
+  <div id="gpmUserBar" style="display:none;padding:8px 10px;border-bottom:1px solid #e8ecf5;background:#f0f4ff;direction:ltr">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <div id="gpmAvatar" style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#533483,#e94560);display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#fff;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div id="gpmUserName" style="font-size:.72rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        <div id="gpmUserEmail" style="font-size:.6rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:5px">
+      <button onclick="spOpenModal()" style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:5px 8px;border-radius:6px;border:1px solid rgba(0,120,212,.3);background:rgba(0,120,212,.08);color:#2563eb;font-size:.68rem;font-family:'Tajawal',sans-serif;cursor:pointer;transition:all .15s" title="SharePoint Lists">
+        <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;animation:spBlink 2s ease-in-out infinite;flex-shrink:0"></span>SharePoint
+      </button>
+      <button onclick="gpmDoLogout()" style="padding:5px 10px;border-radius:6px;border:1px solid rgba(233,69,96,.3);background:rgba(233,69,96,.08);color:#e94560;font-size:.68rem;font-family:'Tajawal',sans-serif;cursor:pointer;transition:all .15s" title="تسجيل الخروج">خروج</button>
+    </div>
   </div>
   <button class="gpm-ctoggle" onclick="gpmToggle()">▶</button>
 
@@ -24918,6 +25164,321 @@ function logOutFsToast(msg,type='success'){
   t.textContent=msg; t.className='fs-toast '+type+' show';
   setTimeout(()=>t.classList.remove('show'),3000);
 }
+</script>
+
+
+<script>
+/* ══════════════════════════════════════════════
+   GPM MICROSOFT LOGIN + SHAREPOINT INTEGRATION
+══════════════════════════════════════════════ */
+
+const GPM_CFG = {
+  clientId: '57f2aba2-851e-4506-88b8-a15a06c2cdeb',
+  tenantId: '4a140411-eea3-44ac-85fe-9c9c8b0bc325',
+  host:     'acapitalamergroup.sharepoint.com',
+  site:     '/sites/gpmaccount',
+  per:      100,
+  redirectUri: 'https://moustafasanhory.github.io/gpm-accounting/'
+};
+
+const GPM_SCOPES = [
+  `https://${GPM_CFG.host}/AllSites.Read`,
+  'openid','profile','User.Read'
+];
+
+let gpmMsal, gpmAccount = null;
+let spAllLists = [], spCurList = null, spCurItems = [], spFiltItems = [], spDetPg = 1, spDetCols = [];
+
+/* ── Init MSAL ── */
+(function initMSAL(){
+  try {
+    gpmMsal = new msal.PublicClientApplication({
+      auth:{
+        clientId: GPM_CFG.clientId,
+        authority: 'https://login.microsoftonline.com/' + GPM_CFG.tenantId,
+        redirectUri: GPM_CFG.redirectUri,
+        navigateToLoginRequestUrl: false
+      },
+      cache:{ cacheLocation:'localStorage', storeAuthStateInCookie:true }
+    });
+  } catch(e){ console.warn('MSAL init error:', e); }
+})();
+
+/* ── On page load: check if already signed in ── */
+window.addEventListener('load', async () => {
+  try {
+    if(!gpmMsal) return;
+    const r = await gpmMsal.handleRedirectPromise();
+    if(r && r.account){ gpmAccount = r.account; gpmShowApp(); return; }
+  } catch(e){}
+  try {
+    const accs = gpmMsal.getAllAccounts();
+    if(accs.length > 0){ gpmAccount = accs[0]; gpmShowApp(); }
+  } catch(e){}
+});
+
+/* ── Login ── */
+async function gpmDoLogin(){
+  const btn = document.getElementById('gpmLoginBtn');
+  const err = document.getElementById('gpmLoginErr');
+  err.classList.remove('show');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="lgo-spin"></div> جاري الاتصال...';
+  try {
+    if(!gpmMsal) throw new Error('MSAL لم يتم تهيئته بشكل صحيح');
+    const accs = gpmMsal.getAllAccounts();
+    if(accs.length > 0){ gpmAccount = accs[0]; gpmShowApp(); return; }
+    try {
+      const r = await gpmMsal.loginPopup({ scopes: GPM_SCOPES });
+      gpmAccount = r.account; gpmShowApp();
+    } catch(pe){
+      if(pe.errorCode === 'popup_window_error' || pe.errorCode === 'empty_window_error'){
+        await gpmMsal.loginRedirect({ scopes: GPM_SCOPES });
+      } else if(pe.errorCode !== 'user_cancelled'){
+        throw pe;
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<div class="ms4"><span></span><span></span><span></span><span></span></div> تسجيل الدخول بحساب Microsoft';
+      }
+    }
+  } catch(e){
+    console.error('Login error:', e);
+    btn.disabled = false;
+    btn.innerHTML = '<div class="ms4"><span></span><span></span><span></span><span></span></div> تسجيل الدخول بحساب Microsoft';
+    err.innerHTML = `<strong>⚠️ فشل تسجيل الدخول</strong>الخطأ: <code>${e.errorCode||e.message||'unknown'}</code><br><br>تأكد من إضافة Redirect URI في Azure:<br><code>${GPM_CFG.redirectUri}</code>`;
+    err.classList.add('show');
+  }
+}
+
+/* ── Show app after login ── */
+function gpmShowApp(){
+  const overlay = document.getElementById('gpmLoginOverlay');
+  overlay.classList.add('hiding');
+  setTimeout(() => overlay.classList.add('gone'), 500);
+
+  // Show user info in sidebar
+  if(gpmAccount){
+    const nm = gpmAccount.name || gpmAccount.username || 'مستخدم';
+    const em = gpmAccount.username || '';
+    const initials = nm.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('gpmUserBar').style.display = 'block';
+    document.getElementById('gpmUserName').textContent = nm;
+    document.getElementById('gpmUserEmail').textContent = em;
+    document.getElementById('gpmAvatar').textContent = initials;
+  }
+
+  // Auto-load SP lists in background
+  setTimeout(() => spLoadLists(), 1500);
+}
+
+/* ── Logout ── */
+async function gpmDoLogout(){
+  gpmAccount = null; spAllLists = [];
+  try { await gpmMsal.logoutPopup(); } catch(e){}
+  document.getElementById('gpmUserBar').style.display = 'none';
+  const overlay = document.getElementById('gpmLoginOverlay');
+  overlay.classList.remove('hiding','gone');
+  const btn = document.getElementById('gpmLoginBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<div class="ms4"><span></span><span></span><span></span><span></span></div> تسجيل الدخول بحساب Microsoft';
+}
+
+/* ── Get token ── */
+async function gpmGetToken(){
+  if(!gpmMsal || !gpmAccount) throw new Error('غير مسجل الدخول');
+  const req = { scopes: GPM_SCOPES, account: gpmAccount };
+  try { return (await gpmMsal.acquireTokenSilent(req)).accessToken; }
+  catch { return (await gpmMsal.acquireTokenPopup(req)).accessToken; }
+}
+
+/* ══ SHAREPOINT INTEGRATION ══ */
+
+async function spLoadLists(){
+  const body = document.getElementById('spModalBody');
+  if(body) body.innerHTML = '<div class="sp-big-spin"><div class="sp-spin"></div><div>جاري تحميل القوائم من SharePoint...</div></div>';
+  try {
+    const token = await gpmGetToken();
+    const url = `https://${GPM_CFG.host}${GPM_CFG.site}/_api/web/lists?$select=Title,Description,ItemCount,LastItemModifiedDate,Hidden,BaseTemplate&$filter=Hidden eq false and BaseTemplate eq 100&$orderby=Title`;
+    const resp = await fetch(url, { headers:{ Authorization:'Bearer '+token, Accept:'application/json;odata=nometadata' }});
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    spAllLists = json.value || [];
+    spRenderLists();
+  } catch(e){
+    console.error('SP load error:', e);
+    if(body) body.innerHTML = `<div class="sp-big-spin" style="color:var(--accent2)"><div>⚠️ خطأ في الاتصال بـ SharePoint:<br><small>${e.message}</small></div><button onclick="spLoadLists()" style="margin-top:14px;padding:8px 20px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#e8e8f0;cursor:pointer;font-family:'Tajawal',sans-serif">🔄 إعادة المحاولة</button></div>`;
+  }
+}
+
+function spRenderLists(){
+  const body = document.getElementById('spModalBody');
+  if(!body) return;
+  const COLORS=['linear-gradient(135deg,#533483,#7c3aed)','linear-gradient(135deg,#0f3460,#0078d4)','linear-gradient(135deg,#1a7a4a,#22a060)','linear-gradient(135deg,#7f1d1d,#e94560)','linear-gradient(135deg,#78350f,#f59e0b)','linear-gradient(135deg,#1e3a5f,#3b82f6)','linear-gradient(135deg,#4a1d96,#8b5cf6)'];
+  const ICONS={bank:'🏦',cash:'💵',safe:'🔐',payroll:'💰',salary:'💰',employee:'👥',vendor:'🏢',account:'📒',ledger:'📒',report:'📊',invoice:'🧾',cheque:'🖨️',asset:'🏗️',item:'📦',store:'🏪',cost:'🏗️',journal:'📒',balance:'⚖️',currency:'💱'};
+  function iconFor(n){n=(n||'').toLowerCase();for(const k in ICONS)if(n.includes(k))return ICONS[k];return'📋';}
+  const tot = spAllLists.reduce((s,l)=>s+(l.ItemCount||0),0);
+  body.innerHTML = `
+    <div class="sp-stats">
+      <div class="sp-stat"><div class="stat-ico">📋</div><div><div class="sp-stat-val">${spAllLists.length}</div><div class="sp-stat-lbl">قائمة</div></div></div>
+      <div class="sp-stat"><div class="stat-ico">📄</div><div><div class="sp-stat-val">${tot.toLocaleString()}</div><div class="sp-stat-lbl">إجمالي السجلات</div></div></div>
+      <div class="sp-stat"><div class="stat-ico">🕐</div><div><div class="sp-stat-val">${new Date().toLocaleTimeString('ar-EG')}</div><div class="sp-stat-lbl">آخر تحديث</div></div></div>
+    </div>
+    ${spAllLists.length ? `
+    <div style="font-size:.78rem;color:#7878a0;margin-bottom:12px;font-weight:600">📋 القوائم المتاحة</div>
+    <div class="sp-list-grid">
+      ${spAllLists.map((l,i)=>{
+        const ico=iconFor(l.Title);
+        const col=COLORS[i%COLORS.length];
+        const date=l.LastItemModifiedDate?new Date(l.LastItemModifiedDate).toLocaleDateString('ar-EG'):'—';
+        return `<div class="sp-list-card" onclick="spOpenList(${i})">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:38px;height:38px;border-radius:10px;background:${col};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${ico}</div>
+            <div><div class="lc-name">${l.Title}</div><div class="lc-desc" style="font-size:.68rem;color:#7878a0">${l.Description||'SharePoint List'}</div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid rgba(255,255,255,.05)">
+            <div class="lc-count">${(l.ItemCount||0).toLocaleString()} سجل</div>
+            <div class="lc-date" style="font-size:.65rem;color:#7878a0">${date}</div>
+            <div style="color:#533483;font-size:.8rem">◀</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '<div style="text-align:center;padding:40px;color:#7878a0">لا توجد قوائم</div>'}
+  `;
+}
+
+async function spOpenList(idx){
+  spCurList = spAllLists[idx];
+  if(!spCurList) return;
+  spDetPg = 1; spDetCols = []; spCurItems = []; spFiltItems = [];
+
+  const body = document.getElementById('spModalBody');
+  body.innerHTML = `
+    <div class="sp-det-hdr">
+      <button class="sp-back" onclick="spBackToLists()">◀ رجوع</button>
+      <div style="flex:1;font-weight:700;font-size:.95rem">${spCurList.Title}</div>
+      <div id="spDetCnt" style="font-family:'Space Mono',monospace;font-size:.75rem;color:#f5a623;background:rgba(245,166,35,.1);padding:3px 10px;border-radius:6px">جاري التحميل...</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <input class="sp-det-search" id="spDetSrch" placeholder="Search..." oninput="spDetFilter()" style="flex:1;min-width:160px">
+      <button class="sp-xl-btn" onclick="spExportXL()">📊 Excel</button>
+    </div>
+    <div class="sp-tbl-wrap"><table class="sp-tbl"><thead id="spDetHead"></thead><tbody id="spDetBody"><tr><td colspan="10" style="text-align:center;padding:40px;color:#7878a0"><div style="display:flex;align-items:center;justify-content:center;gap:10px"><div class="sp-spin" style="width:24px;height:24px;border-width:2px"></div>جاري التحميل...</div></td></tr></tbody></table></div>
+    <div class="sp-pages" id="spDetPgs"></div>
+  `;
+
+  try {
+    const token = await gpmGetToken();
+    const fr = await fetch(
+      `https://${GPM_CFG.host}${GPM_CFG.site}/_api/web/lists/getbytitle('${encodeURIComponent(spCurList.Title)}')/fields?$filter=Hidden eq false and ReadOnlyField eq false&$select=Title,InternalName,TypeAsString&$top=30`,
+      { headers:{ Authorization:'Bearer '+token, Accept:'application/json;odata=nometadata' }}
+    );
+    const fj = await fr.json();
+    spDetCols = (fj.value||[])
+      .filter(f=>!['Attachments','ContentType','Edit','DocIcon','ItemChildCount','FolderChildCount','_UIVersionString'].includes(f.InternalName) && f.TypeAsString!=='Computed')
+      .slice(0,12);
+
+    const sel = spDetCols.map(c=>c.InternalName).join(',') || 'Title';
+    let items = [], nextUrl = `https://${GPM_CFG.host}${GPM_CFG.site}/_api/web/lists/getbytitle('${encodeURIComponent(spCurList.Title)}')/items?$top=5000&$select=ID,${sel}&$orderby=ID asc`;
+    while(nextUrl){
+      const r = await fetch(nextUrl, { headers:{ Authorization:'Bearer '+token, Accept:'application/json;odata=nometadata' }});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j = await r.json();
+      items = items.concat(j.value||[]);
+      nextUrl = j['odata.nextLink'] || null;
+    }
+    spCurItems = items; spFiltItems = items;
+    document.getElementById('spDetCnt').textContent = items.length.toLocaleString() + ' سجل';
+    spRenderDetTable();
+  } catch(e){
+    console.error(e);
+    document.getElementById('spDetBody').innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:#e94560">⚠️ خطأ: ${e.message}</td></tr>`;
+  }
+}
+
+function spRenderDetTable(){
+  const head = document.getElementById('spDetHead');
+  const body = document.getElementById('spDetBody');
+  if(!head||!body) return;
+  head.innerHTML = `<tr><th style="width:40px">#</th>${spDetCols.map(c=>`<th>${c.Title}</th>`).join('')}</tr>`;
+  const start = (spDetPg-1)*GPM_CFG.per;
+  const slice = spFiltItems.slice(start, start+GPM_CFG.per);
+  if(!slice.length){
+    body.innerHTML = `<tr><td colspan="${spDetCols.length+1}" style="text-align:center;padding:30px;color:#7878a0">لا توجد نتائج</td></tr>`;
+    document.getElementById('spDetPgs').innerHTML=''; return;
+  }
+  body.innerHTML = slice.map((row,i)=>`<tr>
+    <td class="td-idx">${start+i+1}</td>
+    ${spDetCols.map(c=>{
+      const v = String(row[c.InternalName]??'').replace(/</g,'&lt;').slice(0,160);
+      const ltr = c.TypeAsString==='Number'||c.TypeAsString==='Currency'||c.InternalName.toLowerCase().includes('en')||c.InternalName==='Title';
+      return `<td ${ltr?'class="td-en"':''}>${v}</td>`;
+    }).join('')}
+  </tr>`).join('');
+  spRenderPages();
+}
+
+function spRenderPages(){
+  const total = Math.ceil(spFiltItems.length/GPM_CFG.per);
+  const pg = document.getElementById('spDetPgs');
+  if(!pg||total<=1){if(pg)pg.innerHTML='';return;}
+  let h = `<button class="sp-pbt" onclick="spGoPage(${spDetPg-1})" ${spDetPg===1?'disabled':''}>◀</button>`;
+  const s=Math.max(1,spDetPg-3), e=Math.min(total,spDetPg+3);
+  if(s>1) h+=`<button class="sp-pbt" onclick="spGoPage(1)">1</button><span style="color:#7878a0;padding:0 4px">…</span>`;
+  for(let p=s;p<=e;p++) h+=`<button class="sp-pbt ${p===spDetPg?'act':''}" onclick="spGoPage(${p})">${p}</button>`;
+  if(e<total) h+=`<span style="color:#7878a0;padding:0 4px">…</span><button class="sp-pbt" onclick="spGoPage(${total})">${total}</button>`;
+  h+=`<button class="sp-pbt" onclick="spGoPage(${spDetPg+1})" ${spDetPg===total?'disabled':''}>▶</button>`;
+  h+=`<span style="font-size:.68rem;color:#7878a0;margin-right:8px">صفحة ${spDetPg} من ${total.toLocaleString()}</span>`;
+  pg.innerHTML = h;
+}
+
+function spGoPage(p){
+  const tot = Math.ceil(spFiltItems.length/GPM_CFG.per);
+  if(p<1||p>tot) return;
+  spDetPg=p; spRenderDetTable();
+}
+
+function spDetFilter(){
+  const q = (document.getElementById('spDetSrch')?.value||'').trim().toLowerCase();
+  spFiltItems = q ? spCurItems.filter(r=>Object.values(r).some(v=>String(v).toLowerCase().includes(q))) : spCurItems;
+  spDetPg=1;
+  document.getElementById('spDetCnt').textContent = spFiltItems.length.toLocaleString()+' سجل';
+  spRenderDetTable();
+}
+
+function spBackToLists(){
+  spCurList=null; spCurItems=[]; spFiltItems=[]; spDetCols=[];
+  spRenderLists();
+}
+
+function spExportXL(){
+  if(!spFiltItems.length||!spDetCols.length) return;
+  const hdr = spDetCols.map(c=>c.Title);
+  const rows = spFiltItems.map(r=>spDetCols.map(c=>r[c.InternalName]??''));
+  const ws = XLSX.utils.aoa_to_sheet([hdr,...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, (spCurList?.Title||'List').slice(0,31));
+  XLSX.writeFile(wb, `${spCurList?.Title||'list'}_export.xlsx`);
+}
+
+function spOpenModal(){
+  document.getElementById('spModal').classList.add('open');
+  if(!spAllLists.length) spLoadLists();
+  else spRenderLists();
+  // Set user label
+  if(gpmAccount){
+    const el=document.getElementById('spModalUser');
+    if(el) el.textContent = gpmAccount.name||gpmAccount.username||'';
+  }
+}
+
+function spCloseModal(){
+  document.getElementById('spModal').classList.remove('open');
+}
+
+// Close modal on backdrop click
+document.getElementById('spModal').addEventListener('click', function(e){
+  if(e.target === this) spCloseModal();
+});
 </script>
 
 </body>
