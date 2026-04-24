@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPM — Test Login</title>
+<style>
+  body { font-family: 'Tajawal', sans-serif; background: #0f0f1a; color: #e2e8f0;
+    display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .box { background: #1e1e2e; border: 1px solid #333; border-radius: 16px;
+    padding: 32px; width: 100%; max-width: 420px; }
+  h2 { text-align: center; color: #7dd3fc; margin-bottom: 24px; }
+  label { display: block; font-size: .82rem; color: #94a3b8; margin-bottom: 5px; }
+  input { width: 100%; padding: 11px 13px; border-radius: 8px;
+    border: 1.5px solid #334155; background: #0f172a; color: #e2e8f0;
+    font-size: .95rem; margin-bottom: 14px; box-sizing: border-box;
+    direction: ltr; outline: none; }
+  input:focus { border-color: #533483; }
+  button { width: 100%; padding: 13px; border-radius: 9px; border: none;
+    background: linear-gradient(135deg, #533483, #0ea5e9);
+    color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  #log { margin-top: 18px; background: #0f172a; border-radius: 8px;
+    padding: 12px; font-size: .78rem; line-height: 1.8;
+    border: 1px solid #1e293b; min-height: 60px; direction: ltr; text-align: left; }
+  .ok  { color: #86efac; }
+  .err { color: #fca5a5; }
+  .inf { color: #7dd3fc; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>⛳ GPM — Supabase Test</h2>
+
+  <label>البريد الإلكتروني</label>
+  <input type="email" id="email" placeholder="your@email.com" value="">
+
+  <label>كلمة المرور</label>
+  <input type="password" id="pass" placeholder="password">
+
+  <button id="btn" onclick="doLogin()">تسجيل الدخول</button>
+
+  <div id="log"><span class="inf">جاهز للاختبار...</span></div>
+</div>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+<script>
+const LOG = document.getElementById('log');
+function log(msg, type='inf') {
+  const line = document.createElement('div');
+  line.className = type;
+  line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+  LOG.appendChild(line);
+  LOG.scrollTop = LOG.scrollHeight;
+}
+
+const SB_URL = 'https://mqbytvagkkpocufmuqjz.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU';
+
+let sb = null;
+
+window.addEventListener('load', () => {
+  try {
+    log('Supabase SDK loading...');
+    if (typeof supabase === 'undefined') {
+      log('❌ SDK لم يتحمل — تأكد من الاتصال بالإنترنت', 'err');
+      return;
+    }
+    sb = supabase.createClient(SB_URL, SB_KEY);
+    log('✅ Supabase client initialized OK', 'ok');
+    log('URL: ' + SB_URL, 'inf');
+  } catch(e) {
+    log('❌ Init error: ' + e.message, 'err');
+  }
+});
+
+async function doLogin() {
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('pass').value;
+  const btn   = document.getElementById('btn');
+
+  if (!email || !pass) { log('⚠️ أدخل البريد وكلمة المرور', 'err'); return; }
+  if (!sb) { log('❌ Supabase غير متصل', 'err'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'جاري الاتصال...';
+  log('Attempting login for: ' + email);
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+
+    if (error) {
+      log('❌ Error code: ' + (error.code || 'none'), 'err');
+      log('❌ Error msg:  ' + error.message, 'err');
+      log('❌ Status:     ' + (error.status || 'none'), 'err');
+    } else {
+      log('✅ LOGIN SUCCESS!', 'ok');
+      log('User ID: ' + data.user.id, 'ok');
+      log('Email:   ' + data.user.email, 'ok');
+      log('Role:    ' + data.user.role, 'ok');
+      btn.textContent = '✅ تم الدخول بنجاح';
+      btn.style.background = '#16a34a';
+    }
+  } catch(e) {
+    log('❌ Exception: ' + e.message, 'err');
+    log('❌ Stack: ' + e.stack?.slice(0,200), 'err');
+  }
+
+  if (btn.textContent !== '✅ تم الدخول بنجاح') {
+    btn.disabled = false;
+    btn.textContent = 'تسجيل الدخول';
+  }
+}
+</script>
+</body>
+</html>
