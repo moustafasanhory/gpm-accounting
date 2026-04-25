@@ -1544,9 +1544,32 @@ function apPrint(){
     td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style></head>
     <body>
 <!-- GPM Supabase Auth -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+<script>
+/* Multi-CDN Supabase loader with auto-fallback */
+(function() {
+  var cdns = [
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js',
+    'https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.js',
+    'https://cdn.skypack.dev/@supabase/supabase-js@2.39.7'
+  ];
+  var idx = 0;
+  function tryLoad() {
+    if (idx >= cdns.length) {
+      console.error('All Supabase CDNs failed');
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = cdns[idx];
+    s.onload  = function() { console.log('Supabase loaded from CDN', idx + 1); };
+    s.onerror = function() { idx++; console.warn('CDN', idx, 'failed, trying next'); tryLoad(); };
+    document.head.appendChild(s);
+  }
+  tryLoad();
+})();
+</script>
 <style>
-#sbOverlay{position:fixed;inset:0;z-index:99999;background:#04040c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:opacity .4s,transform .4s}
+#sbOverlay{position:fixed;inset:0;z-index:99999;background:#04040c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:opacity .4s,transform .4s;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
+#sbOverlay *{box-sizing:border-box}
 #sbOverlay.sb-out{opacity:0;transform:scale(.97);pointer-events:none}
 #sbOverlay.sb-gone{display:none!important}
 .sb-orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.13;animation:sbOrb 15s ease-in-out infinite alternate}
@@ -1557,17 +1580,19 @@ function apPrint(){
 .sb-grid{position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(83,52,131,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(83,52,131,.05) 1px,transparent 1px);background-size:48px 48px}
 .sb-card{position:relative;z-index:2;width:100%;max-width:420px;background:rgba(10,10,22,.95);backdrop-filter:blur(28px);border:1px solid rgba(83,52,131,.3);border-radius:24px;padding:44px 38px 38px;box-shadow:0 0 0 1px rgba(83,52,131,.1),0 50px 100px rgba(0,0,0,.7);overflow:hidden;box-sizing:border-box}
 @media(max-width:640px){
-  #sbOverlay{padding:14px}
-  .sb-card{padding:32px 22px 26px;border-radius:20px;max-width:100%}
-  .sb-logo{width:64px;height:64px;font-size:30px;margin-bottom:16px}
-  .sb-ttl{font-size:1.5rem}
-  .sb-sub{font-size:.82rem;margin-bottom:22px}
-  .sb-tabs{margin-bottom:18px}
-  .sb-tab{font-size:.82rem;padding:7px 4px}
-  .sb-f label{font-size:.74rem}
-  .sb-f input{font-size:.9rem;padding:11px 12px}
-  .sb-btn{padding:12px;font-size:.94rem}
-  .sb-msg{font-size:.76rem;padding:10px 12px}
+  #sbOverlay{padding:12px;align-items:flex-start;padding-top:30px}
+  .sb-card{padding:30px 20px 24px;border-radius:18px;max-width:calc(100vw - 24px);width:calc(100vw - 24px);margin:0 auto}
+  .sb-logo{width:60px;height:60px;font-size:28px;margin-bottom:14px;border-radius:16px}
+  .sb-ttl{font-size:1.42rem}
+  .sb-sub{font-size:.78rem;margin-bottom:20px}
+  .sb-tabs{margin-bottom:16px;padding:3px}
+  .sb-tab{font-size:.78rem;padding:7px 3px}
+  .sb-f{margin-bottom:12px}
+  .sb-f label{font-size:.72rem;margin-bottom:4px}
+  .sb-f input{font-size:.88rem;padding:10px 11px;border-radius:8px}
+  .sb-btn{padding:11px;font-size:.92rem;border-radius:9px;margin-top:4px}
+  .sb-msg{font-size:.74rem;padding:9px 11px;margin-top:10px}
+  .sb-orb{filter:blur(60px);opacity:.1}
 }
 .sb-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,rgba(83,52,131,.8),rgba(14,165,233,.6),transparent)}
 .sb-logo{width:76px;height:76px;margin:0 auto 22px;background:linear-gradient(135deg,#0f3460 0%,#533483 55%,#e94560 100%);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 10px 36px rgba(83,52,131,.5);animation:sbPls 3.5s ease-in-out infinite}
