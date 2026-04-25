@@ -1606,8 +1606,83 @@ function apPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head>
     <body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
 <!-- GPM Supabase Auth -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 <style>
@@ -2638,8 +2713,83 @@ td{padding:3px 4px;border:1px solid #ddd;vertical-align:middle}
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head>
 <body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
 <h1>📚 English Words Dictionary</h1>
 <p class='sub'>${WORDS.length} كلمة | معجم عربي إنجليزي شامل</p>
 <table>
@@ -2782,8 +2932,83 @@ td{padding:2.5px 3px;border:1px solid #e0d8f0;vertical-align:middle}
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head>
 <body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
 <button class="print-btn" onclick="window.print()">🖨️ اضغط هنا للطباعة أو الحفظ كـ PDF — اختر: وجهة ← حفظ كـ PDF</button>
 <div class="title">📚 English Words Dictionary</div>
 <div class="sub">${WORDS.length} كلمة | معجم عربي إنجليزي شامل | A4 أفقي</div>
@@ -4668,8 +4893,83 @@ function apPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head>
-    <body><h1>💳 Advanced Payment — ${rec.Document_No}</h1><table>
+    <body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+<h1>💳 Advanced Payment — ${rec.Document_No}</h1><table>
     <tr><th>Document No</th><td>${rec.Document_No}</td><th>Date</th><td>${rec.Date}</td></tr>
     <tr><th>Document Type</th><td>${rec.Document_Type}</td><th>Invoice No</th><td>${rec.Invoice_Num}</td></tr>
     <tr><th>SAP Code</th><td>${rec.SAP_Code}</td><th>Vendor Code</th><td>${rec.Vendor_code}</td></tr>
@@ -5492,7 +5792,82 @@ function scPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head><body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
     <h1>📊 تحليل عقود الخدمة — ${rec['اسم_الشركة']} | ${rec['الخدمة']}</h1>
     <div class="grid">
       <div class="row"><label>السنة</label><span>${rec['السنة']}</span></div>
@@ -6025,7 +6400,82 @@ function empDrawerPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head><body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
     <div class="header"><h1>${name}</h1><p>${rec['الوظيفة']||'—'} · ${rec['الإدارة']||'—'} | كود: ${rec['كود_الموظف']||'—'}</p></div>
     <h2>🪪 البيانات الأساسية</h2>
     <div class="grid">
@@ -6398,7 +6848,82 @@ function vndDrawerPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head><body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
     <div class="header"><h1>${name}</h1><p>كود: ${rec['كود_المورد']||'—'} | SAP: ${rec['كود_المورد_ساب']||'—'}</p></div>
     <h2>🏭 بيانات المورد</h2>
     <div class="grid">
@@ -6782,7 +7307,82 @@ function custDrawerPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head><body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
     <div class="header"><h1>${name}</h1><p>${rec['اسم_المشروع']||'—'} · ${rec['رقم_الوحدة']||'—'} | رقم العميل: ${rec['رقم_العميل']||'—'}</p></div>
     <h2>🏗️ بيانات المشروع</h2>
     <div class="grid">
@@ -7877,7 +8477,82 @@ function ccDrawerPrint(){
 }
 </style>
 
+
+<style>
+/* ===== ULTRA MOBILE FIX ===== */
+html, body {
+  width: 100%;
+  overflow-x: hidden !important;
+}
+
+/* Prevent any element from breaking layout */
+* {
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+/* Fix containers */
+.container, .page, .content, .wrapper {
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 10px !important;
+}
+
+/* Kill bad transforms */
+* {
+  transform: none !important;
+}
+
+/* Sidebar mobile */
+@media (max-width: 768px){
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: -260px !important;
+    width: 260px !important;
+    height: 100% !important;
+    background: #111;
+    z-index: 9999;
+    transition: 0.3s;
+    overflow-y: auto;
+  }
+
+  #gpmSidebar.active{
+    right: 0 !important;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  iframe{
+    width: 100% !important;
+    height: 100vh !important;
+  }
+
+}
+</style>
+
 </head><body>
+
+<button onclick="toggleMenu()" style="position:fixed;top:10px;right:10px;z-index:99999;background:#333;color:#fff;border:none;padding:10px;border-radius:6px">
+☰
+</button>
+
+<script>
+function toggleMenu(){
+  var el = document.getElementById("gpmSidebar");
+  if(el){
+    el.classList.toggle("active");
+  }
+}
+</script>
+
     <div class="header"><h1>${rec['Short_text']||code}</h1><p>Cost Center Code: ${code} · Company: ${rec['Company_Code']||'—'} — ${rec['Company_Ar']||'—'}</p></div>
     <h2>🏗️ بيانات مركز التكلفة</h2>
     <div class="grid">
