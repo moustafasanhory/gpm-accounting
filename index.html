@@ -1541,12 +1541,12 @@ function apPrint(){
   w.document.write(`<html><head><title>Advanced Payment — ${rec.Document_No}</title>
     <style>body{font-family:'Tajawal',sans-serif;padding:30px;color:#1e293b}h1{font-size:1.2rem;color:#1a3a6e;border-bottom:2px solid #2563eb;padding-bottom:8px;margin-bottom:20px}
     table{width:100%;border-collapse:collapse;font-size:.85rem}th{background:#f0f6ff;color:#1a3a6e;padding:8px 12px;text-align:left;border:1px solid #d0d8f0}
-    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style></head>
+    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style>  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+</head>
     <body>
 <!-- ═══════════════════════════════════════════════
      GPM ACCOUNTING — Supabase Auth v2
 ═══════════════════════════════════════════════ -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 <style>
 #sbOverlay{position:fixed;inset:0;z-index:99999;background:#04040c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:opacity .4s,transform .4s}
 #sbOverlay.sb-out{opacity:0;transform:scale(.97);pointer-events:none}
@@ -1684,19 +1684,33 @@ const _SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 let _sb = null, _sbUser = null, _sbTables = [], _sbCurTbl = null, _sbRows = [], _sbFilt = [];
 
 /* ── Init ── */
-(function() {
+function _sbInit() {
+  if (_sb) return _sb;
   try {
+    if (typeof supabase === 'undefined') {
+      console.error('❌ Supabase SDK not loaded yet');
+      return null;
+    }
     _sb = supabase.createClient(_SB_URL, _SB_KEY);
     console.log('✅ Supabase OK');
+    return _sb;
   } catch(e) {
     console.error('❌ Supabase init:', e);
-    _sbMsg('⚠️ خطأ في تهيئة Supabase: ' + e.message, 'err');
+    return null;
   }
-})();
+}
+/* Try init immediately, retry on load if SDK not ready */
+_sbInit();
 
 /* ── Check session on load ── */
 window.addEventListener('load', async () => {
-  if (!_sb) return;
+  /* Retry init if SDK wasn't ready before */
+  if (!_sb) _sbInit();
+  if (!_sb) {
+    console.error('❌ Supabase still not initialized after load');
+    _sbMsg('⚠️ خطأ في الاتصال بـ Supabase — تحقق من الإنترنت');
+    return;
+  }
   try {
     const { data: { session } } = await _sb.auth.getSession();
     if (session?.user) { _sbUser = session.user; _sbShowApp(); }
@@ -1722,7 +1736,8 @@ async function sbLogin() {
   const email = (document.getElementById('inEmail')?.value || '').trim();
   const pass  =  document.getElementById('inPass')?.value  || '';
   if (!email || !pass) { _sbMsg('يرجى إدخال البريد وكلمة المرور'); return; }
-  if (!_sb) { _sbMsg('Supabase غير متصل'); return; }
+  if (!_sb) _sbInit();
+  if (!_sb) { _sbMsg('⚠️ Supabase غير متصل — تحقق من الإنترنت'); return; }
 
   const btn = document.getElementById('btnLogin');
   btn.disabled = true;
@@ -1752,7 +1767,8 @@ async function sbRegister() {
   const pass  =  document.getElementById('inRegPass')?.value  || '';
   if (!name||!email||!pass) { _sbMsg('يرجى ملء جميع الحقول'); return; }
   if (pass.length < 8) { _sbMsg('كلمة المرور 8 أحرف على الأقل'); return; }
-  if (!_sb) { _sbMsg('Supabase غير متصل'); return; }
+  if (!_sb) _sbInit();
+  if (!_sb) { _sbMsg('⚠️ Supabase غير متصل'); return; }
 
   const btn = document.getElementById('btnReg');
   btn.disabled = true;
