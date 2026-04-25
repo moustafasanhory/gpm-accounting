@@ -1544,29 +1544,7 @@ function apPrint(){
     td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style></head>
     <body>
 <!-- GPM Supabase Auth -->
-<script>
-/* Multi-CDN Supabase loader with auto-fallback */
-(function() {
-  var cdns = [
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js',
-    'https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.js',
-    'https://cdn.skypack.dev/@supabase/supabase-js@2.39.7'
-  ];
-  var idx = 0;
-  function tryLoad() {
-    if (idx >= cdns.length) {
-      console.error('All Supabase CDNs failed');
-      return;
-    }
-    var s = document.createElement('script');
-    s.src = cdns[idx];
-    s.onload  = function() { console.log('Supabase loaded from CDN', idx + 1); };
-    s.onerror = function() { idx++; console.warn('CDN', idx, 'failed, trying next'); tryLoad(); };
-    document.head.appendChild(s);
-  }
-  tryLoad();
-})();
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 <style>
 #sbOverlay{position:fixed;inset:0;z-index:99999;background:#04040c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:opacity .4s,transform .4s;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
 #sbOverlay *{box-sizing:border-box}
@@ -1711,19 +1689,6 @@ function sbTab(t) {
 /* LOGIN */
 async function sbLogin() {
   var btn = document.getElementById('btnLogin');
-
-  if (!_sbInit()) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="sb-spin"></span> \u062c\u0627\u0631\u064a \u0627\u0644\u062a\u062d\u0645\u064a\u0644...';
-    _sbWaitForSDK(function(ok) {
-      btn.disabled = false;
-      btn.textContent = '\u062f\u062e\u0648\u0644';
-      if (ok) sbLogin();
-      else _sbMsg('\u0641\u0634\u0644 \u062a\u062d\u0645\u064a\u0644 Supabase SDK \u2014 \u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0625\u0646\u062a\u0631\u0646\u062a');
-    });
-    return;
-  }
-
   var email = (document.getElementById('inEmail').value || '').trim();
   var pass  =  document.getElementById('inPass').value  || '';
   if (!email || !pass) { _sbMsg('\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0628\u0631\u064a\u062f \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631'); return; }
@@ -1750,13 +1715,7 @@ async function sbLogin() {
 
 /* REGISTER */
 async function sbRegister() {
-  if (!_sbInit()) {
-    _sbWaitForSDK(function(ok) {
-      if (ok) sbRegister();
-      else _sbMsg('\u0641\u0634\u0644 \u062a\u062d\u0645\u064a\u0644 Supabase SDK');
-    });
-    return;
-  }
+  if (!_sb) { _sbMsg('Supabase غير متصل'); return; }
 
   var name  = (document.getElementById('inName').value     || '').trim();
   var email = (document.getElementById('inRegEmail').value || '').trim();
@@ -1840,21 +1799,28 @@ async function sbLogout() {
   document.getElementById('sbMsg').className = 'sb-msg';
 }
 
-/* Check existing session on load */
+/* Init Supabase on load - same pattern as working test page */
 window.addEventListener('load', async function() {
-  if (!_sbInit()) { console.warn('Supabase not ready on load'); return; }
   try {
+    if (typeof supabase === 'undefined') {
+      console.error('Supabase SDK not loaded');
+      _sbMsg('Supabase SDK لم يتحمل — تحقق من الإنترنت');
+      return;
+    }
+    _sb = supabase.createClient(_SB_URL, _SB_KEY);
+    console.log('✅ Supabase initialized');
+
+    /* Check existing session */
     var res = await _sb.auth.getSession();
     if (res.data && res.data.session && res.data.session.user) {
       _sbUser = res.data.session.user;
       _sbShowApp();
     }
-  } catch(e) { console.warn('getSession error:', e); }
+  } catch(e) {
+    console.error('Supabase init error:', e);
+    _sbMsg('خطأ: ' + e.message);
+  }
 });
-
-/* Try to init SDK immediately if available */
-if (typeof supabase !== 'undefined') _sbInit();
-else _sbWaitForSDK(function(ok){ console.log('Supabase ready:', ok); });
 
 /* Push data to Supabase */
 async function sbPush(table, record) {
