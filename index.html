@@ -404,6 +404,32 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 }
 
 /* SharePoint Lists — أسماء الليستات التي تريد ربطها */
+
+@media (max-width: 768px){
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+}
+
+</style>
+
+
+<script>
+const supabaseUrl = "https://mqbytvagkkpocufmuqjz.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+async function testSupabase(){
+  const { data, error } = await supabaseClient.from('your_table').select('*').limit(5);
+  if(error){
+    console.error("Supabase Error:", error);
+  } else {
+    console.log("Supabase Connected:", data);
+  }
+}
+
+testSupabase();
 </script>
 
 <script>
@@ -3244,6 +3270,25 @@ window.addEventListener('load', ()=>{
   }catch(e){}
 });
 
+</style>
+
+
+<script>
+const supabaseUrl = "https://mqbytvagkkpocufmuqjz.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+async function testSupabase(){
+  const { data, error } = await supabaseClient.from('your_table').select('*').limit(5);
+  if(error){
+    console.error("Supabase Error:", error);
+  } else {
+    console.log("Supabase Connected:", data);
+  }
+}
+
+testSupabase();
 </script>
 
 <script>
