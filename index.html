@@ -1567,7 +1567,46 @@ function apPrint(){
   w.document.write(`<html><head><title>Advanced Payment — ${rec.Document_No}</title>
     <style>body{font-family:'Tajawal',sans-serif;padding:30px;color:#1e293b}h1{font-size:1.2rem;color:#1a3a6e;border-bottom:2px solid #2563eb;padding-bottom:8px;margin-bottom:20px}
     table{width:100%;border-collapse:collapse;font-size:.85rem}th{background:#f0f6ff;color:#1a3a6e;padding:8px 12px;text-align:left;border:1px solid #d0d8f0}
-    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style></head>
+    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head>
     <body>
 <!-- GPM Supabase Auth -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
@@ -2560,7 +2599,46 @@ p.sub{text-align:center;color:#888;font-size:10px;margin-bottom:10px}
 table{width:100%;border-collapse:collapse}
 th{background:#533483;color:white;padding:6px 4px;text-align:center;font-size:10px;border:1px solid #7a5aaa}
 td{padding:3px 4px;border:1px solid #ddd;vertical-align:middle}
-</style></head>
+</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head>
 <body>
 <h1>📚 English Words Dictionary</h1>
 <p class='sub'>${WORDS.length} كلمة | معجم عربي إنجليزي شامل</p>
@@ -2573,7 +2651,50 @@ td{padding:3px 4px;border:1px solid #ddd;vertical-align:middle}
 <th>Example</th>
 </tr></thead>
 <tbody>${rows}</tbody>
-</table></body></html>`;
+</table>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`;
       const blob=new Blob(['﻿'+html],{type:'application/msword;charset=utf-8'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
@@ -2622,7 +2743,46 @@ td{padding:2.5px 3px;border:1px solid #e0d8f0;vertical-align:middle}
 .foot{text-align:center;color:#aaa;font-size:7px;padding:5px 0 2px;border-top:1px solid #eee;margin-top:3px}
 .print-btn{background:#533483;color:#fff;padding:9px 20px;font-size:13px;border:none;cursor:pointer;width:100%;font-family:Arial;margin-bottom:4px}
 @media print{.print-btn{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{page-break-inside:avoid}}
-</style></head>
+</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head>
 <body>
 <button class="print-btn" onclick="window.print()">🖨️ اضغط هنا للطباعة أو الحفظ كـ PDF — اختر: وجهة ← حفظ كـ PDF</button>
 <div class="title">📚 English Words Dictionary</div>
@@ -2638,6 +2798,49 @@ td{padding:2.5px 3px;border:1px solid #e0d8f0;vertical-align:middle}
 <tbody>${rows}</tbody>
 </table>
 <div class="foot">English Words Dictionary — ${WORDS.length} كلمة</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
 </body></html>`);
       win.document.close();
       hideProg();
@@ -4426,7 +4629,46 @@ function apPrint(){
   w.document.write(`<html><head><title>Advanced Payment — ${rec.Document_No}</title>
     <style>body{font-family:'Tajawal',sans-serif;padding:30px;color:#1e293b}h1{font-size:1.2rem;color:#1a3a6e;border-bottom:2px solid #2563eb;padding-bottom:8px;margin-bottom:20px}
     table{width:100%;border-collapse:collapse;font-size:.85rem}th{background:#f0f6ff;color:#1a3a6e;padding:8px 12px;text-align:left;border:1px solid #d0d8f0}
-    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style></head>
+    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head>
     <body><h1>💳 Advanced Payment — ${rec.Document_No}</h1><table>
     <tr><th>Document No</th><td>${rec.Document_No}</td><th>Date</th><td>${rec.Date}</td></tr>
     <tr><th>Document Type</th><td>${rec.Document_Type}</td><th>Invoice No</th><td>${rec.Invoice_Num}</td></tr>
@@ -4446,7 +4688,50 @@ function apPrint(){
     <tr><th>Status</th><td colspan="3"><b>${rec.Paid}</b></td></tr>
     <tr><th>Description</th><td colspan="3">${rec.DESCRIPTION}</td></tr>
     </table><p style="margin-top:20px;font-size:.75rem;color:#94a3b8">Printed: ${new Date().toLocaleString()} — Golf Porto Marina Accounting</p>
-    <script>window.print();<\/script></body></html>`);
+    <script>window.print();<\/script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close();
 }
 function apToast(msg,type='success'){
@@ -4478,7 +4763,50 @@ function apToast(msg,type='success'){
     <tr><th>Status</th><td colspan="3"><b>${rec.Paid}</b></td></tr>
     <tr><th>Description</th><td colspan="3">${rec.DESCRIPTION}</td></tr>
     </table><p style="margin-top:20px;font-size:.75rem;color:#94a3b8">Printed: ${new Date().toLocaleString()} — Golf Porto Marina Accounting</p>
-    <script>window.print();<\/script></body></html>`);
+    <script>window.print();<\/script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close();
 }
 function apToast(msg,type='success'){
@@ -5125,7 +5453,46 @@ function scPrint(){
     .net{color:#15803d;font-weight:800;font-family:monospace;background:#f0fdf4}
     .deduct{color:#dc2626;font-family:monospace}
     h2{font-size:.88rem;color:#1a3a6e;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}
-    footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style></head><body>
+    footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head><body>
     <h1>📊 تحليل عقود الخدمة — ${rec['اسم_الشركة']} | ${rec['الخدمة']}</h1>
     <div class="grid">
       <div class="row"><label>السنة</label><span>${rec['السنة']}</span></div>
@@ -5165,7 +5532,50 @@ function scPrint(){
     </div>
     <div class="row" style="margin-top:12px;background:#f0fdf4"><label style="font-size:.95rem">✅ صافى المبلغ النهائي</label><span class="net" style="font-size:1.1rem">${f(rec['صافى_المبلغ'])} EGP</span></div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script></body></html>`);
+    <script>window.print();<\/script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close();
 }
 
@@ -5576,7 +5986,46 @@ function empDrawerPrint(){
   const w=window.open('','_blank','width=800,height=700');
   const name=rec['اسم_الموظف']||'—';
   w.document.write(`<html><head><title>بيانات الموظف — ${name}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#1a3a6e;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#1a3a6e;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#1a3a6e;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#1a3a6e;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head><body>
     <div class="header"><h1>${name}</h1><p>${rec['الوظيفة']||'—'} · ${rec['الإدارة']||'—'} | كود: ${rec['كود_الموظف']||'—'}</p></div>
     <h2>🪪 البيانات الأساسية</h2>
     <div class="grid">
@@ -5601,7 +6050,50 @@ function empDrawerPrint(){
       <div class="row"><label>رقم حساب البنك</label><span style="color:#15803d">${rec['رقم_حساب_البنك']||'—'}</span></div>
     </div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script></body></html>`);
+    <script>window.print();<\/script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close();
 }
 
@@ -5867,7 +6359,46 @@ function vndDrawerPrint(){
   const w=window.open('','_blank','width=800,height=600');
   const name=rec['اسم_الشركة']||'—';
   w.document.write(`<html><head><title>بيانات المورد — ${name}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#0f3460,#1a3a6e);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#0f3460;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#0f3460;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#0f3460,#1a3a6e);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#0f3460;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#0f3460;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head><body>
     <div class="header"><h1>${name}</h1><p>كود: ${rec['كود_المورد']||'—'} | SAP: ${rec['كود_المورد_ساب']||'—'}</p></div>
     <h2>🏭 بيانات المورد</h2>
     <div class="grid">
@@ -5879,7 +6410,50 @@ function vndDrawerPrint(){
       <div class="row"><label>العنوان</label><span>${rec['العنوان']||'—'}</span></div>
     </div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script></body></html>`);
+    <script>window.print();<\/script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close();
 }
 
@@ -6169,7 +6743,46 @@ function custDrawerPrint(){
   const f=v=>parseFloat(v||0).toLocaleString('en',{minimumFractionDigits:2});
   const w=window.open('','_blank','width=820,height=700');
   w.document.write(`<html><head><title>بيانات العميل — ${name}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#065f46,#059669);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#065f46;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#065f46;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#065f46,#059669);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#065f46;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#065f46;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head><body>
     <div class="header"><h1>${name}</h1><p>${rec['اسم_المشروع']||'—'} · ${rec['رقم_الوحدة']||'—'} | رقم العميل: ${rec['رقم_العميل']||'—'}</p></div>
     <h2>🏗️ بيانات المشروع</h2>
     <div class="grid">
@@ -6192,7 +6805,50 @@ function custDrawerPrint(){
       <div class="row"><label>رقم العقد</label><span>${rec['رقم_العقد']||'—'}</span></div>
     </div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script></body></html>`);
+    <script>window.print();<\/script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close();
 }
 
@@ -7182,7 +7838,46 @@ function ccDrawerPrint(){
   const code=rec['Cost_Ctr_Code']||'—';
   const w=window.open('','_blank','width=800,height=600');
   w.document.write(`<html><head><title>Cost Center — ${code}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#15803d;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#15803d;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#15803d;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#15803d;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
+<style>
+@media (max-width: 768px){
+
+  body {
+    overflow-x: hidden;
+  }
+
+  #gpmSidebar{
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1000;
+  }
+
+  #posPage, #apPage {
+    margin-left: 0 !important;
+  }
+
+  .grid{
+    grid-template-columns: 1fr !important;
+  }
+
+  .pos-right{
+    width: 100% !important;
+    position: fixed;
+    bottom: 0;
+    height: 50%;
+    z-index: 2000;
+  }
+
+  .pos-left{
+    height: 50%;
+  }
+
+}
+</style>
+
+</head><body>
     <div class="header"><h1>${rec['Short_text']||code}</h1><p>Cost Center Code: ${code} · Company: ${rec['Company_Code']||'—'} — ${rec['Company_Ar']||'—'}</p></div>
     <h2>🏗️ بيانات مركز التكلفة</h2>
     <div class="grid">
@@ -7205,7 +7900,50 @@ function ccDrawerPrint(){
       <div class="row"><label>To</label><span>${rec['To']||'—'}</span></div>
     </div>
     <footer>Golf Porto Marina Accounting · طُبع بتاريخ ${new Date().toLocaleDateString('ar-EG')}</footer>
-    </body></html>`);
+    
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
+
+</body></html>`);
   w.document.close(); w.print();
 }
 
@@ -26048,6 +26786,49 @@ function logOutFsToast(msg,type='success'){
 
 
 
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  if (typeof supabase === "undefined") {
+    console.error("❌ Supabase library not loaded");
+    return;
+  }
+
+  window.supabaseClient = supabase.createClient(
+    "https://mqbytvagkkpocufmuqjz.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
+  );
+
+  console.log("✅ Supabase Ready");
+});
+</script>
+
+
+<script>
+async function loginUser(){
+  const email = document.querySelector('input[type="email"]').value;
+  const password = document.querySelector('input[type="password"]').value;
+
+  if(!email || !password){
+    alert("ادخل البيانات");
+    return;
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email: email,
+    password: password
+  });
+
+  if(error){
+    alert("❌ " + error.message);
+    console.error(error);
+  } else {
+    alert("✅ تم تسجيل الدخول");
+    console.log(data);
+  }
+}
+</script>
 
 </body>
 </html>
