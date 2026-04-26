@@ -1724,6 +1724,18 @@ async function sbLogin() {
   var pass  =  document.getElementById('inPass').value  || '';
   if (!email || !pass) { _sbMsg('\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0628\u0631\u064a\u062f \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631'); return; }
 
+  // تأكد من تهيئة Supabase قبل الاستخدام
+  if (!_sb) {
+    if (!_sbInit()) {
+      _sbMsg('جاري تحميل Supabase، انتظر لحظة وحاول مجدداً...');
+      _sbWaitForSDK(function(ok){
+        if (ok) { sbLogin(); }
+        else { _sbMsg('⚠️ فشل تحميل Supabase، تحقق من الإنترنت'); }
+      });
+      return;
+    }
+  }
+
   btn.disabled = true;
   btn.innerHTML = '<span class="sb-spin"></span> ...';
 
@@ -26123,38 +26135,17 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
+  // تهيئة supabaseClient للتوافق مع أي سكريبت آخر
   window.supabaseClient = supabase.createClient(
     "https://mqbytvagkkpocufmuqjz.supabase.co",
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
   );
 
+  // تهيئة _sb المستخدم في sbLogin
+  if (typeof _sbInit === 'function') { _sbInit(); }
+
   console.log("✅ Supabase Ready");
 });
-</script>
-
-<script>
-async function loginUser(){
-  const email = document.querySelector('input[type="email"]').value;
-  const password = document.querySelector('input[type="password"]').value;
-
-  if(!email || !password){
-    alert("ادخل البيانات");
-    return;
-  }
-
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: email,
-    password: password
-  });
-
-  if(error){
-    alert("❌ " + error.message);
-    console.error(error);
-  } else {
-    alert("✅ تم تسجيل الدخول");
-    console.log(data);
-  }
-}
 </script>
 
 </body>
