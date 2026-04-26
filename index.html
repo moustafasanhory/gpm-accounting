@@ -404,1176 +404,9 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 }
 
 /* SharePoint Lists — أسماء الليستات التي تريد ربطها */
-
-@media (max-width: 768px){
-  #posPage, #apPage {
-    margin-left: 0 !important;
-  }
-}
-
 </style>
-
-
-<script>
-const supabaseUrl = "https://mqbytvagkkpocufmuqjz.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU";
-
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-
-async function testSupabase(){
-  const { data, error } = await supabaseClient.from('your_table').select('*').limit(5);
-  if(error){
-    console.error("Supabase Error:", error);
-  } else {
-    console.log("Supabase Connected:", data);
-  }
-}
-
-testSupabase();
-</script>
-
-<script>
-/* ── GPM Sidebar JS ── */
-
-// ─── create flyout element once ───────────────────────────
-const flyout = document.createElement('div');
-flyout.id = 'gpmFlyout';
-flyout.className = 'gpm-flyout';
-document.body.appendChild(flyout);
-
-/* ── Helpers ── */
-function isMobile(){ return window.innerWidth <= 768; }
-function isCollapsed(){
-  return document.getElementById('gpmSidebar').classList.contains('collapsed');
-}
-
-/* ── Toggle (desktop collapse / mobile open) ── */
-function gpmToggle(){
-  const sb = document.getElementById('gpmSidebar');
-  if(isMobile()){
-    // On mobile the toggle button opens/closes mob-open
-    if(sb.classList.contains('mob-open')){
-      gpmMobClose();
-    } else {
-      gpmMobOpen();
-    }
-  } else {
-    sb.classList.toggle('collapsed');
-    closeFlyout();
-  }
-}
-
-/* ── Mobile open/close ── */
-function gpmMobOpen(){
-  const sb = document.getElementById('gpmSidebar');
-  sb.classList.add('mob-open');
-  document.getElementById('gpmMobOverlay').classList.add('show');
-  document.body.style.overflow = 'hidden';
-}
-function gpmMobClose(){
-  const sb = document.getElementById('gpmSidebar');
-  sb.classList.remove('mob-open');
-  document.getElementById('gpmMobOverlay').classList.remove('show');
-  document.body.style.overflow = '';
-  // close any open sub on mobile
-  document.querySelectorAll('.gpm-sub.open').forEach(s=>s.classList.remove('open'));
-  document.querySelectorAll('.gpm-gb.active').forEach(b=>b.classList.remove('active'));
-}
-
-/* ── Main menu button click ── */
-function gpmGb(btn){
-  const sb = document.getElementById('gpmSidebar');
-
-  if(isMobile()){
-    // ── MOBILE: open sidebar first if closed ──────────
-    if(!sb.classList.contains('mob-open')){
-      gpmMobOpen();
-      // small delay so sidebar animates open first
-      setTimeout(() => gpmGbAccordion(btn), 50);
-      return;
-    }
-    gpmGbAccordion(btn);
-
-  } else if(isCollapsed()){
-    // ── DESKTOP COLLAPSED: show flyout ───────────────
-    const sub = btn.nextElementSibling;
-    const ico = btn.querySelector('.gb-ico')?.textContent || '';
-    const lbl = btn.querySelector('.gb-lbl')?.textContent || '';
-
-    if(flyout.classList.contains('open') && flyout._activeBtn === btn){
-      closeFlyout(); return;
-    }
-
-    let html = `<div class="gpm-flyout-header"><span class="fh-ico">${ico}</span>${lbl}</div>`;
-    sub.childNodes.forEach(node => {
-      if(node.nodeType === 1) html += node.outerHTML;
-    });
-    flyout.innerHTML = html;
-
-    const rect = btn.getBoundingClientRect();
-    const flyH = Math.min(sub.scrollHeight + 60, window.innerHeight - 20);
-    let top = rect.top;
-    if(top + flyH > window.innerHeight - 10) top = window.innerHeight - flyH - 10;
-    flyout.style.top = Math.max(0, top) + 'px';
-    flyout.style.maxHeight = (window.innerHeight - 20) + 'px';
-
-    flyout._activeBtn = btn;
-    flyout.classList.add('open');
-
-    document.querySelectorAll('.gpm-gb.active').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-
-  } else {
-    // ── DESKTOP EXPANDED: accordion ──────────────────
-    closeFlyout();
-    gpmGbAccordion(btn);
-  }
-}
-
-/* ── Accordion logic (shared desktop/mobile) ── */
-function gpmGbAccordion(btn){
-  const sub = btn.nextElementSibling;
-  const isOpen = sub.classList.contains('open');
-  document.querySelectorAll('.gpm-sub.open').forEach(s=>s.classList.remove('open'));
-  document.querySelectorAll('.gpm-gb.active').forEach(b=>b.classList.remove('active'));
-  if(!isOpen){ sub.classList.add('open'); btn.classList.add('active'); }
-}
-
-/* ── Close flyout ── */
-function closeFlyout(){
-  flyout.classList.remove('open');
-  flyout._activeBtn = null;
-  if(!isMobile()){
-    document.querySelectorAll('.gpm-gb.active').forEach(b=>b.classList.remove('active'));
-  }
-}
-
-/* ── Click outside to close flyout ── */
-document.addEventListener('click', function(e){
-  if(!isMobile() && flyout.classList.contains('open')){
-    if(!flyout.contains(e.target) && !e.target.closest('.gpm-gb')){
-      closeFlyout();
-    }
-  }
-});
-
-/* ── Sidebar icon tap on mobile (when closed) ── */
-document.getElementById('gpmSidebar').addEventListener('click', function(e){
-  if(isMobile() && !this.classList.contains('mob-open')){
-    // tapped on icon strip — open sidebar
-    if(!e.target.closest('.gpm-gb')){
-      gpmMobOpen();
-    }
-  }
-});
-
-/* ── Keyboard ESC closes flyout/mobile menu ── */
-document.addEventListener('keydown', function(e){
-  if(e.key === 'Escape'){
-    closeFlyout();
-    if(isMobile()) gpmMobClose();
-  }
-});
-
-/* ── Sub-section toggle (gpm-sl → gpm-nsub) ── */
-function gpmSlToggle(el){
-  const nsub = el.nextElementSibling;
-  if(!nsub || !nsub.classList.contains('gpm-nsub')) return;
-  const isOpen = nsub.classList.contains('open');
-  nsub.classList.toggle('open', !isOpen);
-  el.classList.toggle('sl-open', !isOpen);
-}
-
-function openChequePage(){
-  const sidebar = document.getElementById('gpmSidebar');
-  const w = isMobile() ? 52 : sidebar.classList.contains('collapsed') ? 52 : 240;
-  const pg = document.getElementById('chequePage');
-  pg.style.marginLeft = w + 'px';
-  pg.style.display = 'block';
-  chqInit();
-  closeFlyout();
-  if(isMobile()) gpmMobClose();
-}
-</script>
-</div><!-- /gpm-main-content -->
-</div><!-- /gpm-page-wrap -->
-
-<!-- ═══════════════════════════════════════════════
-     POINT OF SALES — Full Screen Page
-═══════════════════════════════════════════════ -->
-<div id="posPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;overflow:hidden;margin-left:52px">
-
-<style>
-/* ── POS LAYOUT ── */
-#posPage{font-family:'Tajawal',sans-serif}
-.pos-wrap{display:flex;height:100vh;overflow:hidden}
-
-/* LEFT: product panel */
-.pos-left{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#f4f6fb}
-.pos-topbar{
-  display:flex;align-items:center;gap:12px;
-  padding:10px 16px;
-  background:#fff;border-bottom:1px solid #dde3f0;
-  flex-shrink:0;
-}
-.pos-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1}
-.pos-topbar-title small{font-size:.7rem;color:#64748b;font-weight:400;margin-right:8px}
-.pos-close-btn{
-  display:flex;align-items:center;gap:6px;
-  padding:8px 14px;border-radius:8px;border:none;cursor:pointer;
-  background:#fee2e2;color:#dc2626;font-family:'Tajawal',sans-serif;
-  font-size:.82rem;font-weight:700;transition:all .15s;
-}
-.pos-close-btn:hover{background:#fecaca}
-
-/* Tab bar */
-.pos-tabs{
-  display:flex;gap:0;background:#fff;
-  border-bottom:2px solid #e2e8f0;flex-shrink:0;
-}
-.pos-tab{
-  padding:10px 20px;border:none;background:none;cursor:pointer;
-  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:600;
-  color:#64748b;transition:all .15s;border-bottom:2px solid transparent;
-  margin-bottom:-2px;display:flex;align-items:center;gap:6px;
-}
-.pos-tab:hover{color:#2563eb}
-.pos-tab.active{color:#2563eb;border-bottom-color:#2563eb;background:#f0f6ff}
-
-/* Search + filter bar */
-.pos-search-bar{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 16px;background:#fff;border-bottom:1px solid #eef0f5;flex-shrink:0;
-}
-.pos-search-bar input{
-  flex:1;padding:8px 14px;border:1.5px solid #d0d8f0;border-radius:8px;
-  font-family:'Tajawal',sans-serif;font-size:.88rem;outline:none;
-  transition:border-color .15s;
-}
-.pos-search-bar input:focus{border-color:#2563eb}
-.pos-cat-chips{display:flex;gap:6px;flex-wrap:wrap}
-.pos-chip{
-  padding:5px 12px;border-radius:16px;border:1.5px solid #d0d8f0;
-  background:#fff;font-family:'Tajawal',sans-serif;font-size:.78rem;
-  font-weight:600;color:#475569;cursor:pointer;transition:all .15s;white-space:nowrap;
-}
-.pos-chip:hover{border-color:#2563eb;color:#2563eb}
-.pos-chip.active{background:#2563eb;border-color:#2563eb;color:#fff}
-
-/* Product grid */
-.pos-products{flex:1;overflow-y:auto;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-content:start}
-.pos-prod-card{
-  background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;
-  padding:14px 10px;text-align:center;cursor:pointer;
-  transition:all .18s;position:relative;
-}
-.pos-prod-card:hover{border-color:#2563eb;box-shadow:0 4px 14px rgba(37,99,235,.15);transform:translateY(-2px)}
-.pos-prod-card:active{transform:scale(.97)}
-.pos-prod-ico{font-size:2rem;margin-bottom:8px;display:block}
-.pos-prod-name{font-size:.82rem;font-weight:700;color:#1e293b;margin-bottom:4px}
-.pos-prod-price{font-size:.88rem;font-weight:800;color:#2563eb}
-.pos-prod-badge{
-  position:absolute;top:6px;right:6px;
-  font-size:.6rem;padding:2px 7px;border-radius:8px;
-  font-weight:700;text-transform:uppercase;
-}
-.pos-prod-card.out-of-stock{opacity:.45;pointer-events:none}
-.out-badge{background:#fee2e2;color:#dc2626}
-.golf-badge{background:#dcfce7;color:#16a34a}
-.fnb-badge{background:#fef3c7;color:#d97706}
-
-/* RIGHT: cart panel */
-.pos-right{
-  width:320px;flex-shrink:0;background:#fff;
-  border-left:1px solid #dde3f0;display:flex;flex-direction:column;
-  box-shadow:-4px 0 16px rgba(0,0,0,.06);
-}
-.pos-cart-header{
-  padding:14px 16px;border-bottom:1px solid #eef0f5;
-  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
-}
-.pos-cart-header h3{font-size:.95rem;font-weight:800;color:#1a3a6e;margin:0}
-.pos-clear-btn{
-  font-size:.75rem;padding:4px 10px;border-radius:6px;border:none;
-  background:#fee2e2;color:#dc2626;cursor:pointer;font-weight:600;
-  font-family:'Tajawal',sans-serif;transition:all .15s;
-}
-.pos-clear-btn:hover{background:#fecaca}
-
-/* Customer select */
-.pos-customer{
-  padding:10px 14px;border-bottom:1px solid #eef0f5;flex-shrink:0;
-}
-.pos-customer select{
-  width:100%;padding:8px 10px;border:1.5px solid #d0d8f0;border-radius:8px;
-  font-family:'Tajawal',sans-serif;font-size:.85rem;color:#1e293b;outline:none;
-}
-.pos-customer select:focus{border-color:#2563eb}
-
-/* Cart items */
-.pos-cart-items{flex:1;overflow-y:auto;padding:10px}
-.pos-cart-empty{
-  text-align:center;padding:40px 20px;color:#94a3b8;
-}
-.pos-cart-empty .ec-ico{font-size:2.5rem;margin-bottom:10px}
-.pos-ci{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 0;border-bottom:1px solid #f1f5f9;
-}
-.pos-ci-ico{font-size:1.4rem;flex-shrink:0}
-.pos-ci-info{flex:1;min-width:0}
-.pos-ci-name{font-size:.82rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pos-ci-price{font-size:.75rem;color:#64748b}
-.pos-ci-qty{
-  display:flex;align-items:center;gap:6px;flex-shrink:0;
-}
-.pos-qty-btn{
-  width:24px;height:24px;border-radius:6px;border:1.5px solid #d0d8f0;
-  background:#f8faff;color:#2563eb;font-size:.9rem;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .13s;
-}
-.pos-qty-btn:hover{background:#2563eb;color:#fff;border-color:#2563eb}
-.pos-ci-q{font-size:.85rem;font-weight:800;color:#1e293b;min-width:18px;text-align:center}
-.pos-ci-total{font-size:.82rem;font-weight:800;color:#2563eb;min-width:52px;text-align:right}
-
-/* Summary + checkout */
-.pos-summary{padding:12px 16px;border-top:1px solid #eef0f5;flex-shrink:0;background:#f8faff}
-.pos-sum-row{display:flex;justify-content:space-between;font-size:.83rem;color:#475569;margin-bottom:5px}
-.pos-sum-row.total{font-size:.98rem;font-weight:800;color:#1a3a6e;margin-top:8px;padding-top:8px;border-top:1.5px solid #d0d8f0}
-
-/* Payment method */
-.pos-pay-methods{display:flex;gap:6px;margin:10px 0 0;flex-shrink:0;padding:0 16px 10px}
-.pos-pay-btn{
-  flex:1;padding:8px 4px;border-radius:8px;border:1.5px solid #d0d8f0;
-  background:#fff;font-family:'Tajawal',sans-serif;font-size:.75rem;font-weight:700;
-  color:#475569;cursor:pointer;transition:all .15s;text-align:center;
-}
-.pos-pay-btn:hover{border-color:#2563eb;color:#2563eb}
-.pos-pay-btn.selected{background:#2563eb;border-color:#2563eb;color:#fff}
-
-.pos-checkout-btn{
-  margin:0 16px 14px;padding:14px;border-radius:10px;border:none;
-  background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;
-  font-family:'Tajawal',sans-serif;font-size:.95rem;font-weight:800;
-  cursor:pointer;width:calc(100% - 32px);transition:all .2s;
-  box-shadow:0 4px 14px rgba(37,99,235,.3);
-}
-.pos-checkout-btn:hover{box-shadow:0 6px 20px rgba(37,99,235,.45);transform:translateY(-1px)}
-.pos-checkout-btn:disabled{opacity:.5;pointer-events:none}
-
-/* Receipt modal */
-.pos-receipt-overlay{
-  position:absolute;inset:0;background:rgba(0,0,0,.5);
-  display:none;align-items:center;justify-content:center;z-index:10;
-}
-.pos-receipt-overlay.open{display:flex}
-.pos-receipt{
-  background:#fff;border-radius:16px;padding:30px;width:340px;
-  box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;
-  animation:flyoutIn .2s ease;
-}
-.pos-receipt h2{font-size:1.1rem;font-weight:800;color:#16a34a;margin-bottom:6px}
-.pos-receipt .r-ico{font-size:2.5rem;margin-bottom:10px;display:block}
-.pos-receipt-table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.82rem;text-align:left}
-.pos-receipt-table th{color:#64748b;font-weight:600;padding:4px 8px;border-bottom:1px solid #e2e8f0}
-.pos-receipt-table td{padding:4px 8px;color:#1e293b}
-.pos-receipt-total{font-size:1rem;font-weight:800;color:#1a3a6e;margin:10px 0}
-.pos-receipt-close{
-  margin-top:14px;padding:10px 28px;border-radius:8px;border:none;
-  background:#2563eb;color:#fff;font-family:'Tajawal',sans-serif;
-  font-size:.88rem;font-weight:700;cursor:pointer;transition:all .15s;
-}
-.pos-receipt-close:hover{background:#1a3a6e}
-</style>
-
-<div class="pos-wrap">
-  <!-- LEFT PANEL -->
-  <div class="pos-left">
-    <div class="pos-topbar">
-      <span class="pos-topbar-title">
-        <small>Golf Porto Marina — Accounting</small>🛒 Point of Sales
-      </span>
-      <span id="pos-mode-label" style="font-size:.8rem;font-weight:700;padding:4px 12px;border-radius:16px;background:#dcfce7;color:#16a34a"></span>
-      <button class="pos-close-btn" onclick="closePOS()">✕ إغلاق</button>
-    </div>
-
-    <div class="pos-tabs" id="posTabs">
-      <button class="pos-tab active" onclick="posSetTab('golf',this)">⛳ Golf Operation</button>
-      <button class="pos-tab" onclick="posSetTab('fnb',this)">🍽️ Food &amp; Beverage</button>
-    </div>
-
-    <div class="pos-search-bar">
-      <input type="text" id="posSearch" placeholder="ابحث عن منتج..." oninput="posFilterProducts()">
-      <div class="pos-cat-chips" id="posCatChips"></div>
-    </div>
-
-    <div class="pos-products" id="posProducts"></div>
-  </div>
-
-  <!-- RIGHT PANEL: CART -->
-  <div class="pos-right">
-    <div class="pos-cart-header">
-      <h3>🧾 الفاتورة</h3>
-      <button class="pos-clear-btn" onclick="posClearCart()">مسح الكل</button>
-    </div>
-    <div class="pos-customer">
-      <select id="posCustomer">
-        <option value="">— اختر العميل (اختياري) —</option>
-        <option>Walk-in Customer</option>
-        <option>GPM Member — Gold</option>
-        <option>GPM Member — Silver</option>
-        <option>Corporate Account</option>
-        <option>Hotel Guest</option>
-      </select>
-    </div>
-    <div class="pos-cart-items" id="posCartItems">
-      <div class="pos-cart-empty"><div class="ec-ico">🛒</div>السلة فارغة</div>
-    </div>
-    <div class="pos-summary" id="posSummary" style="display:none">
-      <div class="pos-sum-row"><span>المجموع الفرعي</span><span id="posSubtotal">0.00 EGP</span></div>
-      <div class="pos-sum-row"><span>ضريبة (14%)</span><span id="posTax">0.00 EGP</span></div>
-      <div class="pos-sum-row"><span>خصم</span><span id="posDiscount">0.00 EGP</span></div>
-      <div class="pos-sum-row total"><span>الإجمالي</span><span id="posTotal">0.00 EGP</span></div>
-    </div>
-    <div class="pos-pay-methods" id="posPayMethods" style="display:none">
-      <button class="pos-pay-btn selected" onclick="posSelectPay(this,'cash')">💵 نقدي</button>
-      <button class="pos-pay-btn" onclick="posSelectPay(this,'card')">💳 بطاقة</button>
-      <button class="pos-pay-btn" onclick="posSelectPay(this,'transfer')">🏦 تحويل</button>
-    </div>
-    <button class="pos-checkout-btn" id="posCheckoutBtn" style="display:none" onclick="posCheckout()">
-      ✅ إتمام البيع
-    </button>
-  </div>
-</div>
-
-<!-- Receipt modal -->
-<div class="pos-receipt-overlay" id="posReceiptOverlay">
-  <div class="pos-receipt">
-    <span class="r-ico">✅</span>
-    <h2>تمت عملية البيع بنجاح!</h2>
-    <p style="font-size:.8rem;color:#64748b" id="posReceiptInfo"></p>
-    <table class="pos-receipt-table" id="posReceiptTable"></table>
-    <div class="pos-receipt-total" id="posReceiptTotal"></div>
-    <button class="pos-receipt-close" onclick="posPrintAndClose()">🖨️ طباعة &amp; إغلاق</button>
-  </div>
-</div>
-
-</div><!-- /posPage -->
-
-<script>
-/* ══════════════════════════════════════════════
-   POINT OF SALES DATA & LOGIC
-══════════════════════════════════════════════ */
-
-const POS_DATA = {
-  golf: {
-    cats: ['الكل','Green Fee','Cart','Lessons','Equipment','Membership','Tickets'],
-    products: [
-      {id:'g1', name:'Green Fee – 18 Holes',     price:850,  ico:'⛳', cat:'Green Fee',  badge:'golf'},
-      {id:'g2', name:'Green Fee – 9 Holes',      price:500,  ico:'⛳', cat:'Green Fee',  badge:'golf'},
-      {id:'g3', name:'Golf Cart – 18 Holes',     price:300,  ico:'🏎️', cat:'Cart',       badge:'golf'},
-      {id:'g4', name:'Golf Cart – 9 Holes',      price:180,  ico:'🏎️', cat:'Cart',       badge:'golf'},
-      {id:'g5', name:'Caddie Fee',               price:200,  ico:'🎒', cat:'Cart',       badge:'golf'},
-      {id:'g6', name:'Golf Lesson – 1hr',        price:600,  ico:'🏌️', cat:'Lessons',    badge:'golf'},
-      {id:'g7', name:'Golf Lesson – Group',      price:300,  ico:'🏌️', cat:'Lessons',    badge:'golf'},
-      {id:'g8', name:'Club Rental – Full Set',   price:400,  ico:'🏑', cat:'Equipment',  badge:'golf'},
-      {id:'g9', name:'Club Rental – Half Set',   price:220,  ico:'🏑', cat:'Equipment',  badge:'golf'},
-      {id:'g10',name:'Golf Glove',               price:150,  ico:'🧤', cat:'Equipment',  badge:'golf'},
-      {id:'g11',name:'Golf Balls (3pcs)',         price:120,  ico:'⚪', cat:'Equipment',  badge:'golf'},
-      {id:'g12',name:'Buggy Bar',                price:90,   ico:'🧺', cat:'Equipment',  badge:'golf'},
-      {id:'g13',name:'Annual Membership',        price:15000,ico:'🏅', cat:'Membership', badge:'golf'},
-      {id:'g14',name:'Monthly Membership',       price:1800, ico:'🏅', cat:'Membership', badge:'golf'},
-      {id:'g15',name:'Ticket 25',                price:25,   ico:'🎫', cat:'Tickets',    badge:'golf'},
-      {id:'g16',name:'Ticket 20',                price:20,   ico:'🎫', cat:'Tickets',    badge:'golf'},
-      {id:'g17',name:'Ticket 10',                price:10,   ico:'🎫', cat:'Tickets',    badge:'golf'},
-    ]
-  },
-  fnb: {
-    cats: ['الكل','مشروبات','وجبات','وجبات خفيفة','حلويات','كوكتيل'],
-    products: [
-      {id:'f1', name:'قهوة عربية',     price:45,  ico:'☕', cat:'مشروبات',    badge:'fnb'},
-      {id:'f2', name:'كابوتشينو',      price:65,  ico:'☕', cat:'مشروبات',    badge:'fnb'},
-      {id:'f3', name:'عصير طازج',      price:55,  ico:'🍊', cat:'مشروبات',    badge:'fnb'},
-      {id:'f4', name:'مياه معدنية',    price:20,  ico:'💧', cat:'مشروبات',    badge:'fnb'},
-      {id:'f5', name:'كولا',           price:30,  ico:'🥤', cat:'مشروبات',    badge:'fnb'},
-      {id:'f6', name:'شاي بالنعناع',   price:35,  ico:'🍵', cat:'مشروبات',    badge:'fnb'},
-      {id:'f7', name:'كوكتيل الفاكهة', price:80,  ico:'🍹', cat:'كوكتيل',     badge:'fnb'},
-      {id:'f8', name:'ساندويتش دجاج',  price:120, ico:'🥪', cat:'وجبات',      badge:'fnb'},
-      {id:'f9', name:'برجر لحم',       price:165, ico:'🍔', cat:'وجبات',      badge:'fnb'},
-      {id:'f10',name:'بيتزا مارجريتا', price:195, ico:'🍕', cat:'وجبات',      badge:'fnb'},
-      {id:'f11',name:'سلطة سيزر',      price:95,  ico:'🥗', cat:'وجبات',      badge:'fnb'},
-      {id:'f12',name:'شيبسي',          price:35,  ico:'🍟', cat:'وجبات خفيفة',badge:'fnb'},
-      {id:'f13',name:'ناتشوز',         price:65,  ico:'🌮', cat:'وجبات خفيفة',badge:'fnb'},
-      {id:'f14',name:'كيك شوكولاتة',   price:75,  ico:'🍰', cat:'حلويات',     badge:'fnb'},
-      {id:'f15',name:'آيس كريم',       price:50,  ico:'🍦', cat:'حلويات',     badge:'fnb'},
-      {id:'f16',name:'تشيز كيك',       price:85,  ico:'🍮', cat:'حلويات',     badge:'fnb'},
-    ]
-  }
-};
-
-let posMode   = 'golf';
-let posCart   = [];
-let posCurCat = 'الكل';
-let posPayMethod = 'cash';
-
-function openPOS(mode) {
-  posMode = mode || 'golf';
-  posCart = [];
-  posCurCat = 'الكل';
-  document.getElementById('posSearch').value = '';
-
-  // Sync sidebar width for POS page
-  document.getElementById('posPage').style.marginLeft =
-    (isMobile() ? 52 : document.getElementById('gpmSidebar').classList.contains('collapsed') ? 52 : 240) + 'px';
-
-  document.getElementById('posPage').style.display = 'block';
-  document.getElementById('pos-mode-label').textContent = mode === 'golf' ? '⛳ Golf Operation' : '🍽️ Food & Beverage';
-
-  // Activate correct tab
-  document.querySelectorAll('.pos-tab').forEach((t,i)=>{
-    t.classList.toggle('active', (mode==='golf'&&i===0)||(mode==='fnb'&&i===1));
-  });
-
-  posRenderChips();
-  posRenderProducts();
-  posRenderCart();
-  closeFlyout();
-}
-
-function closePOS(){
-  document.getElementById('posPage').style.display = 'none';
-}
-
-function posSetTab(mode, btn){
-  posMode = mode;
-  posCurCat = 'الكل';
-  document.getElementById('posSearch').value = '';
-  document.querySelectorAll('.pos-tab').forEach(t=>t.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('pos-mode-label').textContent = mode === 'golf' ? '⛳ Golf Operation' : '🍽️ Food & Beverage';
-  posRenderChips();
-  posRenderProducts();
-}
-
-function posRenderChips(){
-  const cats = POS_DATA[posMode].cats;
-  const cont = document.getElementById('posCatChips');
-  cont.innerHTML = cats.map(c =>
-    `<button class="pos-chip${c===posCurCat?' active':''}" onclick="posSelectCat('${c}',this)">${c}</button>`
-  ).join('');
-}
-
-function posSelectCat(cat, btn){
-  posCurCat = cat;
-  document.querySelectorAll('.pos-chip').forEach(c=>c.classList.remove('active'));
-  btn.classList.add('active');
-  posRenderProducts();
-}
-
-function posFilterProducts(){ posRenderProducts(); }
-
-function posRenderProducts(){
-  const q = document.getElementById('posSearch').value.toLowerCase();
-  let prods = POS_DATA[posMode].products;
-  if(posCurCat !== 'الكل') prods = prods.filter(p => p.cat === posCurCat);
-  if(q) prods = prods.filter(p => p.name.toLowerCase().includes(q));
-
-  const cont = document.getElementById('posProducts');
-  if(!prods.length){
-    cont.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#94a3b8">لا توجد منتجات</div>';
-    return;
-  }
-  cont.innerHTML = prods.map(p => `
-    <div class="pos-prod-card" onclick="posAddToCart('${p.id}')">
-      <span class="pos-prod-ico">${p.ico}</span>
-      <div class="pos-prod-name">${p.name}</div>
-      <div class="pos-prod-price">${p.price.toLocaleString()} EGP</div>
-      <span class="pos-prod-badge ${p.badge}-badge">${p.cat}</span>
-    </div>
-  `).join('');
-}
-
-function posAddToCart(id){
-  const prod = [...POS_DATA.golf.products,...POS_DATA.fnb.products].find(p=>p.id===id);
-  if(!prod) return;
-  const existing = posCart.find(c=>c.id===id);
-  if(existing) existing.qty++;
-  else posCart.push({...prod, qty:1});
-  posRenderCart();
-}
-
-function posChangeQty(id, delta){
-  const item = posCart.find(c=>c.id===id);
-  if(!item) return;
-  item.qty += delta;
-  if(item.qty <= 0) posCart = posCart.filter(c=>c.id!==id);
-  posRenderCart();
-}
-
-function posClearCart(){
-  posCart = [];
-  posRenderCart();
-}
-
-function posRenderCart(){
-  const cont = document.getElementById('posCartItems');
-  const summary = document.getElementById('posSummary');
-  const payMethods = document.getElementById('posPayMethods');
-  const checkoutBtn = document.getElementById('posCheckoutBtn');
-
-  if(!posCart.length){
-    cont.innerHTML = '<div class="pos-cart-empty"><div class="ec-ico">🛒</div>السلة فارغة</div>';
-    summary.style.display = 'none';
-    payMethods.style.display = 'none';
-    checkoutBtn.style.display = 'none';
-    return;
-  }
-
-  cont.innerHTML = posCart.map(item => `
-    <div class="pos-ci">
-      <span class="pos-ci-ico">${item.ico}</span>
-      <div class="pos-ci-info">
-        <div class="pos-ci-name">${item.name}</div>
-        <div class="pos-ci-price">${item.price.toLocaleString()} EGP / وحدة</div>
-      </div>
-      <div class="pos-ci-qty">
-        <button class="pos-qty-btn" onclick="posChangeQty('${item.id}',-1)">−</button>
-        <span class="pos-ci-q">${item.qty}</span>
-        <button class="pos-qty-btn" onclick="posChangeQty('${item.id}',+1)">+</button>
-      </div>
-      <div class="pos-ci-total">${(item.price*item.qty).toLocaleString()}</div>
-    </div>
-  `).join('');
-
-  const subtotal = posCart.reduce((s,i)=>s+i.price*i.qty, 0);
-  const tax      = subtotal * 0.14;
-  const total    = subtotal + tax;
-
-  document.getElementById('posSubtotal').textContent  = subtotal.toLocaleString('en',{minimumFractionDigits:2}) + ' EGP';
-  document.getElementById('posTax').textContent        = tax.toLocaleString('en',{minimumFractionDigits:2}) + ' EGP';
-  document.getElementById('posDiscount').textContent   = '0.00 EGP';
-  document.getElementById('posTotal').textContent      = total.toLocaleString('en',{minimumFractionDigits:2}) + ' EGP';
-
-  summary.style.display = 'block';
-  payMethods.style.display = 'flex';
-  checkoutBtn.style.display = 'block';
-}
-
-function posSelectPay(btn, method){
-  posPayMethod = method;
-  document.querySelectorAll('.pos-pay-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-}
-
-function posCheckout(){
-  if(!posCart.length) return;
-  const subtotal = posCart.reduce((s,i)=>s+i.price*i.qty, 0);
-  const tax      = subtotal * 0.14;
-  const total    = subtotal + tax;
-  const customer = document.getElementById('posCustomer').value || 'Walk-in Customer';
-  const now = new Date().toLocaleString('ar-EG');
-  const payLabel = {cash:'نقدي 💵',card:'بطاقة 💳',transfer:'تحويل 🏦'}[posPayMethod];
-
-  document.getElementById('posReceiptInfo').textContent = `${now} | ${customer} | ${payLabel}`;
-  document.getElementById('posReceiptTable').innerHTML = `
-    <tr><th>المنتج</th><th>الكمية</th><th>الإجمالي</th></tr>
-    ${posCart.map(i=>`<tr><td>${i.ico} ${i.name}</td><td>${i.qty}</td><td>${(i.price*i.qty).toLocaleString()} EGP</td></tr>`).join('')}
-  `;
-  document.getElementById('posReceiptTotal').textContent =
-    'الإجمالي: ' + total.toLocaleString('en',{minimumFractionDigits:2}) + ' EGP (شامل الضريبة)';
-
-  document.getElementById('posReceiptOverlay').classList.add('open');
-}
-
-function posPrintAndClose(){
-  document.getElementById('posReceiptOverlay').classList.remove('open');
-  posCart = [];
-  posRenderCart();
-}
-
-// Sync all full-screen pages when sidebar collapses/expands
-function syncPageMargins(){
-  const sidebar = document.getElementById('gpmSidebar');
-  const w = isMobile() ? 52
-          : sidebar.classList.contains('collapsed') ? 52 : 240;
-  ['posPage','apPage','scPage','empPage','vendorPage','custPage','ccPage','openingBalancePage','chartOfAccountsPage','currencyExchangePage','itemsPage','journalVoucherPage','accountStatementPage','accountBalancePage','interCompanyPage','assetRegisterPage','runDepreciationPage','assetsHistoryPage','albarakaBankStmtPage','cib1BankStmtPage','cib2BankStmtPage','cib3BankStmtPage','qnb1BankStmtPage','qnb2BankStmtPage','qnb3BankStmtPage','qnb4BankStmtPage','qnb5BankStmtPage','adib1BankStmtPage','adib2BankStmtPage','bankReconciliationPage','bankJournalVoucherPage','bankPositionPage','outgoingChequePage','vendorsInvoicePage','vendorsContractsPage','downPaymentPage','expensesAccrualPage','vendorStatementPage','vendorBalancePage','attendanceSheetPage','contractSocialInsurancePage','fnbAuditPage','addDeductionTaxPage','salaryStatementPage','salaryPayslipPage','employeeLoanPage','outOfSourceIBSPage','incomeTaxPage','uploadDataPage','dailyInvoicePage','electricityInvoicePage','waterInvoicePage','headOfficeCollectionPage','customerSearchPage','cashWitnessPage','creditCardReceiptPage','generalCashierPage','creditCardByDatePage','creditCardByCashierPage','creditCardDiffByBankPage','checkUnderCollectionPage','depositPage','salesTaxPage','incentivePage','miscellaneousPage','proShopPage','laundryPage','cashReceiptPage','dutyPage','maintenanceRequestPage','ticket25Page','ticket20Page','ticket10Page','purchasingOrderPage','purchasingRequestPage','goodsReceiptPage','goodsIssuePage','itemMovementPage','storesMovementPage','storesConsumptionPage','transferItemPage','storesBalancePage','cashRevenuePage','cashDepositAtBankPage','otherCashReceiptPage','duesFromOwnerPage','houseFundPage','cashExpensesPage','advancedPaymentCashPage','employeeLoanCashPage','distributionPage','cashInventoryPage','denominationOfCurrencyPage','backUpPage','compactRepairPage','shiftPage','trialBalancePage','dailyWorkSheetPage','sisterCompanyPage','otherActivityPage','logOutPage'].forEach(id=>{
-    const pg = document.getElementById(id);
-    if(pg && pg.style.display !== 'none') pg.style.marginLeft = w + 'px';
-  });
-}
-// Patch gpmToggle to also sync pages
-const _origGpmToggle = gpmToggle;
-gpmToggle = function(){
-  _origGpmToggle();
-  setTimeout(syncPageMargins, 50);
-};
-</script>
-
-<!-- ═══════════════════════════════════════════════
-     ADVANCED PAYMENT — Full Screen Page
-═══════════════════════════════════════════════ -->
-<div id="apPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
-
-<style>
-#apPage *{box-sizing:border-box}
-.ap-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.ap-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:2px solid #d0d8f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.ap-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1;display:flex;align-items:center;gap:10px}
-.ap-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400}
-.ap-topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
-.ap-action-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;transition:all .15s;white-space:nowrap}
-.ap-btn-save{background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;box-shadow:0 3px 10px rgba(37,99,235,.3)}
-.ap-btn-save:hover{box-shadow:0 5px 16px rgba(37,99,235,.45);transform:translateY(-1px)}
-.ap-btn-new{background:#f0f6ff;color:#2563eb;border:1.5px solid #c7d7f9}
-.ap-btn-new:hover{background:#dce8ff}
-.ap-btn-del{background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5}
-.ap-btn-del:hover{background:#fecaca}
-.ap-btn-close{background:#f1f5f9;color:#475569;border:1.5px solid #d0d8f0}
-.ap-btn-close:hover{background:#e2e8f0}
-.ap-btn-print{background:#f0fdf4;color:#16a34a;border:1.5px solid #86efac}
-.ap-btn-print:hover{background:#dcfce7}
-.ap-tabs{display:flex;gap:0;background:#fff;border-bottom:2px solid #e2e8f0;flex-shrink:0;padding:0 20px}
-.ap-tab{padding:10px 22px;border:none;background:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:600;color:#64748b;transition:all .15s;border-bottom:2px solid transparent;margin-bottom:-2px;display:flex;align-items:center;gap:7px}
-.ap-tab:hover{color:#2563eb}
-.ap-tab.active{color:#2563eb;border-bottom-color:#2563eb;background:#f8fbff}
-.ap-body{flex:1;overflow-y:auto;padding:20px}
-.ap-section{background:#fff;border:1px solid #dde3f0;border-radius:12px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)}
-.ap-section-header{display:flex;align-items:center;gap:10px;padding:11px 18px;background:linear-gradient(135deg,#f0f6ff,#e8f0fe);border-bottom:1px solid #d0d8f0;cursor:pointer;user-select:none}
-.ap-section-header h3{font-size:.88rem;font-weight:800;color:#1a3a6e;flex:1;margin:0}
-.ap-section-toggle{font-size:.7rem;color:#64748b;transition:transform .2s}
-.ap-section-body{padding:16px 18px}
-.ap-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.ap-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-.ap-grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
-@media(max-width:900px){.ap-grid-2,.ap-grid-3,.ap-grid-4{grid-template-columns:1fr 1fr}}
-@media(max-width:600px){.ap-grid-2,.ap-grid-3,.ap-grid-4{grid-template-columns:1fr}}
-.ap-field{display:flex;flex-direction:column;gap:5px}
-.ap-field label{font-size:.75rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px}
-.ap-field label .req{color:#dc2626;margin-right:2px}
-.ap-field input,.ap-field select,.ap-field textarea{padding:9px 12px;border:1.5px solid #d0d8f0;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:.88rem;color:#1e293b;background:#fff;outline:none;transition:border-color .15s,box-shadow .15s;width:100%}
-.ap-field input:focus,.ap-field select:focus,.ap-field textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
-.ap-field input[readonly]{background:#f8faff;color:#2563eb;font-weight:700;cursor:default;border-color:#c7d7f9}
-.ap-field textarea{resize:vertical;min-height:64px}
-.ap-field .ap-hint{font-size:.7rem;color:#94a3b8;margin-top:2px}
-.ap-field.amount-field input{background:#fefce8;border-color:#fde68a;color:#92400e;font-weight:700;font-family:'Space Mono',monospace}
-.ap-field.amount-field input:focus{border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.1)}
-.ap-field.net-field input{background:#f0fdf4;border-color:#86efac;color:#15803d;font-weight:800;font-family:'Space Mono',monospace;font-size:.95rem}
-.ap-field.computed-field input{background:#f0f6ff;border-color:#93c5fd;color:#1d4ed8;font-weight:700;font-family:'Space Mono',monospace}
-.ap-summary-card{background:linear-gradient(135deg,#1a3a6e,#2563eb);border-radius:12px;padding:18px 20px;color:#fff;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-.ap-sum-item{text-align:center}
-.ap-sum-label{font-size:.7rem;opacity:.75;margin-bottom:4px}
-.ap-sum-val{font-size:1.1rem;font-weight:800;font-family:'Space Mono',monospace}
-.ap-sum-val.big{font-size:1.4rem;color:#fde68a}
-.ap-record-list{border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px}
-.ap-record-header{display:grid;grid-template-columns:100px 100px 1fr 120px 100px 80px 70px;background:#f0f6ff;border-bottom:1px solid #d0d8f0}
-.ap-record-header span{padding:8px 10px;font-size:.72rem;font-weight:700;color:#1a3a6e;text-transform:uppercase;letter-spacing:.4px;border-right:1px solid #d0d8f0}
-.ap-record-row{display:grid;grid-template-columns:100px 100px 1fr 120px 100px 80px 70px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .12s}
-.ap-record-row:hover{background:#f0f6ff}
-.ap-record-row:last-child{border-bottom:none}
-.ap-record-row span{padding:9px 10px;font-size:.82rem;color:#334155;border-right:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ap-record-row .paid-yes{color:#16a34a;font-weight:700}
-.ap-record-row .paid-no{color:#dc2626;font-weight:700}
-.ap-pane{display:none}
-.ap-pane.active{display:block}
-.ap-toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:9999;transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none}
-.ap-toast.show{transform:translateY(0);opacity:1}
-.ap-toast.success{border-left:4px solid #22c55e}
-.ap-toast.error{border-left:4px solid #ef4444}
-</style>
-
-<div class="ap-wrap">
-  <div class="ap-topbar">
-    <div class="ap-topbar-title">💳 Advanced Payment <small>Account Payable — Golf Porto Marina</small></div>
-    <div class="ap-topbar-actions">
-      <button class="ap-action-btn ap-btn-new"   onclick="apNew()">➕ New</button>
-      <button class="ap-action-btn ap-btn-save"  onclick="apSave()">💾 Save</button>
-      <button class="ap-action-btn ap-btn-print" onclick="apPrint()">🖨️ Print</button>
-      <button class="ap-action-btn ap-btn-del"   onclick="apDelete()">🗑️ Delete</button>
-      <button class="ap-action-btn ap-btn-close" onclick="closeAdvPayment()">✕ Close</button>
-    </div>
-  </div>
-
-  <div class="ap-tabs">
-    <button class="ap-tab active" onclick="apSetTab('entry',this)">📝 Entry Form</button>
-    <button class="ap-tab"        onclick="apSetTab('list',this)">📋 Records List</button>
-    <button class="ap-tab"        onclick="apSetTab('summary',this)">📊 Summary</button>
-  </div>
-
-  <div class="ap-body">
-
-    <!-- ENTRY FORM -->
-    <div class="ap-pane active" id="apPane-entry">
-
-      <!-- Document Info -->
-      <div class="ap-section">
-        <div class="ap-section-header" onclick="apToggleSection(this)">
-          <span>🗂️</span><h3>Document Information</h3><span class="ap-section-toggle">▲</span>
-        </div>
-        <div class="ap-section-body">
-          <div class="ap-grid-4">
-            <div class="ap-field"><label><span class="req">*</span>Document No</label><input id="ap_Document_No" type="text" placeholder="AP-2024-0001" readonly></div>
-            <div class="ap-field"><label><span class="req">*</span>Document Type</label>
-              <select id="ap_Document_Type">
-                <option value="">— Select —</option>
-                <option>Vendor Invoice</option><option>Down Payment</option>
-                <option>Advance Payment</option><option>Debit Note</option>
-                <option>Credit Note</option><option>Petty Cash</option>
-              </select>
-            </div>
-            <div class="ap-field"><label><span class="req">*</span>Date</label><input id="ap_Date" type="date"></div>
-            <div class="ap-field"><label>Invoice No</label><input id="ap_Invoice_Num" type="text" placeholder="INV-XXXX"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Vendor Info -->
-      <div class="ap-section">
-        <div class="ap-section-header" onclick="apToggleSection(this)">
-          <span>🏢</span><h3>Vendor Information</h3><span class="ap-section-toggle">▲</span>
-        </div>
-        <div class="ap-section-body">
-          <div class="ap-grid-3">
-            <div class="ap-field"><label>SAP Code</label><input id="ap_SAP_Code" type="text" placeholder="100XXXXX" oninput="apLookupVendor()"></div>
-            <div class="ap-field"><label>Vendor Code</label><input id="ap_Vendor_code" type="text" placeholder="V-0001" oninput="apLookupVendor()"></div>
-            <div class="ap-field"><label><span class="req">*</span>Vendor Name</label><input id="ap_Vendor_Name" type="text" placeholder="Vendor Name"></div>
-          </div>
-          <div class="ap-grid-2" style="margin-top:12px">
-            <div class="ap-field"><label>Payment Type</label>
-              <select id="ap_Payment_Type">
-                <option value="">— Select —</option>
-                <option>Bank Transfer</option><option>Cheque</option>
-                <option>Cash</option><option>Credit Card</option><option>Letter of Credit</option>
-              </select>
-            </div>
-            <div class="ap-field"><label>Comment</label><input id="ap_comment" type="text" placeholder="Optional notes..."></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sort Codes -->
-      <div class="ap-section">
-        <div class="ap-section-header" onclick="apToggleSection(this)">
-          <span>🔢</span><h3>Sort &amp; Classification</h3><span class="ap-section-toggle">▲</span>
-        </div>
-        <div class="ap-section-body">
-          <div class="ap-grid-4">
-            <div class="ap-field"><label>Sales Tax Sort</label><input id="ap_Sales_Tax_Sort" type="text" placeholder="S-01"></div>
-            <div class="ap-field"><label>Add Tax Sort</label><input id="ap_Add_Tax_Sort" type="text" placeholder="A-01"></div>
-            <div class="ap-field"><label>Social Sort</label><input id="ap_Social_Sort" type="text" placeholder="SS-01"></div>
-            <div class="ap-field"><label>Business Insurance Sort</label><input id="ap_Bussines_Insurance_Sort" type="text" placeholder="BI-01"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Financial Stage 1 -->
-      <div class="ap-section">
-        <div class="ap-section-header" onclick="apToggleSection(this)">
-          <span>💰</span><h3>Financial — Stage 1</h3><span class="ap-section-toggle">▲</span>
-        </div>
-        <div class="ap-section-body">
-          <div class="ap-grid-4">
-            <div class="ap-field amount-field"><label><span class="req">*</span>Amount</label><input id="ap_Amount" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Add Tax</label><input id="ap_ADD_TAX" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Discount</label><input id="ap_Discount" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field net-field"><label>Net Amount</label><input id="ap_Net_Amount" type="number" readonly placeholder="0.00"><span class="ap-hint">= Amount + Add Tax − Discount</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Financial Stage 2 -->
-      <div class="ap-section">
-        <div class="ap-section-header" onclick="apToggleSection(this)">
-          <span>📊</span><h3>Financial — Stage 2 (Deductions)</h3><span class="ap-section-toggle">▲</span>
-        </div>
-        <div class="ap-section-body">
-          <div class="ap-grid-4">
-            <div class="ap-field amount-field"><label>Discount 2</label><input id="ap_Discount2" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Deduct P2</label><input id="ap_Deduct_P2" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Sales Tax</label><input id="ap_Sales_Tax" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field net-field"><label>Net Amount 2</label><input id="ap_Net_Amount2" type="number" readonly placeholder="0.00"><span class="ap-hint">= Net1 − Disc2 − DeductP2 − SalesTax</span></div>
-          </div>
-          <div class="ap-grid-4" style="margin-top:12px">
-            <div class="ap-field amount-field"><label>Deduct Tax</label><input id="ap_Deduct_Tax" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Income Tax</label><input id="ap_Income_Tax" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>2nd Deduct P2</label><input id="ap_2Deduct_P2" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Social</label><input id="ap_Social" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-          </div>
-          <div class="ap-grid-4" style="margin-top:12px">
-            <div class="ap-field amount-field"><label>Other Deduct</label><input id="ap_Other_Deduct" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Advanced</label><input id="ap_Advanced" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field amount-field"><label>Business Insurance</label><input id="ap_Bussines_Insurance" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field net-field"><label>NET (Final)</label><input id="ap_Net" type="number" readonly placeholder="0.00"><span class="ap-hint">Net2 − all deductions</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Payment Details -->
-      <div class="ap-section">
-        <div class="ap-section-header" onclick="apToggleSection(this)">
-          <span>🏦</span><h3>Payment Details</h3><span class="ap-section-toggle">▲</span>
-        </div>
-        <div class="ap-section-body">
-          <div class="ap-grid-3">
-            <div class="ap-field computed-field"><label>Credits</label><input id="ap_CREDITS" type="number" min="0" step="0.01" placeholder="0.00" oninput="apCalc()"></div>
-            <div class="ap-field"><label>Cheque No</label><input id="ap_Cheque_NO" type="text" placeholder="CHQ-XXXXXX"></div>
-            <div class="ap-field"><label>Charge To</label><input id="ap_Charge_to" type="text" placeholder="Cost Center / Account"></div>
-          </div>
-          <div class="ap-grid-2" style="margin-top:12px">
-            <div class="ap-field"><label>Description</label><textarea id="ap_DESCRIPTION" placeholder="Payment description / purpose..."></textarea></div>
-            <div class="ap-field" style="align-self:start">
-              <label>Paid Status</label>
-              <select id="ap_Paid" onchange="apShowLiveSummary()">
-                <option value="Pending">⏳ Pending</option>
-                <option value="Paid">✅ Paid</option>
-                <option value="Cancelled">❌ Cancelled</option>
-                <option value="Partial">🔶 Partial</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Live Summary -->
-      <div id="apLiveSummary"></div>
-    </div>
-
-    <!-- RECORDS LIST -->
-    <div class="ap-pane" id="apPane-list">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-        <input type="text" id="apListSearch" placeholder="🔍  Search by Vendor, Doc No, Invoice..." oninput="apRenderList()"
-          style="flex:1;padding:9px 14px;border:1.5px solid #d0d8f0;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:.88rem;outline:none">
-        <select id="apListFilter" onchange="apRenderList()"
-          style="padding:9px 12px;border:1.5px solid #d0d8f0;border-radius:8px;font-family:'Tajawal',sans-serif;font-size:.85rem;outline:none;color:#1e293b">
-          <option value="">All Status</option>
-          <option value="Pending">Pending</option><option value="Paid">Paid</option>
-          <option value="Cancelled">Cancelled</option><option value="Partial">Partial</option>
-        </select>
-        <span id="apListCount" style="font-size:.8rem;color:#64748b;white-space:nowrap"></span>
-      </div>
-      <div class="ap-record-list">
-        <div class="ap-record-header">
-          <span>Doc No</span><span>Date</span><span>Vendor</span>
-          <span>Net (Final)</span><span>Payment</span><span>Paid</span><span>Edit</span>
-        </div>
-        <div id="apListBody"></div>
-      </div>
-    </div>
-
-    <!-- SUMMARY -->
-    <div class="ap-pane" id="apPane-summary">
-      <div id="apSummaryContent"></div>
-    </div>
-
-  </div>
-</div>
-<div class="ap-toast" id="apToast"></div>
-</div><!-- /apPage -->
-
-<script>
-/* ── Advanced Payment Logic ── */
-let apRecords = JSON.parse(localStorage.getItem('gpm_ap_records') || '[]');
-let apCurrentId = null;
-let apDocCounter = apRecords.length;
-
-function openAdvPayment(){
-  const pg = document.getElementById('apPage');
-  pg.style.marginLeft = (isMobile() ? 52 : document.getElementById('gpmSidebar').classList.contains('collapsed') ? 52 : 240) + 'px';
-  pg.style.display = 'block';
-  apNew();
-  apSetTab('entry', document.querySelector('#apPage .ap-tab'));
-  apRenderList(); apRenderSummary();
-  closeFlyout();
-}
-function closeAdvPayment(){ document.getElementById('apPage').style.display = 'none'; }
-
-function apSetTab(name, btn){
-  document.querySelectorAll('#apPage .ap-pane').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('#apPage .ap-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('apPane-' + name).classList.add('active');
-  btn.classList.add('active');
-  if(name==='list')    apRenderList();
-  if(name==='summary') apRenderSummary();
-}
-function apToggleSection(header){
-  const body = header.nextElementSibling;
-  const arrow = header.querySelector('.ap-section-toggle');
-  const hidden = body.style.display === 'none';
-  body.style.display = hidden ? '' : 'none';
-  arrow.textContent = hidden ? '▲' : '▼';
-}
-function apNew(){
-  apCurrentId = null;
-  const ids = ['Document_No','Document_Type','SAP_Code','Vendor_code','Vendor_Name','comment','Payment_Type','Date','Invoice_Num','Sales_Tax_Sort','Add_Tax_Sort','Social_Sort','Bussines_Insurance_Sort','Amount','ADD_TAX','Discount','Net_Amount','Discount2','Deduct_P2','Sales_Tax','Net_Amount2','Deduct_Tax','Income_Tax','2Deduct_P2','Social','Other_Deduct','Advanced','Bussines_Insurance','Net','CREDITS','Cheque_NO','Charge_to','DESCRIPTION','Paid'];
-  ids.forEach(f => { const el = document.getElementById('ap_'+f); if(el){ if(el.tagName==='SELECT') el.value=''; else el.value=''; }});
-  document.getElementById('ap_Document_No').value = 'AP-' + new Date().getFullYear() + '-' + String(++apDocCounter).padStart(4,'0');
-  document.getElementById('ap_Date').value = new Date().toISOString().split('T')[0];
-  document.getElementById('ap_Paid').value = 'Pending';
-  apCalc();
-}
-function apVal(id){ return parseFloat(document.getElementById('ap_'+id)?.value)||0; }
-function apSet(id,val){ const el=document.getElementById('ap_'+id); if(el) el.value=val.toFixed(2); }
-function apCalc(){
-  const amount=apVal('Amount'), addTax=apVal('ADD_TAX'), disc1=apVal('Discount');
-  const net1=amount+addTax-disc1; apSet('Net_Amount',net1);
-  const disc2=apVal('Discount2'), dp2=apVal('Deduct_P2'), stax=apVal('Sales_Tax');
-  const net2=net1-disc2-dp2-stax; apSet('Net_Amount2',net2);
-  const dt=apVal('Deduct_Tax'), it=apVal('Income_Tax'), d2p2=apVal('2Deduct_P2'),
-        soc=apVal('Social'), od=apVal('Other_Deduct'), adv=apVal('Advanced'), bi=apVal('Bussines_Insurance');
-  const net=net2-dt-it-d2p2-soc-od-adv-bi; apSet('Net',net);
-  apShowLiveSummary();
-}
-function apShowLiveSummary(){
-  const a=apVal('Amount'), n1=apVal('Net_Amount'), n2=apVal('Net_Amount2'), net=apVal('Net');
-  const vendor=document.getElementById('ap_Vendor_Name')?.value||'—';
-  const status=document.getElementById('ap_Paid')?.value||'Pending';
-  const f=v=>v.toLocaleString('en',{minimumFractionDigits:2});
-  document.getElementById('apLiveSummary').innerHTML=`
-    <div class="ap-summary-card">
-      <div class="ap-sum-item"><div class="ap-sum-label">Gross Amount</div><div class="ap-sum-val">${f(a)} EGP</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Net Stage 1</div><div class="ap-sum-val">${f(n1)} EGP</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Net Stage 2</div><div class="ap-sum-val">${f(n2)} EGP</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Vendor</div><div class="ap-sum-val" style="font-size:.78rem;font-family:'Tajawal'">${vendor}</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Status</div><div class="ap-sum-val" style="font-size:.82rem;font-family:'Tajawal'">${status}</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">FINAL NET</div><div class="ap-sum-val big">${f(net)} EGP</div></div>
-    </div>`;
-}
-const DEMO_VENDORS={'V-0001':['10012345','Al Qahira Contracting'],'V-0002':['10067890','Delta Supply Co.'],'V-0003':['10099001','National Electric Co.']};
-function apLookupVendor(){
-  const code=document.getElementById('ap_Vendor_code')?.value;
-  if(DEMO_VENDORS[code]){
-    document.getElementById('ap_SAP_Code').value=DEMO_VENDORS[code][0];
-    document.getElementById('ap_Vendor_Name').value=DEMO_VENDORS[code][1];
-    apShowLiveSummary();
-  }
-}
-function apCollect(){
-  return {
-    id:apCurrentId||Date.now(),
-    Document_No:document.getElementById('ap_Document_No')?.value,
-    Document_Type:document.getElementById('ap_Document_Type')?.value,
-    SAP_Code:document.getElementById('ap_SAP_Code')?.value,
-    Vendor_code:document.getElementById('ap_Vendor_code')?.value,
-    Vendor_Name:document.getElementById('ap_Vendor_Name')?.value,
-    comment:document.getElementById('ap_comment')?.value,
-    Payment_Type:document.getElementById('ap_Payment_Type')?.value,
-    Date:document.getElementById('ap_Date')?.value,
-    Invoice_Num:document.getElementById('ap_Invoice_Num')?.value,
-    Sales_Tax_Sort:document.getElementById('ap_Sales_Tax_Sort')?.value,
-    Add_Tax_Sort:document.getElementById('ap_Add_Tax_Sort')?.value,
-    Social_Sort:document.getElementById('ap_Social_Sort')?.value,
-    Bussines_Insurance_Sort:document.getElementById('ap_Bussines_Insurance_Sort')?.value,
-    Amount:apVal('Amount'),ADD_TAX:apVal('ADD_TAX'),Discount:apVal('Discount'),
-    Net_Amount:apVal('Net_Amount'),Discount2:apVal('Discount2'),Deduct_P2:apVal('Deduct_P2'),
-    Sales_Tax:apVal('Sales_Tax'),Net_Amount2:apVal('Net_Amount2'),Deduct_Tax:apVal('Deduct_Tax'),
-    Income_Tax:apVal('Income_Tax'),'2Deduct_P2':apVal('2Deduct_P2'),Social:apVal('Social'),
-    Other_Deduct:apVal('Other_Deduct'),Advanced:apVal('Advanced'),Bussines_Insurance:apVal('Bussines_Insurance'),
-    Net:apVal('Net'),CREDITS:apVal('CREDITS'),
-    Cheque_NO:document.getElementById('ap_Cheque_NO')?.value,
-    Charge_to:document.getElementById('ap_Charge_to')?.value,
-    DESCRIPTION:document.getElementById('ap_DESCRIPTION')?.value,
-    Paid:document.getElementById('ap_Paid')?.value,
-  };
-}
-function apSave(){
-  const vn=document.getElementById('ap_Vendor_Name')?.value;
-  const am=document.getElementById('ap_Amount')?.value;
-  if(!vn||!am){apToast('⚠️ Vendor Name and Amount are required','error');return;}
-  const rec=apCollect();
-  const idx=apRecords.findIndex(r=>r.id===rec.id);
-  if(idx>=0) apRecords[idx]=rec; else{apCurrentId=rec.id;apRecords.push(rec);}
-  localStorage.setItem('gpm_ap_records',JSON.stringify(apRecords));
-  apToast('✅ Record saved successfully','success');
-  apRenderList(); apRenderSummary();
-}
-function apDelete(){
-  if(!apCurrentId){apToast('No record selected','error');return;}
-  if(!confirm('Delete this record?')) return;
-  apRecords=apRecords.filter(r=>r.id!==apCurrentId);
-  localStorage.setItem('gpm_ap_records',JSON.stringify(apRecords));
-  apToast('🗑️ Record deleted','success');
-  apNew(); apRenderList(); apRenderSummary();
-}
-function apLoadRecord(id){
-  const rec=apRecords.find(r=>r.id===id);
-  if(!rec) return;
-  apCurrentId=id;
-  Object.keys(rec).forEach(k=>{
-    if(k==='id') return;
-    const el=document.getElementById('ap_'+k);
-    if(el) el.value=rec[k]??'';
-  });
-  apCalc();
-  apSetTab('entry',document.querySelector('#apPage .ap-tab'));
-}
-function apRenderList(){
-  const q=(document.getElementById('apListSearch')?.value||'').toLowerCase();
-  const st=document.getElementById('apListFilter')?.value||'';
-  const recs=apRecords.filter(r=>{
-    const mq=!q||(r.Vendor_Name||'').toLowerCase().includes(q)||(r.Document_No||'').toLowerCase().includes(q)||(r.Invoice_Num||'').toLowerCase().includes(q);
-    const ms=!st||r.Paid===st;
-    return mq&&ms;
-  });
-  document.getElementById('apListCount').textContent=recs.length+' record(s)';
-  const body=document.getElementById('apListBody');
-  if(!recs.length){body.innerHTML='<div style="padding:30px;text-align:center;color:#94a3b8">No records found</div>';return;}
-  const sc={Paid:'paid-yes',Pending:'paid-no',Cancelled:'paid-no',Partial:'paid-yes'};
-  body.innerHTML=recs.map(r=>`
-    <div class="ap-record-row" onclick="apLoadRecord(${r.id})">
-      <span>${r.Document_No||'—'}</span><span>${r.Date||'—'}</span>
-      <span title="${r.Vendor_Name||''}">${r.Vendor_Name||'—'}</span>
-      <span>${(r.Net||0).toLocaleString('en',{minimumFractionDigits:2})}</span>
-      <span>${r.Payment_Type||'—'}</span>
-      <span class="${sc[r.Paid]||''}">${r.Paid||'—'}</span>
-      <span onclick="event.stopPropagation();apLoadRecord(${r.id})" style="color:#2563eb;font-weight:700;cursor:pointer">✏️</span>
-    </div>`).join('');
-}
-function apRenderSummary(){
-  const total=apRecords.reduce((s,r)=>s+(r.Amount||0),0);
-  const totalNet=apRecords.reduce((s,r)=>s+(r.Net||0),0);
-  const paid=apRecords.filter(r=>r.Paid==='Paid').length;
-  const pending=apRecords.filter(r=>r.Paid==='Pending').length;
-  const f=v=>v.toLocaleString('en',{minimumFractionDigits:2});
-  document.getElementById('apSummaryContent').innerHTML=`
-    <div class="ap-summary-card" style="margin-bottom:18px">
-      <div class="ap-sum-item"><div class="ap-sum-label">Total Records</div><div class="ap-sum-val">${apRecords.length}</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Total Gross</div><div class="ap-sum-val">${f(total)} EGP</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Total Net</div><div class="ap-sum-val big">${f(totalNet)} EGP</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Paid</div><div class="ap-sum-val" style="color:#86efac">${paid}</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Pending</div><div class="ap-sum-val" style="color:#fde68a">${pending}</div></div>
-      <div class="ap-sum-item"><div class="ap-sum-label">Other</div><div class="ap-sum-val">${apRecords.length-paid-pending}</div></div>
-    </div>
-    <div class="ap-record-list">
-      <div class="ap-record-header">
-        <span>Doc No</span><span>Date</span><span>Vendor</span>
-        <span>Gross</span><span>Net Final</span><span>Status</span><span>Type</span>
-      </div>
-      <div>${apRecords.map(r=>`
-        <div class="ap-record-row" onclick="apLoadRecord(${r.id});apSetTab('entry',document.querySelector('#apPage .ap-tab'))">
-          <span>${r.Document_No||'—'}</span><span>${r.Date||'—'}</span>
-          <span>${r.Vendor_Name||'—'}</span>
-          <span>${(r.Amount||0).toLocaleString('en',{minimumFractionDigits:2})}</span>
-          <span>${(r.Net||0).toLocaleString('en',{minimumFractionDigits:2})}</span>
-          <span class="${r.Paid==='Paid'?'paid-yes':'paid-no'}">${r.Paid||'—'}</span>
-          <span>${r.Payment_Type||'—'}</span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-}
-function apPrint(){
-  const rec=apCollect();
-  const w=window.open('','_blank','width=900,height=700');
-  const f=v=>(v||0).toFixed(2);
-  w.document.write(`<html><head><title>Advanced Payment — ${rec.Document_No}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:30px;color:#1e293b}h1{font-size:1.2rem;color:#1a3a6e;border-bottom:2px solid #2563eb;padding-bottom:8px;margin-bottom:20px}
-    table{width:100%;border-collapse:collapse;font-size:.85rem}th{background:#f0f6ff;color:#1a3a6e;padding:8px 12px;text-align:left;border:1px solid #d0d8f0}
-    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style>
-
-
 </head>
-    <body>
-
-
+<body>
 <!-- GPM Supabase Auth -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 <style>
@@ -1723,18 +556,6 @@ async function sbLogin() {
   var email = (document.getElementById('inEmail').value || '').trim();
   var pass  =  document.getElementById('inPass').value  || '';
   if (!email || !pass) { _sbMsg('\u064a\u0631\u062c\u0649 \u0625\u062f\u062e\u0627\u0644 \u0627\u0644\u0628\u0631\u064a\u062f \u0648\u0643\u0644\u0645\u0629 \u0627\u0644\u0645\u0631\u0648\u0631'); return; }
-
-  // تأكد من تهيئة Supabase قبل الاستخدام
-  if (!_sb) {
-    if (!_sbInit()) {
-      _sbMsg('جاري تحميل Supabase، انتظر لحظة وحاول مجدداً...');
-      _sbWaitForSDK(function(ok){
-        if (ok) { sbLogin(); }
-        else { _sbMsg('⚠️ فشل تحميل Supabase، تحقق من الإنترنت'); }
-      });
-      return;
-    }
-  }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="sb-spin"></span> ...';
@@ -1889,6 +710,7 @@ async function sbPush(table, record) {
 
 </script>
 
+<div class="gpm-page-wrap">
 <div class="gpm-sidebar" id="gpmSidebar">
   <div class="gpm-sb-header">
     <div class="gpm-sb-logo">⛳</div>
@@ -2175,6 +997,7 @@ async function sbPush(table, record) {
     </button>
   </div>
 </div>
+
 
 
 <div class="main">
@@ -2576,13 +1399,8 @@ p.sub{text-align:center;color:#888;font-size:10px;margin-bottom:10px}
 table{width:100%;border-collapse:collapse}
 th{background:#533483;color:white;padding:6px 4px;text-align:center;font-size:10px;border:1px solid #7a5aaa}
 td{padding:3px 4px;border:1px solid #ddd;vertical-align:middle}
-</style>
-
-
-</head>
+</style></head>
 <body>
-
-
 <h1>📚 English Words Dictionary</h1>
 <p class='sub'>${WORDS.length} كلمة | معجم عربي إنجليزي شامل</p>
 <table>
@@ -2594,10 +1412,7 @@ td{padding:3px 4px;border:1px solid #ddd;vertical-align:middle}
 <th>Example</th>
 </tr></thead>
 <tbody>${rows}</tbody>
-</table>
-
-
-</body></html>`;
+</table></body></html>`;
       const blob=new Blob(['﻿'+html],{type:'application/msword;charset=utf-8'});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
@@ -2646,13 +1461,8 @@ td{padding:2.5px 3px;border:1px solid #e0d8f0;vertical-align:middle}
 .foot{text-align:center;color:#aaa;font-size:7px;padding:5px 0 2px;border-top:1px solid #eee;margin-top:3px}
 .print-btn{background:#533483;color:#fff;padding:9px 20px;font-size:13px;border:none;cursor:pointer;width:100%;font-family:Arial;margin-bottom:4px}
 @media print{.print-btn{display:none}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}tr{page-break-inside:avoid}}
-</style>
-
-
-</head>
+</style></head>
 <body>
-
-
 <button class="print-btn" onclick="window.print()">🖨️ اضغط هنا للطباعة أو الحفظ كـ PDF — اختر: وجهة ← حفظ كـ PDF</button>
 <div class="title">📚 English Words Dictionary</div>
 <div class="sub">${WORDS.length} كلمة | معجم عربي إنجليزي شامل | A4 أفقي</div>
@@ -2667,8 +1477,6 @@ td{padding:2.5px 3px;border:1px solid #e0d8f0;vertical-align:middle}
 <tbody>${rows}</tbody>
 </table>
 <div class="foot">English Words Dictionary — ${WORDS.length} كلمة</div>
-
-
 </body></html>`);
       win.document.close();
       hideProg();
@@ -3301,25 +2109,6 @@ window.addEventListener('load', ()=>{
   }catch(e){}
 });
 
-</style>
-
-
-<script>
-const supabaseUrl = "https://mqbytvagkkpocufmuqjz.supabase.co";
-const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU";
-
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-
-async function testSupabase(){
-  const { data, error } = await supabaseClient.from('your_table').select('*').limit(5);
-  if(error){
-    console.error("Supabase Error:", error);
-  } else {
-    console.log("Supabase Connected:", data);
-  }
-}
-
-testSupabase();
 </script>
 
 <script>
@@ -4457,14 +3246,8 @@ function apPrint(){
   w.document.write(`<html><head><title>Advanced Payment — ${rec.Document_No}</title>
     <style>body{font-family:'Tajawal',sans-serif;padding:30px;color:#1e293b}h1{font-size:1.2rem;color:#1a3a6e;border-bottom:2px solid #2563eb;padding-bottom:8px;margin-bottom:20px}
     table{width:100%;border-collapse:collapse;font-size:.85rem}th{background:#f0f6ff;color:#1a3a6e;padding:8px 12px;text-align:left;border:1px solid #d0d8f0}
-    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style>
-
-
-</head>
-    <body>
-
-
-<h1>💳 Advanced Payment — ${rec.Document_No}</h1><table>
+    td{padding:7px 12px;border:1px solid #e2e8f0}.amt{font-weight:800;color:#2563eb;font-family:monospace}.net{font-weight:800;color:#15803d;background:#f0fdf4}</style></head>
+    <body><h1>💳 Advanced Payment — ${rec.Document_No}</h1><table>
     <tr><th>Document No</th><td>${rec.Document_No}</td><th>Date</th><td>${rec.Date}</td></tr>
     <tr><th>Document Type</th><td>${rec.Document_Type}</td><th>Invoice No</th><td>${rec.Invoice_Num}</td></tr>
     <tr><th>SAP Code</th><td>${rec.SAP_Code}</td><th>Vendor Code</th><td>${rec.Vendor_code}</td></tr>
@@ -4483,10 +3266,7 @@ function apPrint(){
     <tr><th>Status</th><td colspan="3"><b>${rec.Paid}</b></td></tr>
     <tr><th>Description</th><td colspan="3">${rec.DESCRIPTION}</td></tr>
     </table><p style="margin-top:20px;font-size:.75rem;color:#94a3b8">Printed: ${new Date().toLocaleString()} — Golf Porto Marina Accounting</p>
-    <script>window.print();<\/script>
-
-
-</body></html>`);
+    <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
 function apToast(msg,type='success'){
@@ -4518,10 +3298,7 @@ function apToast(msg,type='success'){
     <tr><th>Status</th><td colspan="3"><b>${rec.Paid}</b></td></tr>
     <tr><th>Description</th><td colspan="3">${rec.DESCRIPTION}</td></tr>
     </table><p style="margin-top:20px;font-size:.75rem;color:#94a3b8">Printed: ${new Date().toLocaleString()} — Golf Porto Marina Accounting</p>
-    <script>window.print();<\/script>
-
-
-</body></html>`);
+    <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
 function apToast(msg,type='success'){
@@ -5168,12 +3945,7 @@ function scPrint(){
     .net{color:#15803d;font-weight:800;font-family:monospace;background:#f0fdf4}
     .deduct{color:#dc2626;font-family:monospace}
     h2{font-size:.88rem;color:#1a3a6e;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}
-    footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style>
-
-
-</head><body>
-
-
+    footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px}</style></head><body>
     <h1>📊 تحليل عقود الخدمة — ${rec['اسم_الشركة']} | ${rec['الخدمة']}</h1>
     <div class="grid">
       <div class="row"><label>السنة</label><span>${rec['السنة']}</span></div>
@@ -5213,10 +3985,7 @@ function scPrint(){
     </div>
     <div class="row" style="margin-top:12px;background:#f0fdf4"><label style="font-size:.95rem">✅ صافى المبلغ النهائي</label><span class="net" style="font-size:1.1rem">${f(rec['صافى_المبلغ'])} EGP</span></div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script>
-
-
-</body></html>`);
+    <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
@@ -5627,12 +4396,7 @@ function empDrawerPrint(){
   const w=window.open('','_blank','width=800,height=700');
   const name=rec['اسم_الموظف']||'—';
   w.document.write(`<html><head><title>بيانات الموظف — ${name}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#1a3a6e;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#1a3a6e;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
-
-
-</head><body>
-
-
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#1a3a6e;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#1a3a6e;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
     <div class="header"><h1>${name}</h1><p>${rec['الوظيفة']||'—'} · ${rec['الإدارة']||'—'} | كود: ${rec['كود_الموظف']||'—'}</p></div>
     <h2>🪪 البيانات الأساسية</h2>
     <div class="grid">
@@ -5657,10 +4421,7 @@ function empDrawerPrint(){
       <div class="row"><label>رقم حساب البنك</label><span style="color:#15803d">${rec['رقم_حساب_البنك']||'—'}</span></div>
     </div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script>
-
-
-</body></html>`);
+    <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
@@ -5926,12 +4687,7 @@ function vndDrawerPrint(){
   const w=window.open('','_blank','width=800,height=600');
   const name=rec['اسم_الشركة']||'—';
   w.document.write(`<html><head><title>بيانات المورد — ${name}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#0f3460,#1a3a6e);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#0f3460;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#0f3460;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
-
-
-</head><body>
-
-
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#0f3460,#1a3a6e);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#0f3460;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#0f3460;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
     <div class="header"><h1>${name}</h1><p>كود: ${rec['كود_المورد']||'—'} | SAP: ${rec['كود_المورد_ساب']||'—'}</p></div>
     <h2>🏭 بيانات المورد</h2>
     <div class="grid">
@@ -5943,10 +4699,7 @@ function vndDrawerPrint(){
       <div class="row"><label>العنوان</label><span>${rec['العنوان']||'—'}</span></div>
     </div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script>
-
-
-</body></html>`);
+    <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
@@ -6236,12 +4989,7 @@ function custDrawerPrint(){
   const f=v=>parseFloat(v||0).toLocaleString('en',{minimumFractionDigits:2});
   const w=window.open('','_blank','width=820,height=700');
   w.document.write(`<html><head><title>بيانات العميل — ${name}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#065f46,#059669);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#065f46;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#065f46;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
-
-
-</head><body>
-
-
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#065f46,#059669);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#065f46;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#065f46;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
     <div class="header"><h1>${name}</h1><p>${rec['اسم_المشروع']||'—'} · ${rec['رقم_الوحدة']||'—'} | رقم العميل: ${rec['رقم_العميل']||'—'}</p></div>
     <h2>🏗️ بيانات المشروع</h2>
     <div class="grid">
@@ -6264,10 +5012,7 @@ function custDrawerPrint(){
       <div class="row"><label>رقم العقد</label><span>${rec['رقم_العقد']||'—'}</span></div>
     </div>
     <footer>طُبع: ${new Date().toLocaleString('ar-EG')} — Golf Porto Marina Accounting</footer>
-    <script>window.print();<\/script>
-
-
-</body></html>`);
+    <script>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
@@ -6279,8 +5024,6 @@ function custFsToast(msg,type='success'){
 </script>
 
 
-</div><!-- /gpm-main-content -->
-</div><!-- /gpm-page-wrap -->
 
 <!-- ═══════════════════════════════════════════════
      CHEQUE PRINT — Full Screen Page (QNB ALAHLI)
@@ -7257,12 +6000,7 @@ function ccDrawerPrint(){
   const code=rec['Cost_Ctr_Code']||'—';
   const w=window.open('','_blank','width=800,height=600');
   w.document.write(`<html><head><title>Cost Center — ${code}</title>
-    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#15803d;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#15803d;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style>
-
-
-</head><body>
-
-
+    <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#15803d;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#15803d;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
     <div class="header"><h1>${rec['Short_text']||code}</h1><p>Cost Center Code: ${code} · Company: ${rec['Company_Code']||'—'} — ${rec['Company_Ar']||'—'}</p></div>
     <h2>🏗️ بيانات مركز التكلفة</h2>
     <div class="grid">
@@ -7285,10 +6023,7 @@ function ccDrawerPrint(){
       <div class="row"><label>To</label><span>${rec['To']||'—'}</span></div>
     </div>
     <footer>Golf Porto Marina Accounting · طُبع بتاريخ ${new Date().toLocaleDateString('ar-EG')}</footer>
-    
-
-
-</body></html>`);
+    </body></html>`);
   w.document.close(); w.print();
 }
 
@@ -26128,25 +24863,9 @@ function logOutFsToast(msg,type='success'){
 </script>
 
 
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  if (typeof supabase === "undefined") {
-    console.error("❌ Supabase library not loaded");
-    return;
-  }
 
-  // تهيئة supabaseClient للتوافق مع أي سكريبت آخر
-  window.supabaseClient = supabase.createClient(
-    "https://mqbytvagkkpocufmuqjz.supabase.co",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xYnl0dmFna2twb2N1Zm11cWp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTEwMTksImV4cCI6MjA5MjYyNzAxOX0.uh8auuOPByBVx7lTYooXl8tKJkVuV7--Neue6QyFbOU"
-  );
 
-  // تهيئة _sb المستخدم في sbLogin
-  if (typeof _sbInit === 'function') { _sbInit(); }
 
-  console.log("✅ Supabase Ready");
-});
-</script>
 
 </body>
 </html>
