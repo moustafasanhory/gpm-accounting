@@ -3582,39 +3582,6 @@ function apToast(msg,type='success'){
   setTimeout(()=>t.classList.remove('show'),3000);
 }
 </script>
-
-<!-- ═══════════════════════════════════════════════
-     ANALYSIS OF SERVICE CONTRACTS — Full Screen Page
-═══════════════════════════════════════════════ -->
-<h1>💳 Advanced Payment — ${rec.Document_No}</h1><table>
-    <tr><th>Document No</th><td>${rec.Document_No}</td><th>Date</th><td>${rec.Date}</td></tr>
-    <tr><th>Document Type</th><td>${rec.Document_Type}</td><th>Invoice No</th><td>${rec.Invoice_Num}</td></tr>
-    <tr><th>SAP Code</th><td>${rec.SAP_Code}</td><th>Vendor Code</th><td>${rec.Vendor_code}</td></tr>
-    <tr><th>Vendor Name</th><td colspan="3">${rec.Vendor_Name}</td></tr>
-    <tr><th>Payment Type</th><td>${rec.Payment_Type}</td><th>Cheque No</th><td>${rec.Cheque_NO}</td></tr>
-    <tr><th>Charge To</th><td colspan="3">${rec.Charge_to}</td></tr>
-    <tr><th>Amount</th><td class="amt">${f(rec.Amount)} EGP</td><th>Add Tax</th><td class="amt">${f(rec.ADD_TAX)}</td></tr>
-    <tr><th>Discount</th><td class="amt">${f(rec.Discount)}</td><th>Net Amount 1</th><td class="net">${f(rec.Net_Amount)}</td></tr>
-    <tr><th>Discount 2</th><td class="amt">${f(rec.Discount2)}</td><th>Deduct P2</th><td class="amt">${f(rec.Deduct_P2)}</td></tr>
-    <tr><th>Sales Tax</th><td class="amt">${f(rec.Sales_Tax)}</td><th>Net Amount 2</th><td class="net">${f(rec.Net_Amount2)}</td></tr>
-    <tr><th>Deduct Tax</th><td class="amt">${f(rec.Deduct_Tax)}</td><th>Income Tax</th><td class="amt">${f(rec.Income_Tax)}</td></tr>
-    <tr><th>2nd Deduct P2</th><td class="amt">${f(rec['2Deduct_P2'])}</td><th>Social</th><td class="amt">${f(rec.Social)}</td></tr>
-    <tr><th>Other Deduct</th><td class="amt">${f(rec.Other_Deduct)}</td><th>Advanced</th><td class="amt">${f(rec.Advanced)}</td></tr>
-    <tr><th>Bus. Insurance</th><td class="amt">${f(rec.Bussines_Insurance)}</td><th>Credits</th><td class="amt">${f(rec.CREDITS)}</td></tr>
-    <tr><th>FINAL NET</th><td class="net" colspan="3" style="font-size:1.1rem">${f(rec.Net)} EGP</td></tr>
-    <tr><th>Status</th><td colspan="3"><b>${rec.Paid}</b></td></tr>
-    <tr><th>Description</th><td colspan="3">${rec.DESCRIPTION}</td></tr>
-    </table><p style="margin-top:20px;font-size:.75rem;color:#94a3b8">Printed: ${new Date().toLocaleString()} — Golf Porto Marina Accounting</p>
-    <script>window.print();<\/script></body></html>`);
-  w.document.close();
-}
-function apToast(msg,type='success'){
-  const t=document.getElementById('apToast');
-  t.textContent=msg; t.className='ap-toast '+type+' show';
-  setTimeout(()=>t.classList.remove('show'),3000);
-}
-</script>
-
 <!-- ═══════════════════════════════════════════════
      ANALYSIS OF SERVICE CONTRACTS — Full Screen Page
 ═══════════════════════════════════════════════ -->
