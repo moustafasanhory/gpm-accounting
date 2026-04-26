@@ -3264,6 +3264,95 @@ gpmToggle = function(){
   window.gpmHideAllPages = () => hideAllPagesExcept(null);
   window.gpmApplyPageStyling = applyPageStyling;
 })();
+
+/* ═════════════════════════════════════════════════════════
+   AUTO-CLOSE SIDEBAR — multiple layers for reliability
+   Layer 1: wrap every window.open*() function to close first
+   Layer 2: re-wrap on a short interval (catches late-defined fns)
+   Layer 3: capture-phase click handler on every drill-panel item
+═════════════════════════════════════════════════════════ */
+(function(){
+  function closeSidebarFully(){
+    const sb = document.getElementById('gpmSidebar');
+    if(!sb) return;
+    sb.classList.remove('mob-open','gpm-drill-1','gpm-drill-2');
+    const ov = document.getElementById('gpmMobOverlay');
+    if(ov) ov.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+  window.gpmCloseSidebar = closeSidebarFully;
+
+  function wrapOpenFunctions(){
+    let count = 0;
+    for(const key of Object.getOwnPropertyNames(window)){
+      if(!/^open[A-Z]/.test(key)) continue;
+      try{
+        const fn = window[key];
+        if(typeof fn !== 'function') continue;
+        if(fn._gpmWrapped) continue;
+        const orig = fn;
+        const wrapper = function(){
+          closeSidebarFully();
+          return orig.apply(this, arguments);
+        };
+        wrapper._gpmWrapped = true;
+        // Use defineProperty to bypass any non-writable descriptor
+        try{
+          Object.defineProperty(window, key, {
+            value: wrapper,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        }catch(e){
+          window[key] = wrapper;
+        }
+        count++;
+      }catch(e){}
+    }
+    return count;
+  }
+
+  // Layer 1: wrap on load (all top-level function declarations are defined by then)
+  function start(){
+    const n = wrapOpenFunctions();
+    // Layer 2: keep checking briefly in case more get defined later (lazy modules etc.)
+    let attempts = 0;
+    const iv = setInterval(() => {
+      wrapOpenFunctions();
+      if(++attempts > 20) clearInterval(iv);
+    }, 250);
+  }
+  if(document.readyState === 'complete'){
+    start();
+  } else {
+    window.addEventListener('load', start);
+  }
+
+  // Layer 3 (most reliable): catch every click on a drill panel item BEFORE
+  // any handler runs. This guarantees the sidebar closes regardless of which
+  // open function gets called.
+  document.addEventListener('click', function(e){
+    const t = e.target;
+    if(!t || !t.closest) return;
+    // Any click inside a drill panel item that doesn't have children = a leaf nav
+    const leaf = t.closest('.gpm-ditem');
+    if(leaf && !leaf.classList.contains('has-children')){
+      // Schedule close on the next tick so the original handler fires first,
+      // then we forcibly close. Doing both immediate + delayed to be safe.
+      closeSidebarFully();
+      setTimeout(closeSidebarFully, 50);
+      setTimeout(closeSidebarFully, 200);
+    }
+    // Also: clicks on any element that has onclick="open..." inside the original sidebar
+    const origItem = t.closest('.gpm-si, .gpm-nsi');
+    if(origItem){
+      closeSidebarFully();
+      setTimeout(closeSidebarFully, 50);
+      setTimeout(closeSidebarFully, 200);
+    }
+  }, true); // useCapture = true: fires BEFORE other handlers
+})();
 </script>
 
 <!-- ═══════════════════════════════════════════════
