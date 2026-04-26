@@ -404,6 +404,312 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 }
 
 /* SharePoint Lists — أسماء الليستات التي تريد ربطها */
+
+
+/* ═══════════════════════════════════════════════
+   SIDEBAR + FLYOUT STYLES (restored from reference)
+═══════════════════════════════════════════════ */
+.gpm-page-wrap{display:flex;min-height:100vh;direction:ltr}
+
+/* ── Sidebar — LEFT side, light theme ── */
+.gpm-sidebar{
+  width:240px;flex-shrink:0;
+  background:#ffffff;
+  border-right:1px solid #d0d5e0;
+  box-shadow:2px 0 12px rgba(0,0,0,.08);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;
+  height:100vh;z-index:500;
+  overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:thin;scrollbar-color:#c8cfe0 transparent;
+  transition:width .26s cubic-bezier(.4,0,.2,1);
+}
+.gpm-sidebar::-webkit-scrollbar{width:4px}
+.gpm-sidebar::-webkit-scrollbar-thumb{background:#c8cfe0;border-radius:2px}
+.gpm-sidebar.collapsed{width:52px}
+
+/* ── Main content — pushed RIGHT of sidebar ── */
+.gpm-main-content{
+  flex:1;
+  margin-left:240px;
+  direction:rtl;
+  transition:margin-left .26s cubic-bezier(.4,0,.2,1);
+}
+.gpm-sidebar.collapsed ~ .gpm-main-content{margin-left:52px}
+
+/* ── Header strip ── */
+.gpm-sb-header{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 12px;
+  background:linear-gradient(135deg,#1a3a6e,#2563eb);
+  flex-shrink:0;min-height:58px;direction:ltr;overflow:hidden;
+}
+.gpm-sb-logo{
+  width:32px;height:32px;
+  background:rgba(255,255,255,.2);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+  border:1px solid rgba(255,255,255,.3);
+}
+.gpm-sb-title{
+  font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;
+  color:#ffffff;white-space:nowrap;overflow:hidden;flex:1;line-height:1.3;
+}
+.gpm-sb-title small{display:block;font-size:.62rem;color:rgba(255,255,255,.65);font-weight:400}
+.gpm-toggle{
+  flex-shrink:0;width:24px;height:24px;
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:6px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.8);font-size:.7rem;transition:all .18s;
+}
+.gpm-toggle:hover{background:rgba(255,255,255,.3);color:#fff}
+
+/* ── Collapsed mini-toggle ── */
+.gpm-ctoggle{
+  display:none;width:36px;height:36px;border-radius:8px;
+  background:#f0f4ff;border:1px solid #d0d8f0;
+  color:#2563eb;font-size:.85rem;cursor:pointer;
+  align-items:center;justify-content:center;transition:all .18s;
+  margin:8px auto;
+}
+.gpm-ctoggle:hover{background:#dce8ff;color:#1a3a6e}
+.gpm-sidebar.collapsed .gpm-ctoggle{display:flex}
+.gpm-sidebar.collapsed .gpm-toggle{display:none}
+
+/* ══════════════════════════
+   UNIFORM MENU ITEMS
+   — همain, sub, nested كلهم نفس الحجم والوزن
+══════════════════════════ */
+
+/* ── Group wrapper ── */
+.gpm-group{width:100%;direction:ltr}
+
+/* ── Main group button (level 1) ── */
+.gpm-gb{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 14px;border:none;background:none;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:600;
+  color:#1e293b;transition:all .15s;
+  position:relative;text-align:left;white-space:nowrap;overflow:hidden;
+  border-bottom:1px solid #eef0f5;
+}
+.gpm-gb:hover{background:#f0f6ff;color:#2563eb}
+.gpm-gb.active{background:#e8f0fe;color:#1a3a6e;border-bottom-color:#c7d7f9}
+.gpm-gb .gb-ico{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+.gpm-gb .gb-lbl{flex:1;overflow:hidden;text-overflow:ellipsis}
+.gpm-gb .gb-arr{
+  font-size:.65rem;color:#94a3b8;flex-shrink:0;
+  transition:transform .22s;
+}
+.gpm-gb.active .gb-arr{transform:rotate(180deg);color:#2563eb}
+.gpm-gb.active::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:#2563eb;
+}
+
+/* ── Sub container ── */
+.gpm-sub{
+  overflow:hidden;max-height:0;
+  transition:max-height .3s ease;
+  background:#ffffff;
+  border-bottom:1px solid #eef0f5;
+}
+.gpm-sub.open{max-height:900px}
+
+/* ── Sub item (level 2) — identical to .gpm-gb ── */
+.gpm-si{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 14px;border:none;background:none;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:600;
+  color:#1e293b;transition:all .15s;
+  position:relative;text-align:left;white-space:nowrap;overflow:hidden;
+  border-bottom:1px solid #eef0f5;
+}
+.gpm-si:hover{background:#f0f6ff;color:#2563eb}
+.gpm-si:hover .si-ico{opacity:1}
+.gpm-si .si-ico{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+
+/* ── Sub-section label (group header inside sub) — collapsible ── */
+.gpm-sl{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;
+  font-family:'Tajawal',sans-serif;font-size:.75rem;font-weight:700;
+  color:#2563eb;
+  background:#edf2ff;
+  border-bottom:1px solid #c7d7f9;
+  border-top:1px solid #c7d7f9;
+  white-space:nowrap;letter-spacing:.4px;text-transform:uppercase;
+  cursor:pointer;user-select:none;
+  transition:background .15s;
+}
+.gpm-sl:hover{background:#dbeafe}
+.gpm-sl .si-ico{font-size:13px;flex-shrink:0}
+.gpm-sl .sl-arr{margin-right:auto;font-size:.65rem;transition:transform .25s;color:#2563eb}
+.gpm-sl.sl-open .sl-arr{transform:rotate(180deg)}
+
+/* ── Nested sub group container ── */
+.gpm-nsub{
+  overflow:hidden;max-height:0;
+  transition:max-height .3s ease;
+}
+.gpm-nsub.open{max-height:500px}
+
+/* ── Nested sub item (level 3) — identical to .gpm-gb ── */
+.gpm-nsi{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 14px 11px 28px;
+  border:none;background:none;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:600;
+  color:#1e293b;transition:all .15s;
+  position:relative;text-align:left;white-space:nowrap;overflow:hidden;
+  border-bottom:1px solid #eef0f5;
+}
+.gpm-nsi:hover{background:#f0f6ff;color:#2563eb}
+.gpm-nsi .si-ico{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+
+/* ── Dividers ── */
+.gpm-sdiv{height:1px;background:#dde3f0;margin:2px 0}
+.gpm-gdiv{height:1px;background:#e8ecf5;margin:0}
+
+/* ── Dictionary button ── */
+.gpm-dict-sb{
+  margin:10px;display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:11px 14px;border-radius:10px;border:none;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,#1a3a6e,#2563eb);
+  box-shadow:0 3px 12px rgba(37,99,235,.25);
+  transition:all .2s;white-space:nowrap;overflow:hidden;
+  width:calc(100% - 20px);flex-shrink:0;
+}
+.gpm-dict-sb:hover{box-shadow:0 5px 18px rgba(37,99,235,.4);transform:translateY(-1px)}
+.gpm-dict-sb .dict-lbl{overflow:hidden;white-space:nowrap}
+
+/* ══════════════════════
+   COLLAPSED STATE
+══════════════════════ */
+.gpm-sidebar.collapsed .gb-lbl,
+.gpm-sidebar.collapsed .gb-arr,
+.gpm-sidebar.collapsed .gpm-sub,
+.gpm-sidebar.collapsed .gpm-sb-title{display:none}
+.gpm-sidebar.collapsed .gpm-dict-sb .dict-lbl{display:none}
+.gpm-sidebar.collapsed .gpm-dict-sb{padding:10px 6px;width:calc(100% - 12px);margin:10px 6px}
+.gpm-sidebar.collapsed .gpm-gb{justify-content:center;padding:13px 6px;border-bottom:1px solid #eef0f5}
+.gpm-sidebar.collapsed .gpm-gb::before{display:none}
+.gpm-sidebar.collapsed .gpm-gb.active{background:#e8f0fe}
+.gpm-sidebar.collapsed .gpm-sb-header{justify-content:center;padding:13px 8px}
+
+/* ══════════════════════
+   FLYOUT POPUP (collapsed mode)
+══════════════════════ */
+.gpm-flyout{
+  position:fixed;
+  left:52px;
+  top:0;
+  min-width:230px;
+  background:#ffffff;
+  border:1px solid #d0d5e0;
+  border-left:none;
+  border-radius:0 12px 12px 0;
+  box-shadow:6px 0 28px rgba(0,0,0,.14);
+  z-index:999;
+  overflow:hidden;
+  display:none;
+  flex-direction:column;
+  animation:flyoutIn .18s cubic-bezier(.34,1.4,.64,1);
+  max-height:calc(100vh - 20px);
+  overflow-y:auto;
+}
+.gpm-flyout.open{display:flex}
+@keyframes flyoutIn{
+  from{opacity:0;transform:translateX(-10px)}
+  to{opacity:1;transform:translateX(0)}
+}
+.gpm-flyout-header{
+  display:flex;align-items:center;gap:9px;
+  padding:12px 16px;
+  background:linear-gradient(135deg,#1a3a6e,#2563eb);
+  color:#fff;
+  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:700;
+  white-space:nowrap;flex-shrink:0;
+}
+.gpm-flyout-header .fh-ico{font-size:16px}
+.gpm-flyout .gpm-si,
+.gpm-flyout .gpm-nsi{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 18px;width:100%;
+  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:600;
+  color:#1e293b;background:none;border:none;
+  border-bottom:1px solid #eef0f5;
+  cursor:pointer;white-space:nowrap;text-align:left;
+  transition:all .13s;
+}
+.gpm-flyout .gpm-nsi{padding-left:30px}
+.gpm-flyout .gpm-si:hover,
+.gpm-flyout .gpm-nsi:hover{background:#f0f6ff;color:#2563eb}
+.gpm-flyout .gpm-sl{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 18px;
+  font-family:'Tajawal',sans-serif;font-size:.73rem;font-weight:700;
+  color:#2563eb;background:#edf2ff;
+  border-bottom:1px solid #c7d7f9;border-top:1px solid #c7d7f9;
+  white-space:nowrap;letter-spacing:.4px;text-transform:uppercase;
+  cursor:pointer;
+}
+.gpm-flyout .gpm-nsub{overflow:hidden;max-height:0;transition:max-height .3s ease}
+.gpm-flyout .gpm-nsub.open{max-height:400px}
+.gpm-flyout .gpm-sdiv{height:1px;background:#dde3f0;margin:2px 0}
+.gpm-flyout .si-ico{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+
+/* ══════════════════════
+   MOBILE ≤ 768px
+══════════════════════ */
+@media(max-width:768px){
+  /* Sidebar starts as icon-only strip */
+  .gpm-sidebar{width:52px}
+  .gpm-sidebar .gb-lbl,.gpm-sidebar .gb-arr,
+  .gpm-sidebar .gpm-sub,.gpm-sidebar .gpm-sb-title{display:none}
+  .gpm-sidebar .gpm-dict-sb .dict-lbl{display:none}
+  .gpm-sidebar .gpm-dict-sb{padding:10px 6px;width:calc(100% - 12px);margin:10px 6px}
+  .gpm-sidebar .gpm-gb{justify-content:center;padding:13px 6px}
+  .gpm-sidebar .gpm-gb::before{display:none}
+  .gpm-sidebar .gpm-sb-header{justify-content:center;padding:13px 8px}
+  .gpm-sidebar .gpm-ctoggle{display:flex}
+  .gpm-sidebar .gpm-toggle{display:none}
+  .gpm-main-content{margin-left:52px!important;margin-right:0!important}
+
+  /* Overlay when sidebar opens */
+  .gpm-mob-overlay{
+    display:none;position:fixed;inset:0;
+    background:rgba(0,0,0,.45);z-index:499;
+  }
+  .gpm-mob-overlay.show{display:block}
+
+  /* Sidebar open state on mobile */
+  .gpm-sidebar.mob-open{
+    width:280px;
+    box-shadow:4px 0 30px rgba(0,0,0,.25);
+    z-index:600;
+  }
+  .gpm-sidebar.mob-open .gb-lbl,
+  .gpm-sidebar.mob-open .gb-arr,
+  .gpm-sidebar.mob-open .gpm-sb-title{display:block}
+  .gpm-sidebar.mob-open .gpm-dict-sb .dict-lbl{display:inline}
+  .gpm-sidebar.mob-open .gpm-dict-sb{width:calc(100% - 20px);margin:10px;padding:11px 14px}
+  .gpm-sidebar.mob-open .gpm-gb{justify-content:flex-start;padding:11px 14px}
+  .gpm-sidebar.mob-open .gpm-gb::before{display:block}
+  .gpm-sidebar.mob-open .gpm-sb-header{justify-content:flex-start;padding:14px 12px}
+  .gpm-sidebar.mob-open .gpm-ctoggle{display:none}
+  .gpm-sidebar.mob-open .gpm-toggle{display:flex}
+  /* Sub menus: hidden by default, show via accordion class */
+  .gpm-sidebar.mob-open .gpm-sub{display:block;max-height:0;overflow:hidden;transition:max-height .28s ease}
+  .gpm-sidebar.mob-open .gpm-sub.open{max-height:1200px}
+
+  /* Flyout disabled on mobile — use inline accordion instead */
+  .gpm-flyout{display:none!important}
+}
+
 </style>
 </head>
 <body>
@@ -710,6 +1016,7 @@ async function sbPush(table, record) {
 
 </script>
 
+<div class="gpm-mob-overlay" id="gpmMobOverlay" onclick="gpmMobClose()"></div>
 <div class="gpm-page-wrap">
 <div class="gpm-sidebar" id="gpmSidebar">
   <div class="gpm-sb-header">
