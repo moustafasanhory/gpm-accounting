@@ -3137,7 +3137,7 @@ function posPrintAndClose(){
 // Sync all full-screen pages when sidebar collapses/expands
 function syncPageMargins(){
   const sidebar = document.getElementById('gpmSidebar');
-  const w = isMobile() ? 52
+  const w = isMobile() ? 0
           : sidebar.classList.contains('collapsed') ? 52 : 240;
   ['posPage','apPage','scPage','empPage','vendorPage','custPage','ccPage','openingBalancePage','chartOfAccountsPage','currencyExchangePage','itemsPage','journalVoucherPage','accountStatementPage','accountBalancePage','interCompanyPage','assetRegisterPage','runDepreciationPage','assetsHistoryPage','albarakaBankStmtPage','cib1BankStmtPage','cib2BankStmtPage','cib3BankStmtPage','qnb1BankStmtPage','qnb2BankStmtPage','qnb3BankStmtPage','qnb4BankStmtPage','qnb5BankStmtPage','adib1BankStmtPage','adib2BankStmtPage','bankReconciliationPage','bankJournalVoucherPage','bankPositionPage','outgoingChequePage','vendorsInvoicePage','vendorsContractsPage','downPaymentPage','expensesAccrualPage','vendorStatementPage','vendorBalancePage','attendanceSheetPage','contractSocialInsurancePage','fnbAuditPage','addDeductionTaxPage','salaryStatementPage','salaryPayslipPage','employeeLoanPage','outOfSourceIBSPage','incomeTaxPage','uploadDataPage','dailyInvoicePage','electricityInvoicePage','waterInvoicePage','headOfficeCollectionPage','customerSearchPage','cashWitnessPage','creditCardReceiptPage','generalCashierPage','creditCardByDatePage','creditCardByCashierPage','creditCardDiffByBankPage','checkUnderCollectionPage','depositPage','salesTaxPage','incentivePage','miscellaneousPage','proShopPage','laundryPage','cashReceiptPage','dutyPage','maintenanceRequestPage','ticket25Page','ticket20Page','ticket10Page','purchasingOrderPage','purchasingRequestPage','goodsReceiptPage','goodsIssuePage','itemMovementPage','storesMovementPage','storesConsumptionPage','transferItemPage','storesBalancePage','cashRevenuePage','cashDepositAtBankPage','otherCashReceiptPage','duesFromOwnerPage','houseFundPage','cashExpensesPage','advancedPaymentCashPage','employeeLoanCashPage','distributionPage','cashInventoryPage','denominationOfCurrencyPage','backUpPage','compactRepairPage','shiftPage','trialBalancePage','dailyWorkSheetPage','sisterCompanyPage','otherActivityPage','logOutPage'].forEach(id=>{
     const pg = document.getElementById(id);
@@ -3166,7 +3166,8 @@ gpmToggle = function(){
   function getCurrentMargin(){
     const sb = document.getElementById('gpmSidebar');
     if(!sb) return 0;
-    if(window.innerWidth <= 768) return 52;
+    // On mobile, sidebar is hidden (slide-in), so pages take full width
+    if(window.innerWidth <= 768) return 0;
     return sb.classList.contains('collapsed') ? 52 : 240;
   }
 
@@ -3186,13 +3187,25 @@ gpmToggle = function(){
     // Force margin and ensure the page sits correctly
     pg.style.marginLeft = getCurrentMargin() + 'px';
     pg.style.marginRight = '0';
-    // On mobile: cap width so nothing overflows the viewport
+    // On mobile: full viewport width and height — sidebar is slide-in, so no offset needed
     if(window.innerWidth <= 768){
-      pg.style.maxWidth = (window.innerWidth - 52) + 'px';
-      pg.style.width = (window.innerWidth - 52) + 'px';
+      pg.style.maxWidth = '100vw';
+      pg.style.width = '100vw';
+      pg.style.height = '100vh';
+      pg.style.minHeight = '100vh';
+      pg.style.top = '0';
+      pg.style.left = '0';
+      pg.style.right = '0';
+      pg.style.bottom = '0';
     } else {
       pg.style.maxWidth = '';
       pg.style.width = '';
+      pg.style.height = '';
+      pg.style.minHeight = '';
+      pg.style.top = '';
+      pg.style.left = '';
+      pg.style.right = '';
+      pg.style.bottom = '';
     }
   }
 
@@ -3208,6 +3221,14 @@ gpmToggle = function(){
           if(isVisible){
             hideAllPagesExcept(pg.id);
             applyPageStyling(pg);
+            // Auto-close the mobile sidebar and reset drill state when ANY page opens
+            const sb = document.getElementById('gpmSidebar');
+            if(sb){
+              sb.classList.remove('gpm-drill-1','gpm-drill-2','mob-open');
+              const ov = document.getElementById('gpmMobOverlay');
+              if(ov) ov.classList.remove('show');
+              document.body.style.overflow = '';
+            }
           }
           break;
         }
@@ -25288,6 +25309,418 @@ function logOutFsToast(msg,type='success'){
 
 
 
+
+
+<!-- ════════════════════════════════════════════════════════════
+     UDEMY-STYLE DRILL-DOWN SIDEBAR NAVIGATION
+     ─ Replaces accordion with slide-in panels
+     ─ Works on both desktop (sidebar visible) and mobile (slide-in)
+     ─ Builds drill-down panels at runtime from existing DOM
+═════════════════════════════════════════════════════════════ -->
+<style id="gpmDrillStyles">
+/* The sidebar becomes a stacked container of horizontal panels */
+.gpm-sidebar{ overflow:hidden !important; }
+
+/* Each drill panel — fills the sidebar, slides in/out via transform */
+.gpm-dpanel{
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:#fff;
+  display:flex; flex-direction:column;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  will-change:transform;
+  overflow:hidden;
+  z-index:2;
+}
+.gpm-dpanel-scroll{
+  flex:1;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:#c8cfe0 transparent;
+}
+.gpm-dpanel-scroll::-webkit-scrollbar{ width:4px; }
+.gpm-dpanel-scroll::-webkit-scrollbar-thumb{ background:#c8cfe0; border-radius:2px; }
+
+/* Panel positions: root visible, sub off-screen-right, ready to slide in */
+.gpm-dpanel.gpm-dpanel-root   { transform:translateX(0); z-index:1; }
+.gpm-dpanel.gpm-dpanel-sub    { transform:translateX(100%); z-index:2; }
+.gpm-dpanel.gpm-dpanel-nsub   { transform:translateX(100%); z-index:3; }
+
+/* When root is "pushed" (sub is visible), root slides off to the left */
+.gpm-sidebar.gpm-drill-1 .gpm-dpanel-root{ transform:translateX(-100%); }
+.gpm-sidebar.gpm-drill-1 .gpm-dpanel-sub { transform:translateX(0); }
+
+/* When nsub is visible, push both root and sub off */
+.gpm-sidebar.gpm-drill-2 .gpm-dpanel-root{ transform:translateX(-100%); }
+.gpm-sidebar.gpm-drill-2 .gpm-dpanel-sub { transform:translateX(-100%); }
+.gpm-sidebar.gpm-drill-2 .gpm-dpanel-nsub{ transform:translateX(0); }
+
+/* Header inside non-root panels — back button + title */
+.gpm-dhead{
+  display:flex; align-items:center; gap:10px;
+  padding:14px 12px;
+  background:linear-gradient(135deg,#1a3a6e,#2563eb);
+  color:#fff;
+  flex-shrink:0;
+  min-height:58px;
+  direction:ltr;
+  border-bottom:1px solid rgba(255,255,255,.1);
+}
+.gpm-dback{
+  width:32px; height:32px; border-radius:8px;
+  background:rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.25);
+  color:#fff; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem;
+  flex-shrink:0;
+  transition:background .15s;
+}
+.gpm-dback:hover{ background:rgba(255,255,255,.32); }
+.gpm-dtitle{
+  flex:1;
+  font-family:'Tajawal',sans-serif;
+  font-size:.9rem; font-weight:700;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  display:flex; align-items:center; gap:8px;
+}
+.gpm-dtitle-ico{ font-size:1.1rem; }
+
+/* Items inside drill panels — same look as existing items so style stays consistent */
+.gpm-ditem{
+  display:flex; align-items:center; gap:10px; width:100%;
+  padding:11px 14px; border:none; background:none; cursor:pointer;
+  font-family:'Tajawal',sans-serif; font-size:.85rem; font-weight:600;
+  color:#1e293b; transition:background .15s,color .15s;
+  text-align:left; white-space:nowrap; overflow:hidden;
+  border-bottom:1px solid #eef0f5;
+  direction:ltr;
+}
+.gpm-ditem:hover{ background:#f0f6ff; color:#2563eb; }
+.gpm-ditem .si-ico{ font-size:16px; flex-shrink:0; width:22px; text-align:center; }
+.gpm-ditem-lbl{ flex:1; overflow:hidden; text-overflow:ellipsis; }
+/* Chevron for items that have children */
+.gpm-ditem-arr{
+  font-size:.8rem; color:#94a3b8; flex-shrink:0;
+  margin-left:4px;
+}
+.gpm-ditem.has-children:hover .gpm-ditem-arr{ color:#2563eb; }
+
+/* Group divider inside the root panel */
+.gpm-ddiv{ height:1px; background:#e8ecf5; margin:0; }
+
+/* Bottom dictionary button stays at bottom of root panel only */
+.gpm-dpanel-root .gpm-dict-sb{ margin:10px; flex-shrink:0; }
+
+/* ── DESKTOP: hide flyout (we don't use it anymore) and original groups ── */
+@media(min-width:769px){
+  .gpm-flyout{ display:none !important; }
+  .gpm-sidebar > .gpm-group,
+  .gpm-sidebar > .gpm-gdiv,
+  .gpm-sidebar > .gpm-dict-sb{ display:none !important; }
+}
+
+/* ── MOBILE: sidebar slides in from the LEFT (page-wrap is LTR) ── */
+@media(max-width:768px){
+  /* Sidebar is HIDDEN by default — slides in only when mob-open */
+  .gpm-sidebar{
+    position:fixed !important;
+    top:0; left:0;
+    width:280px !important;
+    max-width:85vw;
+    height:100vh; height:100dvh;
+    z-index:1001;
+    transform:translateX(-100%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);
+    box-shadow:4px 0 30px rgba(0,0,0,.25);
+  }
+  .gpm-sidebar.mob-open{
+    transform:translateX(0) !important;
+    width:280px !important;
+  }
+
+  /* Hide originals on mobile too — drill panel takes over */
+  .gpm-sidebar > .gpm-group,
+  .gpm-sidebar > .gpm-gdiv,
+  .gpm-sidebar > .gpm-dict-sb{ display:none !important; }
+
+  /* Main content takes full width on mobile (no sidebar margin) */
+  .gpm-main-content{
+    margin-left:0 !important;
+    max-width:100vw !important;
+    width:100% !important;
+  }
+
+  /* Mobile overlay — dim background while sidebar is open */
+  .gpm-mob-overlay{
+    z-index:1000;
+    background:rgba(0,0,0,.5);
+  }
+}
+
+/* On desktop when sidebar collapsed (52px), drill panels hidden */
+.gpm-sidebar.collapsed #gpmDrillWrap{ display:none; }
+.gpm-sidebar.collapsed .gpm-sb-header{ justify-content:center; padding:13px 8px; }
+
+/* ── MOBILE: Full-screen pages must take entire viewport ── */
+@media(max-width:768px){
+  /* All full-screen pages (those with inline position:fixed) take the whole viewport */
+  [id$="Page"][style*="position:fixed"],
+  [id$="Page"][style*="position: fixed"]{
+    margin-left:0 !important;
+    margin-right:0 !important;
+    left:0 !important;
+    right:0 !important;
+    top:0 !important;
+    bottom:0 !important;
+    width:100vw !important;
+    max-width:100vw !important;
+    height:100vh !important;
+    height:100dvh !important;
+    min-height:100vh !important;
+  }
+}
+</style>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   DRILL-DOWN SIDEBAR — Build & Behavior
+═════════════════════════════════════════════════════════════ */
+(function(){
+  function buildDrillSidebar(){
+    const sb = document.getElementById('gpmSidebar');
+    if(!sb) return;
+    if(sb.dataset.drillBuilt === '1') return;
+
+    // Collect all original groups WITHIN the sidebar
+    const groups = Array.from(sb.querySelectorAll(':scope > .gpm-group'));
+    if(!groups.length) return;
+
+    // ── Build root panel (level 0): list of all groups ──
+    const rootPanel = document.createElement('div');
+    rootPanel.className = 'gpm-dpanel gpm-dpanel-root';
+    const rootScroll = document.createElement('div');
+    rootScroll.className = 'gpm-dpanel-scroll';
+    rootPanel.appendChild(rootScroll);
+
+    // ── Build sub panel (level 1) ──
+    const subPanel = document.createElement('div');
+    subPanel.className = 'gpm-dpanel gpm-dpanel-sub';
+    const subHeader = document.createElement('div');
+    subHeader.className = 'gpm-dhead';
+    subHeader.style.cursor = 'pointer';
+    subHeader.onclick = function(e){
+      // Only trigger when clicking the header itself (not children that might handle click)
+      gpmDrillBack(1);
+    };
+    subHeader.innerHTML = '<button type="button" class="gpm-dback" aria-label="رجوع">‹</button><div class="gpm-dtitle"><span class="gpm-dtitle-ico" id="gpmSubIco"></span><span id="gpmSubTitle"></span></div>';
+    const subScroll = document.createElement('div');
+    subScroll.className = 'gpm-dpanel-scroll';
+    subPanel.appendChild(subHeader);
+    subPanel.appendChild(subScroll);
+
+    // ── Build nsub panel (level 2) ──
+    const nsubPanel = document.createElement('div');
+    nsubPanel.className = 'gpm-dpanel gpm-dpanel-nsub';
+    const nsubHeader = document.createElement('div');
+    nsubHeader.className = 'gpm-dhead';
+    nsubHeader.style.cursor = 'pointer';
+    nsubHeader.onclick = function(e){
+      gpmDrillBack(2);
+    };
+    nsubHeader.innerHTML = '<button type="button" class="gpm-dback" aria-label="رجوع">‹</button><div class="gpm-dtitle"><span class="gpm-dtitle-ico" id="gpmNsubIco"></span><span id="gpmNsubTitle"></span></div>';
+    const nsubScroll = document.createElement('div');
+    nsubScroll.className = 'gpm-dpanel-scroll';
+    nsubPanel.appendChild(nsubHeader);
+    nsubPanel.appendChild(nsubScroll);
+
+    // ── Populate root panel: a row per group ──
+    groups.forEach((grp, gi) => {
+      const gb = grp.querySelector(':scope > .gpm-gb');
+      if(!gb) return;
+      const ico = (gb.querySelector('.gb-ico')?.textContent || '').trim();
+      const lbl = (gb.querySelector('.gb-lbl')?.textContent || '').trim();
+
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'gpm-ditem has-children';
+      row.innerHTML = '<span class="si-ico">' + ico + '</span><span class="gpm-ditem-lbl">' + lbl + '</span><span class="gpm-ditem-arr">›</span>';
+      row.addEventListener('click', () => openSubPanel(gi, ico, lbl));
+      rootScroll.appendChild(row);
+
+      const divider = document.createElement('div');
+      divider.className = 'gpm-ddiv';
+      rootScroll.appendChild(divider);
+    });
+
+    // ── Re-attach the dictionary button at the bottom of root panel ──
+    const dictBtn = sb.querySelector(':scope > .gpm-dict-sb');
+    if(dictBtn){
+      const dictClone = dictBtn.cloneNode(true);
+      dictClone.style.cssText += ';margin:10px;width:calc(100% - 20px);display:flex';
+      rootPanel.appendChild(dictClone);
+    }
+
+    function openSubPanel(gi, ico, lbl){
+      const grp = groups[gi];
+      subScroll.innerHTML = '';
+      const subIco = document.getElementById('gpmSubIco');
+      const subTtl = document.getElementById('gpmSubTitle');
+      if(subIco) subIco.textContent = ico;
+      if(subTtl) subTtl.textContent = lbl;
+
+      const sub = grp.querySelector(':scope > .gpm-sub');
+      if(!sub){ sb.classList.add('gpm-drill-1'); return; }
+
+      Array.from(sub.children).forEach(node => {
+        if(node.classList.contains('gpm-si')){
+          renderLeafButton(node, subScroll);
+        } else if(node.classList.contains('gpm-sl')){
+          const nsub = node.nextElementSibling;
+          const sIco = (node.querySelector('.si-ico')?.textContent || '').trim();
+          const sLbl = node.textContent.replace(/[▼▲›‹]/g,'').trim();
+          if(nsub && nsub.classList.contains('gpm-nsub')){
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'gpm-ditem has-children';
+            row.innerHTML = '<span class="si-ico">' + sIco + '</span><span class="gpm-ditem-lbl">' + sLbl + '</span><span class="gpm-ditem-arr">›</span>';
+            row.addEventListener('click', () => openNsubPanel(nsub, sIco, sLbl));
+            subScroll.appendChild(row);
+          }
+        } else if(node.classList.contains('gpm-sdiv')){
+          const d = document.createElement('div');
+          d.className = 'gpm-ddiv';
+          subScroll.appendChild(d);
+        }
+      });
+
+      sb.classList.remove('gpm-drill-2');
+      sb.classList.add('gpm-drill-1');
+      subScroll.scrollTop = 0;
+    }
+
+    function openNsubPanel(nsubEl, ico, lbl){
+      nsubScroll.innerHTML = '';
+      const nIco = document.getElementById('gpmNsubIco');
+      const nTtl = document.getElementById('gpmNsubTitle');
+      if(nIco) nIco.textContent = ico;
+      if(nTtl) nTtl.textContent = lbl;
+
+      Array.from(nsubEl.children).forEach(node => {
+        if(node.classList.contains('gpm-nsi')){
+          renderLeafButton(node, nsubScroll);
+        }
+      });
+
+      sb.classList.add('gpm-drill-2');
+      nsubScroll.scrollTop = 0;
+    }
+
+    function renderLeafButton(srcBtn, target){
+      const ico = (srcBtn.querySelector('.si-ico')?.textContent || '').trim();
+      // Strip the icon from the label text
+      const fullText = srcBtn.textContent || '';
+      const lbl = fullText.replace(ico, '').trim();
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'gpm-ditem';
+      row.innerHTML = '<span class="si-ico">' + ico + '</span><span class="gpm-ditem-lbl">' + lbl + '</span>';
+      row.addEventListener('click', () => {
+        try { srcBtn.click(); } catch(err){ console.error(err); }
+        // Always close the mobile sidebar AND reset drill state to root
+        if(typeof gpmMobClose === 'function') gpmMobClose();
+        sb.classList.remove('gpm-drill-1','gpm-drill-2');
+      });
+      target.appendChild(row);
+    }
+
+    // ── Insert drill panels into sidebar ──
+    const header = sb.querySelector(':scope > .gpm-sb-header');
+    const userBar = sb.querySelector(':scope > #sbUserBar');
+    const ctoggle = sb.querySelector(':scope > .gpm-ctoggle');
+
+    const drillWrap = document.createElement('div');
+    drillWrap.id = 'gpmDrillWrap';
+    drillWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;width:100%';
+    drillWrap.appendChild(rootPanel);
+    drillWrap.appendChild(subPanel);
+    drillWrap.appendChild(nsubPanel);
+
+    let insertAfter = ctoggle || userBar || header;
+    if(insertAfter && insertAfter.nextSibling){
+      sb.insertBefore(drillWrap, insertAfter.nextSibling);
+    } else {
+      sb.appendChild(drillWrap);
+    }
+
+    sb.dataset.drillBuilt = '1';
+  }
+
+  // ── Public: back navigation ──
+  window.gpmDrillBack = function(level){
+    const sb = document.getElementById('gpmSidebar');
+    if(!sb) return;
+    if(level === 2){
+      sb.classList.remove('gpm-drill-2');
+    } else if(level === 1){
+      sb.classList.remove('gpm-drill-1','gpm-drill-2');
+    }
+  };
+
+  // ── Disable old accordion handlers ──
+  window.gpmGb = function(){};
+  window.gpmSlToggle = function(){};
+
+  // ── Build on DOM ready ──
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', buildDrillSidebar);
+  } else {
+    buildDrillSidebar();
+  }
+
+  // ── Reset drill state when crossing the mobile/desktop breakpoint ──
+  let _wasMobile = window.innerWidth <= 768;
+  window.addEventListener('resize', () => {
+    const isM = window.innerWidth <= 768;
+    if(isM !== _wasMobile){
+      _wasMobile = isM;
+      const sb = document.getElementById('gpmSidebar');
+      if(sb){
+        sb.classList.remove('gpm-drill-1','gpm-drill-2','mob-open');
+        const ov = document.getElementById('gpmMobOverlay');
+        if(ov) ov.classList.remove('show');
+        document.body.style.overflow = '';
+      }
+    }
+  });
+
+  // ── Mobile menu trigger button (hamburger) — appears on mobile only ──
+  function ensureMobileTrigger(){
+    if(document.getElementById('gpmMobTrigger')) return;
+    const btn = document.createElement('button');
+    btn.id = 'gpmMobTrigger';
+    btn.type = 'button';
+    btn.setAttribute('aria-label','فتح القائمة');
+    btn.innerHTML = '☰';
+    btn.style.cssText = 'display:none;position:fixed;top:10px;left:10px;width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;border:none;font-size:1.3rem;font-weight:700;cursor:pointer;z-index:998;box-shadow:0 4px 14px rgba(37,99,235,.35);align-items:center;justify-content:center';
+    btn.addEventListener('click', () => {
+      if(typeof gpmMobOpen === 'function') gpmMobOpen();
+    });
+    document.body.appendChild(btn);
+
+    const triggerStyle = document.createElement('style');
+    triggerStyle.textContent = '@media(max-width:768px){#gpmMobTrigger{display:flex !important;}}';
+    document.head.appendChild(triggerStyle);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ensureMobileTrigger);
+  } else {
+    ensureMobileTrigger();
+  }
+})();
+</script>
 
 
 </body>
