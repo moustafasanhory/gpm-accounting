@@ -1055,20 +1055,106 @@ async function sbPush(table, record) {
 }
 
 
-/* Auto-hide welcome screen when any page opens */
+/* ════════════════════════════════════════════════════════════
+   WELCOME AS HOME PAGE
+   ─ Welcome screen is now the always-on default home page
+   ─ It shows whenever no other full-screen page is visible
+   ─ It hides when any page opens, and reappears when all close
+═════════════════════════════════════════════════════════════ */
 (function() {
-  function hideWelcomeIfPageOpens() {
+  function isAnyPageOpen() {
+    var pages = document.querySelectorAll('div[id$="Page"]');
+    for (var i = 0; i < pages.length; i++) {
+      var p = pages[i];
+      if (p.id === 'gpmWelcome') continue;
+      var d = p.style.display;
+      if (d === 'block' || d === 'flex') return true;
+      if (d === '' && getComputedStyle(p).display !== 'none' && p.offsetParent !== null) return true;
+    }
+    return false;
+  }
+
+  function ensureWelcomeExists() {
+    if (document.getElementById('gpmWelcome')) return;
+    var w = document.createElement('div');
+    w.id = 'gpmWelcome';
+    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:rtl;font-family:Tajawal,sans-serif;transition:margin-left .3s';
+    w.innerHTML = '<div style="text-align:center;max-width:600px;padding:40px"><div style="width:120px;height:120px;margin:0 auto 30px;background:linear-gradient(135deg,#0f3460 0%,#533483 50%,#e94560 100%);border-radius:32px;display:flex;align-items:center;justify-content:center;font-size:64px;box-shadow:0 20px 60px rgba(83,52,131,.4);animation:gpmWPulse 3s ease-in-out infinite">⛳</div><h1 style="font-size:2.4rem;font-weight:900;margin:0 0 10px;background:linear-gradient(135deg,#0f3460,#533483,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Golf Porto Marina</h1><p style="font-size:1.1rem;color:#64748b;margin:0 0 28px">نظام المحاسبة المتكامل</p><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:18px;padding:24px 30px;margin-bottom:20px"><div style="font-size:1rem;color:#1e293b;font-weight:700;margin-bottom:8px">مرحباً <span id="gpmWelName" style="color:#533483"></span></div><div style="font-size:.85rem;color:#64748b;line-height:1.7">اختر من القائمة الجانبية القسم اللي عاوز تشتغل عليه</div></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">📊</span> مركز التكاليف</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">💰</span> الرواتب</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">📋</span> دليل الحسابات</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">🏦</span> البنوك</div></div></div><style>@keyframes gpmWPulse{0%,100%{box-shadow:0 20px 60px rgba(83,52,131,.4)}50%{box-shadow:0 20px 80px rgba(233,69,96,.5)}}</style>';
+    document.body.appendChild(w);
+  }
+
+  function applyWelcomeMargin(w) {
+    if (!w) return;
+    if (window.innerWidth <= 768) {
+      // Full screen on mobile — sidebar is slide-in
+      w.style.marginLeft = '0';
+      w.style.width = '100vw';
+      w.style.maxWidth = '100vw';
+    } else {
+      var sb = document.getElementById('gpmSidebar');
+      var collapsed = sb && sb.classList.contains('collapsed');
+      w.style.marginLeft = collapsed ? '52px' : '240px';
+      w.style.width = '';
+      w.style.maxWidth = '';
+    }
+  }
+
+  function showWelcome() {
+    ensureWelcomeExists();
+    var w = document.getElementById('gpmWelcome');
+    if (!w) return;
+    // Update user name if available
+    var nm = document.getElementById('gpmWelName');
+    if (nm && typeof _sbUser !== 'undefined' && _sbUser) {
+      nm.textContent = (_sbUser.user_metadata && _sbUser.user_metadata.full_name) || (_sbUser.email||'').split('@')[0] || '';
+    }
+    applyWelcomeMargin(w);
+    w.style.display = 'flex';
+  }
+
+  function hideWelcome() {
+    var w = document.getElementById('gpmWelcome');
+    if (w) w.style.display = 'none';
+  }
+
+  function syncWelcome() {
+    if (isAnyPageOpen()) {
+      hideWelcome();
+    } else {
+      showWelcome();
+    }
+  }
+
+  // Show welcome from the moment the app loads (don't wait for login)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(syncWelcome, 100); });
+  } else {
+    setTimeout(syncWelcome, 100);
+  }
+
+  // Re-sync on every change — interval catches everything
+  setInterval(syncWelcome, 200);
+
+  // Re-sync on window resize so margin stays correct
+  window.addEventListener('resize', function() {
+    var w = document.getElementById('gpmWelcome');
+    if (w && w.style.display !== 'none') applyWelcomeMargin(w);
+  });
+
+  // Public helpers
+  window.gpmShowWelcome = function() {
+    // Close any open page first
     var pages = document.querySelectorAll('div[id$="Page"]');
     pages.forEach(function(p) {
-      if (p.style.display === 'block' || (p.style.display === '' && getComputedStyle(p).display !== 'none')) {
-        var w = document.getElementById('gpmWelcome');
-        if (w && p.id !== 'gpmWelcome') w.style.display = 'none';
+      if (p.id !== 'gpmWelcome' && p.style.display !== 'none') {
+        p.style.display = 'none';
       }
     });
-  }
-  /* Watch for page display changes */
-  setInterval(hideWelcomeIfPageOpens, 500);
+    showWelcome();
+  };
+  window.gpmHideWelcome = hideWelcome;
 })();
+
 
 </script>
 
@@ -1076,8 +1162,8 @@ async function sbPush(table, record) {
 <div class="gpm-page-wrap">
 <div class="gpm-sidebar" id="gpmSidebar">
   <div class="gpm-sb-header">
-    <div class="gpm-sb-logo">⛳</div>
-    <div class="gpm-sb-title">Golf Porto Marina<small>Accounting</small></div>
+    <div class="gpm-sb-logo" onclick="gpmShowWelcome()" style="cursor:pointer" title="الصفحة الرئيسية">⛳</div>
+    <div class="gpm-sb-title" onclick="gpmShowWelcome()" style="cursor:pointer" title="الصفحة الرئيسية">Golf Porto Marina<small>Accounting</small></div>
     <button class="gpm-toggle" onclick="gpmToggle()">◀</button>
   </div>
   <!-- Supabase User Bar -->
@@ -1285,7 +1371,7 @@ async function sbPush(table, record) {
     </div>
   </div>
 
-  <button class="gpm-dict-sb" onclick="document.getElementById('dictSection').scrollIntoView({behavior:'smooth'})">
+  <button class="gpm-dict-sb" onclick="openDictionaryPage()">
     <span class="dict-lbl">📚 Dictionary</span>
   </button>
   <div style="height:16px;flex-shrink:0"></div>
@@ -1293,6 +1379,8 @@ async function sbPush(table, record) {
 
 <div class="gpm-main-content" id="gpmMain">
 <div id="app"></div>
+
+<div id="dictionaryPage" style="display:none">
 
 <header id="dictSection">
   <h1>📚 أهم الكلمات الإنجليزية</h1>
@@ -1385,6 +1473,8 @@ async function sbPush(table, record) {
   </div>
   <div class="pages" id="pages"></div>
 </div>
+
+</div><!-- /dictionaryPage -->
 
 <!-- ══════════════ CALCULATOR PANEL ══════════════ -->
 <div class="calc-overlay" id="calcOverlay" onclick="calcBgClick(event)">
@@ -25811,6 +25901,50 @@ function logOutFsToast(msg,type='success'){
 })();
 </script>
 
+
+<!-- ══════════════════════════════════════════════════════════
+     DICTIONARY PAGE — Opens only when Dictionary button clicked
+═════════════════════════════════════════════════════════════ -->
+<script>
+function openDictionaryPage(){
+  var pg = document.getElementById('dictionaryPage');
+  if(!pg) return;
+  // Apply full-screen page styling
+  var isMobile = window.innerWidth <= 768;
+  var sb = document.getElementById('gpmSidebar');
+  var marginLeft = isMobile ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
+  pg.style.position = 'fixed';
+  pg.style.top = '0';
+  pg.style.left = '0';
+  pg.style.right = '0';
+  pg.style.bottom = '0';
+  pg.style.zIndex = '800';
+  pg.style.marginLeft = marginLeft + 'px';
+  pg.style.background = '#fff';
+  pg.style.overflowY = 'auto';
+  pg.style.overflowX = 'hidden';
+  pg.style.display = 'block';
+  // Make sure the close button exists
+  if(!document.getElementById('dictCloseBtn')){
+    var btn = document.createElement('button');
+    btn.id = 'dictCloseBtn';
+    btn.type = 'button';
+    btn.innerHTML = '✕ إغلاق';
+    btn.onclick = closeDictionaryPage;
+    btn.style.cssText = 'position:sticky;top:10px;left:10px;margin:10px;padding:8px 16px;background:#fff;color:#1a3a6e;border:1px solid #1a3a6e;border-radius:8px;font-family:Tajawal,sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.1);float:left';
+    pg.insertBefore(btn, pg.firstChild);
+  }
+}
+
+function closeDictionaryPage(){
+  var pg = document.getElementById('dictionaryPage');
+  if(pg) pg.style.display = 'none';
+}
+
+// Make these functions globally callable
+window.openDictionaryPage = openDictionaryPage;
+window.closeDictionaryPage = closeDictionaryPage;
+</script>
 
 </body>
 </html>
