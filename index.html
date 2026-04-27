@@ -993,14 +993,15 @@ function _sbShowApp() {
     if (existing) { existing.style.display = 'flex'; return; }
     var w = document.createElement('div');
     w.id = 'gpmWelcome';
-    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:rtl;font-family:Tajawal,sans-serif;margin-left:240px;transition:margin-left .3s';
+    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:rtl;font-family:Tajawal,sans-serif;transition:margin-left .3s';
     w.innerHTML = '<div style="text-align:center;max-width:600px;padding:40px"><div style="width:120px;height:120px;margin:0 auto 30px;background:linear-gradient(135deg,#0f3460 0%,#533483 50%,#e94560 100%);border-radius:32px;display:flex;align-items:center;justify-content:center;font-size:64px;box-shadow:0 20px 60px rgba(83,52,131,.4);animation:gpmWPulse 3s ease-in-out infinite">&#x26F3;</div><h1 style="font-size:2.4rem;font-weight:900;margin:0 0 10px;background:linear-gradient(135deg,#0f3460,#533483,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Golf Porto Marina</h1><p style="font-size:1.1rem;color:#64748b;margin:0 0 28px">&#x646;&#x638;&#x627;&#x645; &#x627;&#x644;&#x645;&#x62D;&#x627;&#x633;&#x628;&#x629; &#x627;&#x644;&#x645;&#x62A;&#x643;&#x627;&#x645;&#x644;</p><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:18px;padding:24px 30px;margin-bottom:20px"><div style="font-size:1rem;color:#1e293b;font-weight:700;margin-bottom:8px">&#x645;&#x631;&#x62D;&#x628;&#x627;&#x064B; <span id="gpmWelName" style="color:#533483"></span></div><div style="font-size:.85rem;color:#64748b;line-height:1.7">&#x627;&#x62E;&#x62A;&#x631; &#x645;&#x646; &#x627;&#x644;&#x642;&#x627;&#x626;&#x645;&#x629; &#x627;&#x644;&#x62C;&#x627;&#x646;&#x628;&#x64A;&#x629; &#x627;&#x644;&#x642;&#x633;&#x645; &#x627;&#x644;&#x644;&#x64A; &#x639;&#x627;&#x648;&#x632; &#x62A;&#x634;&#x62A;&#x63A;&#x644; &#x639;&#x644;&#x64A;&#x647;</div></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F4CA;</span> &#x645;&#x631;&#x643;&#x632; &#x627;&#x644;&#x62A;&#x643;&#x627;&#x644;&#x64A;&#x641;</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F4B0;</span> &#x627;&#x644;&#x631;&#x648;&#x627;&#x62A;&#x628;</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F4CB;</span> &#x62F;&#x644;&#x64A;&#x644; &#x627;&#x644;&#x62D;&#x633;&#x627;&#x628;&#x627;&#x62A;</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F3E6;</span> &#x627;&#x644;&#x628;&#x646;&#x648;&#x643;</div></div></div><style>@keyframes gpmWPulse{0%,100%{box-shadow:0 20px 60px rgba(83,52,131,.4)}50%{box-shadow:0 20px 80px rgba(233,69,96,.5)}}</style>';
     document.body.appendChild(w);
     var nm = document.getElementById('gpmWelName');
     if (nm) nm.textContent = (_sbUser.user_metadata && _sbUser.user_metadata.full_name) || (_sbUser.email||'').split('@')[0] || '';
     /* Adjust margin for collapsed sidebar / mobile */
-    if (typeof isMobile === 'function' && isMobile()) w.style.marginLeft = '52px';
+    if (typeof isMobile === 'function' && isMobile()) w.style.marginLeft = '0';
     else if (typeof isCollapsed === 'function' && isCollapsed()) w.style.marginLeft = '52px';
+    else w.style.marginLeft = '240px';
   }, 500);
 }
 
@@ -3428,14 +3429,12 @@ gpmToggle = function(){
     // Any click inside a drill panel item that doesn't have children = a leaf nav
     const leaf = t.closest('.gpm-ditem');
     if(leaf && !leaf.classList.contains('has-children')){
-      // Schedule close on the next tick so the original handler fires first,
-      // then we forcibly close. Doing both immediate + delayed to be safe.
       closeSidebarFully();
       setTimeout(closeSidebarFully, 50);
       setTimeout(closeSidebarFully, 200);
     }
     // Also: clicks on any element that has onclick="open..." inside the original sidebar
-    const origItem = t.closest('.gpm-si, .gpm-nsi');
+    const origItem = t.closest('.gpm-si, .gpm-nsi, .gpm-dict-sb');
     if(origItem){
       closeSidebarFully();
       setTimeout(closeSidebarFully, 50);
@@ -25905,45 +25904,112 @@ function logOutFsToast(msg,type='success'){
 <!-- ══════════════════════════════════════════════════════════
      DICTIONARY PAGE — Opens only when Dictionary button clicked
 ═════════════════════════════════════════════════════════════ -->
+<style>
+#dictionaryPage{
+  position:fixed !important;
+  top:0 !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:0 !important;
+  z-index:800 !important;
+  background:#fff;
+  overflow-y:auto;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+}
+#dictCloseBtn{
+  position:fixed;
+  top:12px;
+  z-index:850;
+  padding:9px 18px;
+  background:linear-gradient(135deg,#ef4444,#dc2626);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  font-family:Tajawal,sans-serif;
+  font-size:.9rem;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(220,38,38,.35);
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+#dictCloseBtn:hover{ background:linear-gradient(135deg,#dc2626,#b91c1c); transform:translateY(-1px); }
+/* Position close button: right side on desktop (LTR header), left on mobile */
+@media(min-width:769px){ #dictCloseBtn{ right:20px; } }
+@media(max-width:768px){ #dictCloseBtn{ right:12px; } }
+/* Add top padding so close button doesn't overlap header */
+#dictionaryPage > #dictSection{ padding-top:60px !important; }
+</style>
 <script>
 function openDictionaryPage(){
   var pg = document.getElementById('dictionaryPage');
   if(!pg) return;
-  // Apply full-screen page styling
-  var isMobile = window.innerWidth <= 768;
+  // Compute correct margin-left based on sidebar state
+  var isM = window.innerWidth <= 768;
   var sb = document.getElementById('gpmSidebar');
-  var marginLeft = isMobile ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
-  pg.style.position = 'fixed';
-  pg.style.top = '0';
-  pg.style.left = '0';
-  pg.style.right = '0';
-  pg.style.bottom = '0';
-  pg.style.zIndex = '800';
+  var marginLeft = isM ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
   pg.style.marginLeft = marginLeft + 'px';
-  pg.style.background = '#fff';
-  pg.style.overflowY = 'auto';
-  pg.style.overflowX = 'hidden';
   pg.style.display = 'block';
-  // Make sure the close button exists
+
+  // Close the sidebar / drill panels
+  if(typeof gpmCloseSidebar === 'function') gpmCloseSidebar();
+  else {
+    if(sb){ sb.classList.remove('mob-open','gpm-drill-1','gpm-drill-2'); }
+    var ov = document.getElementById('gpmMobOverlay');
+    if(ov) ov.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  // Hide welcome screen
+  var w = document.getElementById('gpmWelcome');
+  if(w) w.style.display = 'none';
+
+  // Hide any other open page
+  document.querySelectorAll('div[id$="Page"]').forEach(function(p){
+    if(p.id !== 'dictionaryPage' && p.style.display !== 'none' && p.style.display !== ''){
+      p.style.display = 'none';
+    }
+  });
+
+  // Ensure close button exists (created once, lives outside the page so it stays fixed correctly)
   if(!document.getElementById('dictCloseBtn')){
     var btn = document.createElement('button');
     btn.id = 'dictCloseBtn';
     btn.type = 'button';
     btn.innerHTML = '✕ إغلاق';
     btn.onclick = closeDictionaryPage;
-    btn.style.cssText = 'position:sticky;top:10px;left:10px;margin:10px;padding:8px 16px;background:#fff;color:#1a3a6e;border:1px solid #1a3a6e;border-radius:8px;font-family:Tajawal,sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.1);float:left';
-    pg.insertBefore(btn, pg.firstChild);
+    document.body.appendChild(btn);
+  } else {
+    document.getElementById('dictCloseBtn').style.display = 'flex';
   }
+
+  // Scroll to top
+  pg.scrollTop = 0;
 }
 
 function closeDictionaryPage(){
   var pg = document.getElementById('dictionaryPage');
   if(pg) pg.style.display = 'none';
+  var btn = document.getElementById('dictCloseBtn');
+  if(btn) btn.style.display = 'none';
+  // Welcome screen will reappear automatically via syncWelcome interval
 }
 
-// Make these functions globally callable
 window.openDictionaryPage = openDictionaryPage;
 window.closeDictionaryPage = closeDictionaryPage;
+
+// Re-position close button on resize
+window.addEventListener('resize', function(){
+  var pg = document.getElementById('dictionaryPage');
+  if(pg && pg.style.display === 'block'){
+    var isM = window.innerWidth <= 768;
+    var sb = document.getElementById('gpmSidebar');
+    var marginLeft = isM ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
+    pg.style.marginLeft = marginLeft + 'px';
+  }
+});
 </script>
 
 </body>
