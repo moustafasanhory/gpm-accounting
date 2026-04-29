@@ -2812,11 +2812,13 @@ function gpmSlToggle(el){
 
 function openChequePage(){
   const sidebar = document.getElementById('gpmSidebar');
-  const w = isMobile() ? 52 : sidebar.classList.contains('collapsed') ? 52 : 240;
+  const w = isMobile() ? 0 : sidebar.classList.contains('collapsed') ? 52 : 240;
   const pg = document.getElementById('chequePage');
-  pg.style.marginLeft = w + 'px';
+  pg.style.left = w + 'px';
+  pg.style.right = '0';
+  pg.style.marginLeft = '0';
   pg.style.display = 'block';
-  chqInit();
+  if(typeof chqFsRender === 'function') chqFsRender();
   closeFlyout();
   if(isMobile()) gpmMobClose();
 }
@@ -5749,531 +5751,563 @@ function custFsToast(msg,type='success'){
 
 
 <!-- ═══════════════════════════════════════════════
-     CHEQUE PRINT — Full Screen Page (QNB ALAHLI)
+     PRINT CHEQUE — Full Screen Page (QNB ALAHLI)
+     Same pattern as empPage / ccPage:
+       • Master sheet (table) showing all cheques
+       • Right-side drawer for add/edit/preview
 ═══════════════════════════════════════════════ -->
 <div id="chequePage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:rtl;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
 
 <style>
 #chequePage *{box-sizing:border-box}
-.chq-wrap{display:flex;height:100vh;overflow:hidden}
 
-/* ═══ List Panel (sheet style — same as Customer) ═══ */
-.chq-list-panel{
-  width:400px;flex-shrink:0;background:#fff;
-  border-left:1px solid #dde3f0;
-  display:flex;flex-direction:column;
-  box-shadow:-2px 0 12px rgba(0,0,0,.06);
+/* Top bar accent (red) for print cheque */
+#chequePage .fs-topbar{border-bottom:2px solid #fecaca}
+#chequePage .fs-topbar-ico{color:#7a0000}
+#chequePage .fs-topbar-title{color:#7a0000}
+
+/* Custom row-active (red theme) */
+#chequePage .fs-table tbody tr.fs-row-active{background:#fecaca!important;border-right:4px solid #7a0000}
+#chequePage .fs-table tbody tr:hover{background:#fee2e2}
+
+/* Status badges */
+#chequePage .chq-status{display:inline-block;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:700;font-family:'Space Mono',monospace;letter-spacing:.5px}
+#chequePage .chq-status.pending{background:rgba(217,119,6,.12);color:#d97706;border:1px solid rgba(217,119,6,.3)}
+#chequePage .chq-status.printed{background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.2)}
+#chequePage .chq-status.void{background:#f1f5f9;color:#6b7280;border:1px solid #d0d8f0}
+
+/* ─── Cheque preview inside drawer ─── */
+#chequePage .chq-type-bar{display:flex;gap:8px;margin-bottom:12px}
+#chequePage .chq-btn-type{
+  flex:1;padding:8px 12px;border-radius:8px;border:1.5px solid #fca5a5;
+  background:#fff7f7;color:#7a0000;cursor:pointer;
+  font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;
+  transition:all .15s;
 }
-.chq-list-header{
-  padding:12px 14px;border-bottom:1px solid #eef0f5;flex-shrink:0;
-  background:linear-gradient(135deg,#7a0000,#b91c1c);
-}
-.chq-list-header h3{font-size:.88rem;font-weight:800;color:#fff;margin:0 0 7px;display:flex;align-items:center;gap:8px}
-.chq-list-search{
-  width:100%;padding:6px 10px;border-radius:7px;border:none;
-  font-family:'Tajawal',sans-serif;font-size:.82rem;
-  background:rgba(255,255,255,.2);color:#fff;outline:none;
-}
-.chq-list-search::placeholder{color:rgba(255,255,255,.6)}
-.chq-list-search:focus{background:rgba(255,255,255,.3)}
+#chequePage .chq-btn-type.active{background:linear-gradient(135deg,#7a0000,#b91c1c);color:#fff;border-color:#7a0000}
 
-/* Stats bar */
-.chq-list-stats{
-  padding:8px 12px;background:#fff7f7;border-bottom:1px solid #fee2e2;
-  display:flex;gap:14px;flex-wrap:wrap;flex-shrink:0;
-}
-.chq-stat{text-align:center}
-.chq-stat-val{font-size:.92rem;font-weight:800;font-family:'Space Mono',monospace}
-.chq-stat-lbl{font-size:.65rem;color:#64748b}
-.chq-stat.total  .chq-stat-val{color:#b91c1c}
-.chq-stat.pend   .chq-stat-val{color:#d97706}
-.chq-stat.done   .chq-stat-val{color:#059669}
-.chq-stat.void   .chq-stat-val{color:#6b7280}
-
-.chq-list-body{flex:1;overflow:auto}
-
-/* Sheet table */
-.chq-sheet{width:100%;border-collapse:collapse;font-size:.78rem}
-.chq-sheet thead th{
-  position:sticky;top:0;z-index:2;
-  background:#7a0000;color:#fff;
-  padding:8px 10px;font-weight:700;
-  font-size:.72rem;white-space:nowrap;
-  border-left:1px solid rgba(255,255,255,.12);
-  text-align:right;
-}
-.chq-sheet thead th:first-child{width:32px;text-align:center}
-.chq-sheet tbody tr{cursor:pointer;transition:background .1s}
-.chq-sheet tbody tr:nth-child(even){background:#fff7f7}
-.chq-sheet tbody tr:hover{background:#fee2e2}
-.chq-sheet tbody tr.active{background:#fecaca;border-right:3px solid #b91c1c}
-.chq-sheet tbody td{
-  padding:7px 10px;border-bottom:1px solid #f1f5f9;
-  border-left:1px solid #f1f5f9;color:#1e293b;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px;
-}
-.chq-sheet tbody td:first-child{text-align:center;color:#94a3b8;font-family:'Space Mono',monospace;font-size:.68rem}
-.chq-status{display:inline-block;padding:2px 8px;border-radius:5px;font-size:.65rem;font-weight:700;font-family:'Space Mono',monospace}
-.chq-status.pending{background:rgba(217,119,6,.12);color:#d97706;border:1px solid rgba(217,119,6,.3)}
-.chq-status.printed{background:rgba(5,150,105,.1);color:#059669;border:1px solid rgba(5,150,105,.2)}
-.chq-status.void{background:#f1f5f9;color:#6b7280;border:1px solid #d0d8f0}
-.chq-list-empty{padding:24px;text-align:center;color:#94a3b8;font-size:.82rem}
-
-.chq-list-footer{padding:10px 14px;border-top:1px solid #eef0f5;background:#fff7f7;flex-shrink:0}
-.chq-add-btn{width:100%;padding:9px;border-radius:8px;border:none;cursor:pointer;
-  background:linear-gradient(135deg,#7a0000,#b91c1c);color:#fff;
-  font-family:'Tajawal',sans-serif;font-size:.85rem;font-weight:700;
-  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:7px}
-.chq-add-btn:hover{opacity:.88;transform:translateY(-1px)}
-
-/* ═══ Form Panel ═══ */
-.chq-form-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#f9f5f5}
-.chq-topbar{
-  display:flex;align-items:center;gap:12px;padding:10px 20px;
-  background:#fff;border-bottom:2px solid #fecaca;flex-shrink:0;
-  box-shadow:0 2px 8px rgba(0,0,0,.06);direction:ltr;
-}
-.chq-topbar-title{font-size:1rem;font-weight:800;color:#7a0000;flex:1;display:flex;align-items:center;gap:10px}
-.chq-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400}
-.chq-topbar-actions{display:flex;gap:8px}
-.chq-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;transition:all .15s;white-space:nowrap}
-.chq-btn-print{background:linear-gradient(135deg,#7a0000,#b91c1c);color:#fff;box-shadow:0 3px 10px rgba(122,0,0,.3)}
-.chq-btn-print:hover{box-shadow:0 5px 16px rgba(122,0,0,.45);transform:translateY(-1px)}
-.chq-btn-save{background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff}
-.chq-btn-save:hover{opacity:.88}
-.chq-btn-del{background:#fee2e2;color:#dc2626;border:1.5px solid #fca5a5}.chq-btn-del:hover{background:#fecaca}
-.chq-btn-clear{background:#f1f5f9;color:#475569;border:1.5px solid #d0d8f0}.chq-btn-clear:hover{background:#e2e8f0}
-.chq-btn-close{background:#f1f5f9;color:#475569;border:1.5px solid #d0d8f0}.chq-btn-close:hover{background:#e2e8f0}
-.chq-btn-type{background:#fff7f7;color:#7a0000;border:1.5px solid #fca5a5}
-.chq-btn-type.active{background:linear-gradient(135deg,#7a0000,#b91c1c);color:#fff;border-color:#7a0000}
-
-.chq-form-body{flex:1;overflow-y:auto;padding:16px 20px}
-
-/* Cheque type selector */
-.chq-type-bar{display:flex;gap:8px;margin-bottom:16px}
-
-/* Form grid */
-.chq-section{background:#fff;border:1px solid #fecaca;border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.04)}
-.chq-section-header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:linear-gradient(135deg,#fff7f7,#fee2e2);border-bottom:1px solid #fecaca}
-.chq-section-header h3{font-size:.85rem;font-weight:800;color:#7a0000;flex:1;margin:0}
-.chq-section-body{padding:14px 16px}
-.chq-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.chq-grid-1{display:grid;grid-template-columns:1fr;gap:12px}
-.chq-field{display:flex;flex-direction:column;gap:5px}
-.chq-field label{font-size:.72rem;font-weight:700;color:#475569;letter-spacing:.3px}
-.chq-field label .req{color:#dc2626;margin-left:3px}
-.chq-field input,.chq-field select{
-  padding:8px 12px;border:1.5px solid #fca5a5;border-radius:8px;
-  font-family:'Tajawal',sans-serif;font-size:.88rem;color:#1e293b;
-  background:#fff;outline:none;transition:border-color .15s;width:100%;
-}
-.chq-field input:focus,.chq-field select:focus{border-color:#b91c1c;box-shadow:0 0 0 3px rgba(185,28,28,.08)}
-.chq-field input[readonly]{background:#fff7f7;color:#7a0000;font-weight:700;cursor:default;border-color:#fca5a5}
-.chq-field.mono input{font-family:'Space Mono',monospace;direction:ltr;text-align:left}
-.chq-amount-words{
+#chequePage .chq-amount-words{
   background:#fff7f7;border:1px solid #fca5a5;border-radius:7px;
-  padding:8px 12px;font-size:.8rem;color:#7a0000;font-family:'Cairo',sans-serif;
+  padding:8px 12px;font-size:.78rem;color:#7a0000;font-family:'Cairo',sans-serif;
   min-height:34px;direction:rtl;
 }
 
-/* Preview */
-.chq-preview-wrap{
-  background:#fff;border:1px solid #fecaca;border-radius:12px;
-  padding:18px;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,.04);
+/* Preview wrap */
+#chequePage .chq-preview-wrap{
+  background:#fff;border:1px solid #fecaca;border-radius:10px;
+  padding:14px;margin-top:12px;box-shadow:0 2px 6px rgba(0,0,0,.04);
 }
-.chq-preview-label{
-  font-size:.65rem;text-transform:uppercase;letter-spacing:2px;
-  color:#94a3b8;margin-bottom:14px;
+#chequePage .chq-preview-label{
+  font-size:.6rem;text-transform:uppercase;letter-spacing:1.5px;
+  color:#94a3b8;margin-bottom:10px;
   display:flex;align-items:center;gap:8px;
 }
-.chq-preview-label::after{content:'';flex:1;height:1px;background:#f1f5f9}
-.chq-outer{max-width:740px;margin:0 auto;border-radius:8px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25),0 0 0 1px rgba(200,150,12,.2)}
+#chequePage .chq-preview-label::after{content:'';flex:1;height:1px;background:#f1f5f9}
+#chequePage .chq-outer{margin:0 auto;border-radius:6px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.18),0 0 0 1px rgba(200,150,12,.2)}
 
 /* ─── Classic cheque ─── */
-.chq-classic{background:linear-gradient(160deg,#f0ead0 0%,#ede5c0 40%,#e8ddb0 100%);font-family:'Cairo',sans-serif;position:relative;overflow:hidden;direction:ltr}
-.chq-classic::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 18px,rgba(200,150,12,.04) 18px,rgba(200,150,12,.04) 19px),repeating-linear-gradient(-45deg,transparent,transparent 18px,rgba(200,150,12,.04) 18px,rgba(200,150,12,.04) 19px);pointer-events:none}
+#chequePage .chq-classic{background:linear-gradient(160deg,#f0ead0 0%,#ede5c0 40%,#e8ddb0 100%);font-family:'Cairo',sans-serif;position:relative;overflow:hidden;direction:ltr}
+#chequePage .chq-classic::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 18px,rgba(200,150,12,.04) 18px,rgba(200,150,12,.04) 19px),repeating-linear-gradient(-45deg,transparent,transparent 18px,rgba(200,150,12,.04) 18px,rgba(200,150,12,.04) 19px);pointer-events:none}
 /* ─── Modern cheque ─── */
-.chq-modern{background:linear-gradient(160deg,#f5f0dc 0%,#ede8c8 40%,#e8e0b8 100%);font-family:'Cairo',sans-serif;position:relative;overflow:hidden;direction:ltr;border:8px solid #d4a940;border-radius:6px}
-.chq-modern::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(180,130,10,.05) 0%,transparent 65%),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(180,130,10,.03) 40px,rgba(180,130,10,.03) 41px);pointer-events:none}
-.chq-modern-inner-border{position:absolute;inset:4px;border:1px solid rgba(200,150,12,.3);border-radius:2px;pointer-events:none}
+#chequePage .chq-modern{background:linear-gradient(160deg,#f5f0dc 0%,#ede8c8 40%,#e8e0b8 100%);font-family:'Cairo',sans-serif;position:relative;overflow:hidden;direction:ltr;border:8px solid #d4a940;border-radius:6px}
+#chequePage .chq-modern::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,rgba(180,130,10,.05) 0%,transparent 65%),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(180,130,10,.03) 40px,rgba(180,130,10,.03) 41px);pointer-events:none}
+#chequePage .chq-modern-inner-border{position:absolute;inset:4px;border:1px solid rgba(200,150,12,.3);border-radius:2px;pointer-events:none}
 
 /* Shared cheque parts */
-.ck-topbar{background:linear-gradient(90deg,#8b0000 0%,#a00000 40%,#8b0000 100%);padding:2px 0}
-.ck-top{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 18px 8px}
-.ck-logo-wrap{display:flex;align-items:center;gap:8px}
-.ck-logo-symbol{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:5px;background:#8b0000}
-.ck-logo-symbol svg{width:28px;height:28px;fill:white}
-.ck-logo-text{display:flex;flex-direction:column;line-height:1.1}
-.ck-logo-qnb{font-weight:800;font-size:1.1rem;color:#8b0000;letter-spacing:1px}
-.ck-logo-sub{font-size:.55rem;color:#555;letter-spacing:.3px;font-weight:400}
-.ck-logo-ar{font-size:.55rem;color:#555;font-family:'Cairo',sans-serif}
-.ck-bank-center{text-align:center}
-.ck-label-cheque{font-size:.7rem;color:#444;letter-spacing:3px;text-transform:uppercase}
-.ck-bank-name-en{font-size:.55rem;color:#444;margin-top:1px}
-.ck-bank-name-ar{font-size:.6rem;color:#333;font-family:'Cairo',sans-serif;direction:rtl}
-.ck-date-area{text-align:left;direction:ltr}
-.ck-date-label{font-size:.55rem;color:#555;letter-spacing:1px;display:flex;justify-content:space-between;gap:40px}
-.ck-date-label span{color:#333}
-.ck-date-boxes{display:flex;gap:3px;margin-top:4px;direction:ltr}
-.ck-date-box{width:20px;height:22px;border-bottom:1.5px solid #8b0000;font-size:.7rem;font-family:'Space Mono',monospace;color:#333;display:flex;align-items:flex-end;justify-content:center;padding-bottom:1px;font-weight:600}
-.ck-date-sep{align-self:flex-end;padding-bottom:3px;color:#8b0000;font-weight:700;font-size:.8rem}
-.ck-mid{padding:10px 18px 6px;direction:ltr}
-.ck-row{display:flex;align-items:flex-end;gap:12px;margin-bottom:10px}
-.ck-row-label-en{font-size:.65rem;color:#555;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
-.ck-row-label-ar{font-size:.65rem;color:#444;font-family:'Cairo',sans-serif;direction:rtl;white-space:nowrap}
-.ck-line{flex:1;border-bottom:1px solid rgba(139,0,0,.35);min-width:0;height:20px;font-family:'Cairo',sans-serif;font-size:.82rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;direction:rtl;overflow:hidden;white-space:nowrap}
-.ck-amount-box{border:1.5px solid #8b0000;border-radius:3px;padding:4px 10px;min-width:90px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px}
-.ck-egp-label{font-size:.7rem;font-weight:700;color:#8b0000;letter-spacing:1px}
-.ck-amount-val{font-family:'Space Mono',monospace;font-size:.9rem;font-weight:700;color:#1a1a1a;min-height:18px}
-.ck-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-20deg);font-size:3.5rem;font-weight:900;color:rgba(139,0,0,.06);letter-spacing:4px;pointer-events:none;white-space:nowrap;font-family:'Space Mono',monospace}
-.ck-sig-row{display:flex;justify-content:space-between;align-items:flex-end;padding:4px 18px 8px}
-.ck-sig-item{display:flex;flex-direction:column;gap:2px;min-width:130px}
-.ck-sig-label-en{font-size:.55rem;color:#555;letter-spacing:1px;text-align:left}
-.ck-sig-label-ar{font-size:.6rem;color:#444;font-family:'Cairo',sans-serif;direction:rtl;text-align:right}
-.ck-sig-line{border-bottom:1px solid rgba(139,0,0,.4);height:22px;width:100%}
-.ck-sig-val{font-family:'Cairo',sans-serif;font-size:.8rem;color:#1a1a1a;border-bottom:1px solid rgba(139,0,0,.4);min-height:22px;display:flex;align-items:flex-end;padding-bottom:1px}
-.ck-micr{background:rgba(139,0,0,.06);padding:6px 18px;text-align:center;font-family:'Space Mono',monospace;font-size:.65rem;color:rgba(0,0,0,.4);letter-spacing:3px;border-top:1px solid rgba(139,0,0,.12)}
-.ck-micr-val{color:rgba(0,0,0,.55);font-size:.7rem}
+#chequePage .ck-topbar{background:linear-gradient(90deg,#8b0000 0%,#a00000 40%,#8b0000 100%);padding:2px 0}
+#chequePage .ck-top{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 14px 6px}
+#chequePage .ck-logo-wrap{display:flex;align-items:center;gap:6px}
+#chequePage .ck-logo-symbol{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:5px;background:#8b0000}
+#chequePage .ck-logo-symbol svg{width:22px;height:22px;fill:white}
+#chequePage .ck-logo-text{display:flex;flex-direction:column;line-height:1.1}
+#chequePage .ck-logo-qnb{font-weight:800;font-size:.92rem;color:#8b0000;letter-spacing:1px}
+#chequePage .ck-logo-sub{font-size:.5rem;color:#555;letter-spacing:.3px;font-weight:400}
+#chequePage .ck-logo-ar{font-size:.5rem;color:#555;font-family:'Cairo',sans-serif}
+#chequePage .ck-bank-center{text-align:center}
+#chequePage .ck-label-cheque{font-size:.62rem;color:#444;letter-spacing:2.5px;text-transform:uppercase}
+#chequePage .ck-bank-name-en{font-size:.5rem;color:#444;margin-top:1px}
+#chequePage .ck-bank-name-ar{font-size:.55rem;color:#333;font-family:'Cairo',sans-serif;direction:rtl}
+#chequePage .ck-date-area{text-align:left;direction:ltr}
+#chequePage .ck-date-label{font-size:.5rem;color:#555;letter-spacing:1px;display:flex;justify-content:space-between;gap:30px}
+#chequePage .ck-date-label span{color:#333}
+#chequePage .ck-date-boxes{display:flex;gap:2px;margin-top:3px;direction:ltr}
+#chequePage .ck-date-box{width:16px;height:18px;border-bottom:1.5px solid #8b0000;font-size:.62rem;font-family:'Space Mono',monospace;color:#333;display:flex;align-items:flex-end;justify-content:center;padding-bottom:1px;font-weight:600}
+#chequePage .ck-date-sep{align-self:flex-end;padding-bottom:2px;color:#8b0000;font-weight:700;font-size:.7rem}
+#chequePage .ck-mid{padding:8px 14px 4px;direction:ltr}
+#chequePage .ck-row{display:flex;align-items:flex-end;gap:10px;margin-bottom:8px}
+#chequePage .ck-row-label-en{font-size:.58rem;color:#555;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
+#chequePage .ck-row-label-ar{font-size:.58rem;color:#444;font-family:'Cairo',sans-serif;direction:rtl;white-space:nowrap}
+#chequePage .ck-line{flex:1;border-bottom:1px solid rgba(139,0,0,.35);min-width:0;height:18px;font-family:'Cairo',sans-serif;font-size:.74rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;direction:rtl;overflow:hidden;white-space:nowrap}
+#chequePage .ck-amount-box{border:1.5px solid #8b0000;border-radius:3px;padding:3px 8px;min-width:75px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px}
+#chequePage .ck-egp-label{font-size:.62rem;font-weight:700;color:#8b0000;letter-spacing:1px}
+#chequePage .ck-amount-val{font-family:'Space Mono',monospace;font-size:.78rem;font-weight:700;color:#1a1a1a;min-height:16px}
+#chequePage .ck-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-20deg);font-size:2.6rem;font-weight:900;color:rgba(139,0,0,.06);letter-spacing:4px;pointer-events:none;white-space:nowrap;font-family:'Space Mono',monospace}
+#chequePage .ck-sig-row{display:flex;justify-content:space-between;align-items:flex-end;padding:3px 14px 6px}
+#chequePage .ck-sig-item{display:flex;flex-direction:column;gap:2px;min-width:110px}
+#chequePage .ck-sig-label-en{font-size:.5rem;color:#555;letter-spacing:1px;text-align:left}
+#chequePage .ck-sig-label-ar{font-size:.55rem;color:#444;font-family:'Cairo',sans-serif;direction:rtl;text-align:right}
+#chequePage .ck-sig-line{border-bottom:1px solid rgba(139,0,0,.4);height:20px;width:100%}
+#chequePage .ck-sig-val{font-family:'Cairo',sans-serif;font-size:.7rem;color:#1a1a1a;border-bottom:1px solid rgba(139,0,0,.4);min-height:20px;display:flex;align-items:flex-end;padding-bottom:1px}
+#chequePage .ck-micr{background:rgba(139,0,0,.06);padding:5px 14px;text-align:center;font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(0,0,0,.4);letter-spacing:2px;border-top:1px solid rgba(139,0,0,.12)}
+#chequePage .ck-micr-val{color:rgba(0,0,0,.55);font-size:.62rem}
 /* Modern specific */
-.ck-mod-top{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px 8px}
-.ck-mod-right{text-align:right;direction:rtl}
-.ck-mod-bank-ar{font-size:.82rem;font-weight:700;color:#8b0000;font-family:'Cairo',sans-serif}
-.ck-mod-bank-en{font-size:.55rem;color:#555;letter-spacing:.5px}
-.ck-mod-date{text-align:left;direction:ltr}
-.ck-mod-date-label{display:flex;justify-content:space-between;font-size:.55rem;color:#555;gap:60px}
-.ck-mod-date-line{border-bottom:1.5px solid #8b0000;min-width:150px;height:22px;margin-top:2px;font-family:'Space Mono',monospace;font-size:.78rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;font-weight:600}
-.ck-mod-mid{padding:8px 20px 6px}
-.ck-mod-row{display:flex;align-items:flex-end;gap:8px;margin-bottom:8px;direction:ltr}
-.ck-mod-lbl-en{font-size:.62rem;color:#555;white-space:nowrap;letter-spacing:.5px}
-.ck-mod-lbl-ar{font-size:.62rem;color:#444;font-family:'Cairo',sans-serif;direction:rtl;white-space:nowrap}
-.ck-mod-line{flex:1;border-bottom:1.5px solid rgba(139,0,0,.4);height:20px;min-width:0;font-family:'Cairo',sans-serif;font-size:.82rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;direction:rtl;overflow:hidden;white-space:nowrap}
-.ck-mod-egp{border:1.5px solid #8b0000;border-radius:3px;padding:4px 14px;min-width:80px;text-align:center;font-weight:700;font-size:.9rem;color:#8b0000;letter-spacing:1px}
-.ck-mod-amount-row{display:flex;align-items:center;gap:8px;direction:ltr;margin-bottom:8px}
-.ck-mod-amount-line{flex:1;border-bottom:1.5px solid rgba(139,0,0,.4);height:20px;font-family:'Space Mono',monospace;font-size:.82rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;direction:ltr}
-.ck-mod-sig{display:flex;justify-content:space-between;align-items:flex-end;padding:4px 20px 10px}
-.ck-mod-sig-item{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:150px}
-.ck-mod-sig-line{border-bottom:1px solid rgba(139,0,0,.4);width:150px;height:24px;font-family:'Cairo',sans-serif;font-size:.8rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:2px;justify-content:center}
-.ck-mod-sig-lbl{font-size:.55rem;color:#555;letter-spacing:.5px}
-.ck-mod-sig-lbl-ar{font-size:.6rem;color:#444;font-family:'Cairo',sans-serif}
-.ck-security{font-size:.5rem;color:#888;margin-top:2px;text-align:center}
+#chequePage .ck-mod-top{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 14px 6px}
+#chequePage .ck-mod-right{text-align:right;direction:rtl}
+#chequePage .ck-mod-bank-ar{font-size:.7rem;font-weight:700;color:#8b0000;font-family:'Cairo',sans-serif}
+#chequePage .ck-mod-bank-en{font-size:.5rem;color:#555;letter-spacing:.5px}
+#chequePage .ck-mod-date{text-align:left;direction:ltr}
+#chequePage .ck-mod-date-label{display:flex;justify-content:space-between;font-size:.5rem;color:#555;gap:50px}
+#chequePage .ck-mod-date-line{border-bottom:1.5px solid #8b0000;min-width:120px;height:20px;margin-top:2px;font-family:'Space Mono',monospace;font-size:.7rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;font-weight:600}
+#chequePage .ck-mod-mid{padding:6px 14px 4px}
+#chequePage .ck-mod-row{display:flex;align-items:flex-end;gap:6px;margin-bottom:6px;direction:ltr}
+#chequePage .ck-mod-lbl-en{font-size:.55rem;color:#555;white-space:nowrap;letter-spacing:.5px}
+#chequePage .ck-mod-lbl-ar{font-size:.55rem;color:#444;font-family:'Cairo',sans-serif;direction:rtl;white-space:nowrap}
+#chequePage .ck-mod-line{flex:1;border-bottom:1.5px solid rgba(139,0,0,.4);height:18px;min-width:0;font-family:'Cairo',sans-serif;font-size:.74rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;direction:rtl;overflow:hidden;white-space:nowrap}
+#chequePage .ck-mod-egp{border:1.5px solid #8b0000;border-radius:3px;padding:3px 12px;min-width:65px;text-align:center;font-weight:700;font-size:.78rem;color:#8b0000;letter-spacing:1px}
+#chequePage .ck-mod-amount-row{display:flex;align-items:center;gap:6px;direction:ltr;margin-bottom:6px}
+#chequePage .ck-mod-amount-line{flex:1;border-bottom:1.5px solid rgba(139,0,0,.4);height:18px;font-family:'Space Mono',monospace;font-size:.74rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:1px;direction:ltr}
+#chequePage .ck-mod-sig{display:flex;justify-content:space-between;align-items:flex-end;padding:3px 14px 8px}
+#chequePage .ck-mod-sig-item{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:120px}
+#chequePage .ck-mod-sig-line{border-bottom:1px solid rgba(139,0,0,.4);width:120px;height:22px;font-family:'Cairo',sans-serif;font-size:.7rem;color:#1a1a1a;display:flex;align-items:flex-end;padding-bottom:2px;justify-content:center}
+#chequePage .ck-mod-sig-lbl{font-size:.5rem;color:#555;letter-spacing:.5px}
+#chequePage .ck-mod-sig-lbl-ar{font-size:.55rem;color:#444;font-family:'Cairo',sans-serif}
+#chequePage .ck-security{font-size:.45rem;color:#888;margin-top:2px;text-align:center}
 
-/* Toast */
-.chq-toast{position:fixed;bottom:24px;left:24px;background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:9999;transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none;direction:rtl}
-.chq-toast.show{transform:translateY(0);opacity:1}
-.chq-toast.success{border-right:4px solid #22c55e}
-.chq-toast.error{border-right:4px solid #ef4444}
-.chq-toast.info{border-right:4px solid #3b82f6}
-
-/* Print */
+/* ─── Print mode: hide everything except the cheque preview ─── */
 @media print{
-  #chequePage .chq-list-panel,#chequePage .chq-topbar,#chequePage .chq-section,
-  #chequePage .chq-preview-label,#chequePage .chq-type-bar{display:none!important}
-  #chequePage .chq-form-panel{overflow:visible!important}
-  #chequePage .chq-form-body{padding:0!important}
+  body > *:not(#chequePage){display:none!important}
+  #chequePage{position:static!important;background:white!important;margin:0!important;left:0!important;right:0!important;height:auto!important;overflow:visible!important}
+  #chequePage .fs-page,#chequePage .fs-topbar,#chequePage .fs-stats,
+  #chequePage .fs-toolbar,#chequePage .fs-body,#chequePage .fs-drawer-overlay,
+  #chequePage .fs-drawer-header,#chequePage .fs-drawer-actions,
+  #chequePage .chq-type-bar,#chequePage .chq-section,
+  #chequePage .chq-preview-label,#chequePage .fd-section{display:none!important}
+  #chequePage .fs-drawer{position:static!important;transform:none!important;width:100%!important;max-width:100%!important;box-shadow:none!important;height:auto!important;overflow:visible!important}
+  #chequePage .fs-drawer-body{padding:0!important;overflow:visible!important}
   #chequePage .chq-preview-wrap{border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;background:white!important}
+  #chequePage .chq-outer{box-shadow:none!important;max-width:100%!important}
   @page{margin:8mm;size:A4 landscape}
 }
 </style>
 
-<div class="chq-wrap">
+<!-- PRINT CHEQUE PAGE -->
+<div class="fs-page" id="chqFsPage">
 
-  <!-- LEFT: Cheque Sheet List -->
-  <div class="chq-list-panel">
-    <div class="chq-list-header">
-      <h3>🏦 QNB ALAHLI — الشيكات</h3>
-      <input class="chq-list-search" id="chqSearch" type="text"
-        placeholder="بحث بالاسم أو المبلغ أو رقم الشيك..."
-        oninput="chqFilterList()">
-    </div>
-    <div class="chq-list-stats">
-      <div class="chq-stat total"><div class="chq-stat-val" id="chqStatTotal">0</div><div class="chq-stat-lbl">إجمالي</div></div>
-      <div class="chq-stat pend"> <div class="chq-stat-val" id="chqStatPend">0</div><div class="chq-stat-lbl">قيد الطباعة</div></div>
-      <div class="chq-stat done"> <div class="chq-stat-val" id="chqStatDone">0</div><div class="chq-stat-lbl">مطبوعة</div></div>
-      <div class="chq-stat void"> <div class="chq-stat-val" id="chqStatVoid">0</div><div class="chq-stat-lbl">ملغاة</div></div>
-    </div>
-    <div class="chq-list-body" id="chqListBody">
-      <div class="chq-list-empty">لا توجد شيكات بعد</div>
-    </div>
-    <div class="chq-list-footer">
-      <button class="chq-add-btn" onclick="chqNew()">➕ شيك جديد</button>
-    </div>
+  <!-- Top bar -->
+  <div class="fs-topbar">
+    <span class="fs-topbar-ico">🖨️</span>
+    <div class="fs-topbar-title">طباعة الشيكات <small>Print Cheque — QNB ALAHLI</small></div>
+    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#7a0000,#b91c1c)" onclick="chqNewDrawer()">➕ شيك جديد</button>
+    <button class="fs-btn fs-btn-print" onclick="chqExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-light" onclick="closeChequePage()">✕ إغلاق</button>
   </div>
 
-  <!-- RIGHT: Form + Preview -->
-  <div class="chq-form-panel">
-    <div class="chq-topbar">
-      <div class="chq-topbar-title">
-        🏦 طباعة الشيكات — QNB ALAHLI
-        <small>Bank — Golf Porto Marina</small>
-      </div>
-      <div class="chq-topbar-actions">
-        <button class="chq-btn chq-btn-save"  onclick="chqSave()">💾 حفظ</button>
-        <button class="chq-btn chq-btn-print" onclick="chqPrint()">🖨️ طباعة</button>
-        <button class="chq-btn chq-btn-del"   onclick="chqVoid()">🚫 إلغاء</button>
-        <button class="chq-btn chq-btn-clear" onclick="chqNew()">🗑️ مسح</button>
-        <button class="chq-btn chq-btn-close" onclick="closeChequePage()">✕ إغلاق</button>
+  <!-- Stats -->
+  <div class="fs-stats" id="chqStats">
+    <div class="fs-stat"><span class="fs-stat-ico">📋</span><div><div class="fs-stat-val" id="chqStatTotal">0</div><div class="fs-stat-lbl">إجمالي الشيكات</div></div></div>
+    <div class="fs-stat"><span class="fs-stat-ico">⏳</span><div><div class="fs-stat-val" id="chqStatPend" style="color:#d97706">0</div><div class="fs-stat-lbl">قيد الطباعة</div></div></div>
+    <div class="fs-stat"><span class="fs-stat-ico">✅</span><div><div class="fs-stat-val" id="chqStatDone" style="color:#059669">0</div><div class="fs-stat-lbl">مطبوعة</div></div></div>
+    <div class="fs-stat"><span class="fs-stat-ico">🚫</span><div><div class="fs-stat-val" id="chqStatVoid" style="color:#6b7280">0</div><div class="fs-stat-lbl">ملغاة</div></div></div>
+    <div class="fs-stat"><span class="fs-stat-ico">💰</span><div><div class="fs-stat-val" id="chqStatAmount" style="color:#7a0000">—</div><div class="fs-stat-lbl">إجمالي المبالغ EGP</div></div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="fs-toolbar">
+    <input class="fs-search" id="chqFsSearch" type="text" placeholder="🔍 بحث بالمستفيد أو رقم الشيك أو المبلغ أو التاريخ..." oninput="chqFsRender()">
+    <button class="fs-chip" id="chqChipAll" onclick="chqFilterStatus('',this)">الكل</button>
+    <button class="fs-chip" id="chqChipPend" onclick="chqFilterStatus('pending',this)">قيد الطباعة</button>
+    <button class="fs-chip" id="chqChipDone" onclick="chqFilterStatus('printed',this)">مطبوعة</button>
+    <button class="fs-chip" id="chqChipVoid" onclick="chqFilterStatus('void',this)">ملغاة</button>
+    <span class="fs-count" id="chqFsCount">0 شيك</span>
+  </div>
+
+  <!-- Sheet -->
+  <div class="fs-body">
+    <table class="fs-table" id="chqFsTable">
+      <thead>
+        <tr style="background:linear-gradient(135deg,#7a0000,#b91c1c)">
+          <th style="color:#fff">#</th>
+          <th style="color:#fff">التاريخ</th>
+          <th style="color:#fff">رقم الشيك</th>
+          <th style="color:#fff">المستفيد</th>
+          <th style="color:#fff">المبلغ (EGP)</th>
+          <th style="color:#fff">اسم الحساب</th>
+          <th style="color:#fff">رقم الحساب</th>
+          <th style="color:#fff">النموذج</th>
+          <th style="color:#fff">الحالة</th>
+          <th style="color:#fff">إجراء</th>
+        </tr>
+      </thead>
+      <tbody id="chqFsTbody">
+        <tr><td colspan="10" class="fs-empty">لا توجد شيكات بعد — اضغط "شيك جديد"</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CHEQUE DRAWER -->
+<div class="fs-drawer-overlay" id="chqOverlay" onclick="chqCloseDrawer()"></div>
+<div class="fs-drawer" id="chqDrawer" style="width:640px">
+  <div class="fs-drawer-header" style="background:linear-gradient(135deg,#7a0000,#b91c1c)">
+    <button class="fs-drawer-close" onclick="chqCloseDrawer()">✕</button>
+    <div>
+      <h3 id="chqDrawerTitle">شيك جديد</h3>
+      <small>QNB ALAHLI — Print Cheque</small>
+    </div>
+  </div>
+  <div class="fs-drawer-actions">
+    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#7a0000,#b91c1c)" onclick="chqDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-print" onclick="chqDrawerPrint()">🖨️ طباعة</button>
+    <button class="fs-btn fs-btn-danger" onclick="chqDrawerVoid()">🚫 إلغاء الشيك</button>
+    <button class="fs-btn fs-btn-light" onclick="chqCloseDrawer()">إلغاء</button>
+  </div>
+  <div class="fs-drawer-body">
+
+    <!-- Type selector -->
+    <div class="chq-type-bar">
+      <button id="chqTypeBtnClassic" class="chq-btn-type active" onclick="chqSelectType('classic')">🟥 النموذج الأول</button>
+      <button id="chqTypeBtnModern"  class="chq-btn-type"        onclick="chqSelectType('modern')">🟨 النموذج الثاني</button>
+    </div>
+
+    <!-- Date & Number -->
+    <div class="fd-section">
+      <div class="fd-section-hdr" style="background:linear-gradient(135deg,#fff7f7,#fee2e2);border-bottom-color:#fecaca"><span>📅</span><h4 style="color:#7a0000">بيانات الشيك</h4></div>
+      <div class="fd-section-body">
+        <div class="fd-grid-2">
+          <div class="fd-field">
+            <label><span class="req">*</span>التاريخ</label>
+            <input type="date" id="chq_date" oninput="chqUpdatePreview()">
+          </div>
+          <div class="fd-field code">
+            <label>رقم الشيك</label>
+            <input type="text" id="chq_num" placeholder="000001234" oninput="chqUpdatePreview()">
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="chq-form-body">
-
-      <!-- Type selector -->
-      <div class="chq-type-bar">
-        <button id="chqTypeBtnClassic" class="chq-btn chq-btn-type active" onclick="chqSelectType('classic')">🟥 النموذج الأول</button>
-        <button id="chqTypeBtnModern"  class="chq-btn chq-btn-type"        onclick="chqSelectType('modern')">🟨 النموذج الثاني</button>
-      </div>
-
-      <!-- Form sections -->
-      <div class="chq-section">
-        <div class="chq-section-header"><span>📅</span><h3>بيانات الشيك</h3></div>
-        <div class="chq-section-body">
-          <div class="chq-grid-2">
-            <div class="chq-field">
-              <label><span class="req">*</span>التاريخ</label>
-              <input type="date" id="chq_date" oninput="chqUpdatePreview()">
-            </div>
-            <div class="chq-field mono">
-              <label>رقم الشيك</label>
-              <input type="text" id="chq_num" placeholder="000001234" oninput="chqUpdatePreview()">
-            </div>
+    <!-- Beneficiary -->
+    <div class="fd-section">
+      <div class="fd-section-hdr" style="background:linear-gradient(135deg,#fff7f7,#fee2e2);border-bottom-color:#fecaca"><span>👤</span><h4 style="color:#7a0000">بيانات المستفيد</h4></div>
+      <div class="fd-section-body">
+        <div class="fd-field">
+          <label><span class="req">*</span>ادفعوا لأمر / Pay To</label>
+          <input type="text" id="chq_payto" placeholder="اسم المستفيد" oninput="chqUpdatePreview()">
+        </div>
+        <div class="fd-grid-2" style="margin-top:10px">
+          <div class="fd-field money">
+            <label><span class="req">*</span>المبلغ بالأرقام (EGP)</label>
+            <input type="number" id="chq_amount" placeholder="0.00" oninput="chqUpdateAmountWords()">
+          </div>
+          <div class="fd-field">
+            <label>المبلغ بالكلمات (تلقائي)</label>
+            <div class="chq-amount-words" id="chq_words">—</div>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="chq-section">
-        <div class="chq-section-header"><span>👤</span><h3>بيانات المستفيد</h3></div>
-        <div class="chq-section-body">
-          <div class="chq-grid-1">
-            <div class="chq-field">
-              <label><span class="req">*</span>ادفعوا لأمر / Pay To</label>
-              <input type="text" id="chq_payto" placeholder="اسم المستفيد" oninput="chqUpdatePreview()">
-            </div>
+    <!-- Account info -->
+    <div class="fd-section">
+      <div class="fd-section-hdr" style="background:linear-gradient(135deg,#fff7f7,#fee2e2);border-bottom-color:#fecaca"><span>🏦</span><h4 style="color:#7a0000">بيانات الحساب</h4></div>
+      <div class="fd-section-body">
+        <div class="fd-grid-2">
+          <div class="fd-field">
+            <label>الاسم / Name</label>
+            <input type="text" id="chq_name" placeholder="اسم صاحب الحساب" oninput="chqUpdatePreview()">
           </div>
-          <div class="chq-grid-2" style="margin-top:10px">
-            <div class="chq-field">
-              <label><span class="req">*</span>المبلغ بالأرقام (EGP)</label>
-              <input type="number" id="chq_amount" placeholder="0.00" style="direction:ltr;text-align:left" oninput="chqUpdateAmountWords()">
-            </div>
-            <div class="chq-field">
-              <label>المبلغ بالكلمات (تلقائي)</label>
-              <div class="chq-amount-words" id="chq_words">—</div>
-            </div>
+          <div class="fd-field code">
+            <label>رقم الحساب (MICR)</label>
+            <input type="text" id="chq_account" placeholder="000000000" oninput="chqUpdatePreview()">
+          </div>
+        </div>
+        <div class="fd-grid-2" style="margin-top:10px">
+          <div class="fd-field code">
+            <label>رقم الفرع</label>
+            <input type="text" id="chq_branch" placeholder="0000" oninput="chqUpdatePreview()">
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="chq-section">
-        <div class="chq-section-header"><span>🏦</span><h3>بيانات الحساب</h3></div>
-        <div class="chq-section-body">
-          <div class="chq-grid-2">
-            <div class="chq-field">
-              <label>الاسم / Name</label>
-              <input type="text" id="chq_name" placeholder="اسم صاحب الحساب" oninput="chqUpdatePreview()">
+    <!-- Preview -->
+    <div class="chq-preview-wrap">
+      <div class="chq-preview-label">معاينة الشيك</div>
+      <div class="chq-outer" id="chqOuter">
+
+        <!-- Classic -->
+        <div class="chq-classic" id="chqPreviewClassic">
+          <div class="ck-topbar" style="height:3px"></div>
+          <div class="ck-watermark">QNB ALAHLI</div>
+          <div class="ck-top">
+            <div class="ck-logo-wrap">
+              <div class="ck-logo-symbol">
+                <svg viewBox="0 0 36 36"><path d="M18 3L3 12v12l15 9 15-9V12z" fill="rgba(255,255,255,0.9)"/><path d="M18 8L7 14.5v7L18 28l11-6.5v-7z" fill="#8b0000"/><circle cx="18" cy="18" r="4" fill="white"/></svg>
+              </div>
+              <div class="ck-logo-text">
+                <span class="ck-logo-qnb">QNB ALAHLI</span>
+                <span class="ck-logo-sub">QATAR NATIONAL BANK</span>
+                <span class="ck-logo-ar">بنك قطر الوطني الأهلي</span>
+              </div>
             </div>
-            <div class="chq-field mono">
-              <label>رقم الحساب (MICR)</label>
-              <input type="text" id="chq_account" placeholder="000000000" oninput="chqUpdatePreview()">
+            <div class="ck-bank-center">
+              <div class="ck-label-cheque">CHEQUE / شيك</div>
+              <div class="ck-bank-name-en">QNB ALAHLI S.A.E</div>
+              <div class="ck-bank-name-ar">شركة مساهمة مصرية</div>
+            </div>
+            <div class="ck-date-area">
+              <div class="ck-date-label"><span>DATE</span><span>التاريخ</span></div>
+              <div class="ck-date-boxes" id="chqCk1DateBoxes">
+                <div class="ck-date-box"></div><div class="ck-date-box"></div>
+                <div class="ck-date-sep">/</div>
+                <div class="ck-date-box"></div><div class="ck-date-box"></div>
+                <div class="ck-date-sep">/</div>
+                <div class="ck-date-box"></div><div class="ck-date-box"></div><div class="ck-date-box"></div><div class="ck-date-box"></div>
+              </div>
             </div>
           </div>
-          <div class="chq-grid-2" style="margin-top:10px">
-            <div class="chq-field mono">
-              <label>رقم الفرع</label>
-              <input type="text" id="chq_branch" placeholder="0000" oninput="chqUpdatePreview()">
+          <div class="ck-mid">
+            <div class="ck-row">
+              <div style="display:flex;flex-direction:column;align-items:flex-start"><div class="ck-row-label-en">PAY TO</div><div class="ck-row-label-ar">ادفعوا لأمر</div></div>
+              <div class="ck-line" id="chqCk1Payto"></div>
+              <div class="ck-amount-box"><div class="ck-egp-label">EGP</div><div class="ck-amount-val" id="chqCk1Amount"></div></div>
+            </div>
+            <div class="ck-row">
+              <div style="display:flex;flex-direction:column;align-items:flex-start"><div class="ck-row-label-en">THE SUM OF</div><div class="ck-row-label-ar">مبلغ وقدره</div></div>
+              <div class="ck-line" id="chqCk1Words"></div>
             </div>
           </div>
+          <div class="ck-sig-row">
+            <div class="ck-sig-item"><div class="ck-sig-line"></div><div class="ck-sig-label-en">SIGNATURE</div><div class="ck-sig-label-ar">توقيع</div></div>
+            <div class="ck-sig-item"><div class="ck-sig-val" id="chqCk1Name"></div><div class="ck-sig-label-en" style="text-align:right">NAME</div><div class="ck-sig-label-ar" style="text-align:left">الاسم</div></div>
+          </div>
+          <div class="ck-micr"><span class="ck-micr-val" id="chqCk1Micr">⑈000000000⑈⑆0000⑆:000000000:</span></div>
         </div>
+
+        <!-- Modern -->
+        <div class="chq-modern" id="chqPreviewModern" style="display:none">
+          <div class="chq-modern-inner-border"></div>
+          <div class="ck-watermark" style="color:rgba(180,130,10,.08)">QNB ALAHLI</div>
+          <div class="ck-mod-top">
+            <div class="ck-mod-right">
+              <div class="ck-mod-bank-ar">بنك قطر الوطني الأهلي</div>
+              <div class="ck-mod-bank-en">QNB ALAHLI S.A.E</div>
+            </div>
+            <div class="ck-bank-center">
+              <div class="ck-label-cheque" style="color:#8b0000;font-weight:700">CHEQUE شيك</div>
+            </div>
+            <div class="ck-mod-date">
+              <div class="ck-mod-date-label"><span>DATE</span><span>التاريخ</span></div>
+              <div class="ck-mod-date-line" id="chqCk2Date"></div>
+            </div>
+          </div>
+          <div class="ck-mod-mid">
+            <div class="ck-mod-row">
+              <div style="display:flex;flex-direction:column;align-items:flex-start"><div class="ck-mod-lbl-en">PAY TO</div><div class="ck-mod-lbl-ar">ادفعوا لأمر</div></div>
+              <div class="ck-mod-line" id="chqCk2Payto"></div>
+              <div class="ck-mod-egp">EGP</div>
+            </div>
+            <div class="ck-mod-amount-row">
+              <div style="display:flex;flex-direction:column;align-items:flex-start"><div class="ck-mod-lbl-en">AMOUNT</div><div class="ck-mod-lbl-ar">المبلغ</div></div>
+              <div class="ck-mod-amount-line" id="chqCk2Amount"></div>
+            </div>
+            <div class="ck-mod-row">
+              <div style="display:flex;flex-direction:column;align-items:flex-start"><div class="ck-mod-lbl-en">THE SUM OF</div><div class="ck-mod-lbl-ar">مبلغ وقدره</div></div>
+              <div class="ck-mod-line" id="chqCk2Words"></div>
+            </div>
+          </div>
+          <div class="ck-mod-sig">
+            <div class="ck-mod-sig-item"><div class="ck-mod-sig-line"></div><div class="ck-mod-sig-lbl">AUTHORIZED SIGNATURE</div><div class="ck-mod-sig-lbl-ar">التوقيع المعتمد</div></div>
+            <div class="ck-mod-sig-item"><div class="ck-mod-sig-line"></div><div class="ck-mod-sig-lbl">AUTHORIZED SIGNATURE</div><div class="ck-mod-sig-lbl-ar">التوقيع المعتمد</div></div>
+          </div>
+          <div class="ck-micr"><span class="ck-micr-val" id="chqCk2Micr">⑈000000000⑈⑆0000⑆:000000000:</span></div>
+        </div>
+
       </div>
+    </div>
 
-      <!-- Preview -->
-      <div class="chq-preview-wrap">
-        <div class="chq-preview-label">معاينة الشيك</div>
-        <div class="chq-outer">
-
-          <!-- Classic -->
-          <div class="chq-classic" id="chqPreviewClassic">
-            <div class="ck-topbar" style="height:3px"></div>
-            <div class="ck-watermark">QNB ALAHLI</div>
-            <div class="ck-top">
-              <div class="ck-logo-wrap">
-                <div class="ck-logo-symbol">
-                  <svg viewBox="0 0 36 36"><path d="M18 3L3 12v12l15 9 15-9V12z" fill="rgba(255,255,255,0.9)"/><path d="M18 8L7 14.5v7L18 28l11-6.5v-7z" fill="#8b0000"/><circle cx="18" cy="18" r="4" fill="white"/></svg>
-                </div>
-                <div class="ck-logo-text">
-                  <span class="ck-logo-qnb">QNB</span>
-                  <span class="ck-logo-sub">ALAHLI</span>
-                  <span class="ck-logo-ar">الأهلي</span>
-                </div>
-              </div>
-              <div class="ck-bank-center">
-                <div class="ck-label-cheque">Cheque · شيك</div>
-                <div class="ck-bank-name-en">Qatar National Bank ALAHLI</div>
-                <div class="ck-bank-name-ar">بنك قطر الوطني الأهلي</div>
-              </div>
-              <div class="ck-date-area">
-                <div class="ck-date-label"><span>Date</span><span style="font-family:Cairo,sans-serif;font-size:.6rem">التاريخ</span></div>
-                <div class="ck-date-boxes" id="chqCk1DateBoxes"></div>
-              </div>
-            </div>
-            <div class="ck-mid">
-              <div class="ck-row">
-                <span class="ck-row-label-en">Pay To</span>
-                <div class="ck-line" id="chqCk1Payto"></div>
-                <span class="ck-row-label-ar">إدفعوا بموجب هذا الشيك إلى</span>
-              </div>
-              <div class="ck-row">
-                <span class="ck-row-label-en">The Sum Of</span>
-                <div class="ck-line" id="chqCk1Words"></div>
-                <div class="ck-amount-box">
-                  <span class="ck-egp-label">EGP</span>
-                  <span class="ck-amount-val" id="chqCk1Amount"></span>
-                </div>
-                <span class="ck-row-label-ar">مبلغ وقدره</span>
-              </div>
-            </div>
-            <div class="ck-sig-row">
-              <div class="ck-sig-item">
-                <div class="ck-sig-label-en">Name</div>
-                <div class="ck-sig-val" id="chqCk1Name"></div>
-                <div class="ck-sig-label-ar">الاسم</div>
-              </div>
-              <div style="flex:1"></div>
-              <div class="ck-sig-item">
-                <div class="ck-sig-label-en">Signature</div>
-                <div class="ck-sig-line"></div>
-                <div class="ck-sig-label-ar">التوقيع</div>
-              </div>
-            </div>
-            <div class="ck-micr"><span class="ck-micr-val" id="chqCk1Micr">⑈00000000⑈⑆00000000⑆:00000000000000000:</span></div>
-          </div>
-
-          <!-- Modern -->
-          <div class="chq-modern" id="chqPreviewModern" style="display:none">
-            <div class="chq-modern-inner-border"></div>
-            <div class="ck-watermark" style="font-size:4rem">QNB</div>
-            <div class="ck-mod-top">
-              <div class="ck-logo-wrap">
-                <div class="ck-logo-symbol">
-                  <svg viewBox="0 0 36 36"><path d="M18 3L3 12v12l15 9 15-9V12z" fill="rgba(255,255,255,0.9)"/><path d="M18 8L7 14.5v7L18 28l11-6.5v-7z" fill="#8b0000"/><circle cx="18" cy="18" r="4" fill="white"/></svg>
-                </div>
-                <div class="ck-logo-text">
-                  <span class="ck-logo-qnb">QNB</span>
-                  <span class="ck-logo-sub">ALAHLI</span>
-                </div>
-              </div>
-              <div class="ck-mod-right">
-                <div class="ck-mod-bank-ar">بنك قطر الوطني الأهلي</div>
-                <div class="ck-mod-bank-en">Qatar National Bank ALAHLI</div>
-              </div>
-              <div class="ck-mod-date">
-                <div class="ck-mod-date-label"><span>DATE</span><span style="font-family:Cairo,sans-serif">التاريخ</span></div>
-                <div class="ck-mod-date-line" id="chqCk2Date"></div>
-              </div>
-            </div>
-            <div class="ck-mod-mid">
-              <div class="ck-mod-row">
-                <span class="ck-mod-lbl-en">AGAINST THIS CHEQUE PAY TO</span>
-                <div class="ck-mod-line" id="chqCk2Payto"></div>
-                <span class="ck-mod-lbl-ar">إدفعوا بموجب هذا الشيك</span>
-              </div>
-              <div class="ck-mod-amount-row">
-                <span class="ck-mod-lbl-en">THE SUM OF</span>
-                <div class="ck-mod-line" id="chqCk2Words"></div>
-                <span style="font-family:Cairo,sans-serif;font-size:.62rem;color:#555">مبلغ وقدره</span>
-                <div class="ck-mod-egp">EGP</div>
-              </div>
-              <div class="ck-mod-amount-row">
-                <div class="ck-mod-amount-line" id="chqCk2Amount" style="max-width:200px;color:#8b0000;font-weight:700"></div>
-              </div>
-            </div>
-            <div class="ck-mod-sig">
-              <div style="flex:1"></div>
-              <div class="ck-mod-sig-item">
-                <div class="ck-mod-sig-line" id="chqCk2Sig"></div>
-                <div class="ck-mod-sig-lbl">SIGNATURE</div>
-                <div class="ck-mod-sig-lbl-ar">التوقيع</div>
-                <div class="ck-security">Security Features Included</div>
-              </div>
-            </div>
-            <div class="ck-micr"><span class="ck-micr-val" id="chqCk2Micr">⑈00000000⑈⑆00000000⑆:00000000000000000:</span></div>
-          </div>
-
-        </div><!-- chq-outer -->
-      </div><!-- preview-wrap -->
-
-    </div><!-- form-body -->
-  </div><!-- form-panel -->
-</div><!-- chq-wrap -->
-
-<div class="chq-toast" id="chqToast"></div>
+  </div>
+</div>
+<div class="fs-toast" id="chqFsToast"></div>
 </div><!-- /chequePage -->
 
 <script>
 /* ══════════════════════════════════════════════
-   CHEQUE PAGE — Logic
+   PRINT CHEQUE — Full Sheet + Drawer pattern
 ══════════════════════════════════════════════ */
-let chqRecords   = JSON.parse(localStorage.getItem('gpm_cheques')||'[]');
-let chqCurrentId = null;
-let chqType      = 'classic';
+let chqRecords    = JSON.parse(localStorage.getItem('gpm_cheques')||'[]');
+let chqCurrentId  = null;
+let chqType       = 'classic';
+let chqStatusFilter = '';
 
-/* Arabic number words */
-const _ones=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
-const _tens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
-const _hund=['','مئة','مئتان','ثلاثمئة','أربعمئة','خمسمئة','ستمئة','سبعمئة','ثمانمئة','تسعمئة'];
-function _numToAr(n){
-  n=Math.floor(n); if(n===0)return'صفر'; if(n<0)return'سالب '+_numToAr(-n);
+/* Arabic number-to-words */
+const _chqOnes=['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة','عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+const _chqTens=['','','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+const _chqHund=['','مئة','مئتان','ثلاثمئة','أربعمئة','خمسمئة','ستمئة','سبعمئة','ثمانمئة','تسعمئة'];
+function _chqNumToAr(n){
+  n=Math.floor(n); if(n===0)return'صفر'; if(n<0)return'سالب '+_chqNumToAr(-n);
   let p=[];
-  if(n>=1000000){p.push(_numToAr(Math.floor(n/1000000))+' مليون');n%=1000000;}
-  if(n>=1000){p.push(_numToAr(Math.floor(n/1000))+' ألف');n%=1000;}
-  if(n>=100){p.push(_hund[Math.floor(n/100)]);n%=100;}
-  if(n>=20){let t=Math.floor(n/10),o=n%10;p.push(o?_ones[o]+' و'+_tens[t]:_tens[t]);}
-  else if(n>0){p.push(_ones[n]);}
+  if(n>=1000000){p.push(_chqNumToAr(Math.floor(n/1000000))+' مليون');n%=1000000;}
+  if(n>=1000){p.push(_chqNumToAr(Math.floor(n/1000))+' ألف');n%=1000;}
+  if(n>=100){p.push(_chqHund[Math.floor(n/100)]);n%=100;}
+  if(n>=20){let t=Math.floor(n/10),o=n%10;p.push(o?_chqOnes[o]+' و'+_chqTens[t]:_chqTens[t]);}
+  else if(n>0){p.push(_chqOnes[n]);}
   return p.join(' و');
 }
 
 /* ── Open / Close ── */
 function openChequePage(){
-  const sidebar=document.getElementById('gpmSidebar');
-  const w=isMobile()?52:sidebar.classList.contains('collapsed')?52:240;
-  const pg=document.getElementById('chequePage');
-  pg.style.marginLeft=w+'px';
-  pg.style.display='block';
-  chqInit();
+  const sb = document.getElementById('gpmSidebar');
+  const w  = isMobile() ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
+  const pg = document.getElementById('chequePage');
+  pg.style.left = w+'px';
+  pg.style.right = '0';
+  pg.style.marginLeft = '0';
+  pg.style.display = 'block';
+  chqFsRender();
   closeFlyout();
-  if(isMobile())gpmMobClose();
+  if(isMobile()) gpmMobClose();
 }
-function closeChequePage(){ document.getElementById('chequePage').style.display='none'; }
+function closeChequePage(){
+  document.getElementById('chequePage').style.display='none';
+  chqCloseDrawer();
+}
 
-/* ── Init ── */
-function chqInit(){
-  // set today
-  const today=new Date().toISOString().split('T')[0];
-  const df=document.getElementById('chq_date');
-  if(df&&!df.value) df.value=today;
-  const nf=document.getElementById('chq_num');
-  if(nf&&!nf.value) nf.value=String(Math.floor(Math.random()*900000)+100000).padStart(9,'0');
+/* ── Render full sheet ── */
+function chqFsRender(){
+  const q = (document.getElementById('chqFsSearch')?.value||'').toLowerCase();
+  let recs = chqRecords.filter(r =>
+    (!q || (r.payto||'').toLowerCase().includes(q) || (r.num||'').includes(q) ||
+           (r.amount||'').toString().includes(q) || (r.date||'').includes(q) ||
+           (r.name||'').toLowerCase().includes(q))
+    && (!chqStatusFilter || (r.status||'pending') === chqStatusFilter)
+  );
+
+  // Stats
+  const total  = chqRecords.length;
+  const pend   = chqRecords.filter(c=>(c.status||'pending')==='pending').length;
+  const done   = chqRecords.filter(c=>c.status==='printed').length;
+  const voidC  = chqRecords.filter(c=>c.status==='void').length;
+  const totalAmount = chqRecords
+    .filter(c=>c.status!=='void')
+    .reduce((s,c)=>s+parseFloat(c.amount||0),0);
+  document.getElementById('chqStatTotal').textContent  = total;
+  document.getElementById('chqStatPend').textContent   = pend;
+  document.getElementById('chqStatDone').textContent   = done;
+  document.getElementById('chqStatVoid').textContent   = voidC;
+  document.getElementById('chqStatAmount').textContent = totalAmount ? totalAmount.toLocaleString('en',{maximumFractionDigits:2}) : '—';
+  document.getElementById('chqFsCount').textContent    = recs.length + ' شيك';
+
+  const tbody = document.getElementById('chqFsTbody');
+  if(!recs.length){
+    tbody.innerHTML = '<tr><td colspan="10" class="fs-empty">لا توجد نتائج</td></tr>';
+    return;
+  }
+
+  const statusMap = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
+  tbody.innerHTML = recs.map((r,i)=>{
+    const status = r.status||'pending';
+    const amount = r.amount ? parseFloat(r.amount).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    const typeLabel = r.type==='modern' ? '🟨 الثاني' : '🟥 الأول';
+    return `
+    <tr class="${r.id===chqCurrentId?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
+      <td>${i+1}</td>
+      <td style="font-family:'Space Mono',monospace;font-size:.74rem;direction:ltr">${r.date||'—'}</td>
+      <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#1a3a6e;font-weight:700;direction:ltr">${r.num||'—'}</td>
+      <td style="font-weight:600;color:#1e293b">${r.payto||'—'}</td>
+      <td style="font-family:'Space Mono',monospace;direction:ltr;text-align:left;color:#7a0000;font-weight:700">${amount}</td>
+      <td style="color:#475569">${r.name||'—'}</td>
+      <td style="font-family:'Space Mono',monospace;font-size:.72rem;direction:ltr;color:#64748b">${r.account||'—'}</td>
+      <td style="font-size:.74rem">${typeLabel}</td>
+      <td><span class="chq-status ${status}">${statusMap[status]}</span></td>
+      <td>
+        <div class="fs-row-btns">
+          <button class="fs-row-btn fs-row-btn-edit" onclick="event.stopPropagation();chqOpenDrawer(${r.id})">✎</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="event.stopPropagation();chqDeleteRow(${r.id})">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Status filter chips ── */
+function chqFilterStatus(status, btn){
+  chqStatusFilter = status;
+  document.querySelectorAll('#chequePage .fs-chip').forEach(c=>c.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  chqFsRender();
+}
+
+/* ── Open drawer (new or existing) ── */
+function chqNewDrawer(){
+  chqCurrentId = null;
+  document.getElementById('chqDrawerTitle').textContent = 'شيك جديد';
+  // Reset all fields
+  ['chq_payto','chq_amount','chq_name','chq_account','chq_branch'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  // Default date today + new random number
+  const today = new Date().toISOString().split('T')[0];
+  const df = document.getElementById('chq_date'); if(df) df.value = today;
+  const nf = document.getElementById('chq_num');
+  if(nf) nf.value = String(Math.floor(Math.random()*900000)+100000).padStart(9,'0');
+  const wEl = document.getElementById('chq_words'); if(wEl) wEl.textContent='—';
+  // Default to classic
+  chqSelectType('classic');
+  // Open
+  document.getElementById('chqOverlay').classList.add('open');
+  document.getElementById('chqDrawer').classList.add('open');
   chqUpdatePreview();
-  chqRenderList();
+}
+
+function chqOpenDrawer(id){
+  const rec = chqRecords.find(r=>r.id===id);
+  if(!rec) return;
+  chqCurrentId = id;
+  document.getElementById('chqDrawerTitle').textContent = 'تعديل شيك — ' + (rec.payto||'');
+  const set=(elId,v)=>{const el=document.getElementById(elId);if(el)el.value=v||'';};
+  set('chq_date',rec.date);
+  set('chq_num',rec.num);
+  set('chq_payto',rec.payto);
+  set('chq_amount',rec.amount);
+  set('chq_name',rec.name);
+  set('chq_account',rec.account);
+  set('chq_branch',rec.branch);
+  const wEl = document.getElementById('chq_words');
+  if(wEl) wEl.textContent = rec.words || '—';
+  chqSelectType(rec.type||'classic');
+  document.getElementById('chqOverlay').classList.add('open');
+  document.getElementById('chqDrawer').classList.add('open');
+  chqUpdatePreview();
+  chqFsRender();
+}
+
+function chqCloseDrawer(){
+  document.getElementById('chqOverlay').classList.remove('open');
+  document.getElementById('chqDrawer').classList.remove('open');
 }
 
 /* ── Type selection ── */
 function chqSelectType(t){
-  chqType=t;
-  document.getElementById('chqPreviewClassic').style.display=t==='classic'?'':'none';
-  document.getElementById('chqPreviewModern').style.display=t==='modern'?'':'none';
-  document.getElementById('chqTypeBtnClassic').classList.toggle('active',t==='classic');
-  document.getElementById('chqTypeBtnModern').classList.toggle('active',t==='modern');
+  chqType = t;
+  const c = document.getElementById('chqPreviewClassic');
+  const m = document.getElementById('chqPreviewModern');
+  if(c) c.style.display = t==='classic' ? '' : 'none';
+  if(m) m.style.display = t==='modern'  ? '' : 'none';
+  document.getElementById('chqTypeBtnClassic').classList.toggle('active', t==='classic');
+  document.getElementById('chqTypeBtnModern').classList.toggle('active', t==='modern');
   chqUpdatePreview();
 }
 
-/* ── Amount words ── */
+/* ── Amount → words ── */
 function chqUpdateAmountWords(){
   const v=parseFloat(document.getElementById('chq_amount')?.value);
   const el=document.getElementById('chq_words');
-  if(!v||isNaN(v)){el.textContent='—';}
+  if(!v||isNaN(v)){ el.textContent='—'; }
   else{
     const ip=Math.floor(v),dec=Math.round((v-ip)*100);
-    let txt=_numToAr(ip)+' جنيه مصري';
-    if(dec>0)txt+=' و'+_numToAr(dec)+' قرش';
+    let txt=_chqNumToAr(ip)+' جنيه مصري';
+    if(dec>0) txt+=' و'+_chqNumToAr(dec)+' قرش';
     txt+=' فقط لا غير';
     el.textContent=txt;
   }
@@ -6282,14 +6316,14 @@ function chqUpdateAmountWords(){
 
 /* ── Live preview ── */
 function chqUpdatePreview(){
-  const date   =document.getElementById('chq_date')?.value||'';
-  const payto  =document.getElementById('chq_payto')?.value||'';
-  const amount =document.getElementById('chq_amount')?.value||'';
-  const name   =document.getElementById('chq_name')?.value||'';
-  const account=document.getElementById('chq_account')?.value||'';
-  const branch =document.getElementById('chq_branch')?.value||'';
-  const numChq =document.getElementById('chq_num')?.value||'';
-  const words  =document.getElementById('chq_words')?.textContent||'';
+  const date    = document.getElementById('chq_date')?.value||'';
+  const payto   = document.getElementById('chq_payto')?.value||'';
+  const amount  = document.getElementById('chq_amount')?.value||'';
+  const name    = document.getElementById('chq_name')?.value||'';
+  const account = document.getElementById('chq_account')?.value||'';
+  const branch  = document.getElementById('chq_branch')?.value||'';
+  const numChq  = document.getElementById('chq_num')?.value||'';
+  const words   = document.getElementById('chq_words')?.textContent||'';
 
   // Date boxes
   let [y='',m='',d='']=date?date.split('-'):[];
@@ -6313,139 +6347,118 @@ function chqUpdatePreview(){
   set('chqCk1Micr',micr); set('chqCk2Micr',micr);
 }
 
-/* ── New ── */
-function chqNew(){
-  chqCurrentId=null;
-  ['chq_payto','chq_amount','chq_name','chq_account','chq_branch'].forEach(id=>{
-    const el=document.getElementById(id); if(el) el.value='';
-  });
-  const wEl=document.getElementById('chq_words'); if(wEl) wEl.textContent='—';
-  const nf=document.getElementById('chq_num');
-  if(nf) nf.value=String(Math.floor(Math.random()*900000)+100000).padStart(9,'0');
-  chqUpdatePreview();
-  chqRenderList();
-}
-
-/* ── Collect ── */
-function chqCollect(){
-  return {
-    id:chqCurrentId||Date.now(),
-    type:chqType,
-    date:document.getElementById('chq_date')?.value||'',
-    num:document.getElementById('chq_num')?.value||'',
-    payto:document.getElementById('chq_payto')?.value||'',
-    amount:document.getElementById('chq_amount')?.value||'',
-    words:document.getElementById('chq_words')?.textContent||'',
-    name:document.getElementById('chq_name')?.value||'',
-    account:document.getElementById('chq_account')?.value||'',
-    branch:document.getElementById('chq_branch')?.value||'',
-    status:'pending',
-    created:new Date().toISOString(),
-  };
-}
-
-/* ── Save ── */
-function chqSave(){
+/* ── Save (drawer) ── */
+function chqDrawerSave(){
   const payto=document.getElementById('chq_payto')?.value;
   const amount=document.getElementById('chq_amount')?.value;
-  if(!payto||!amount){chqToast('⚠️ يرجى ملء المستفيد والمبلغ','error');return;}
-  const rec=chqCollect();
-  const idx=chqRecords.findIndex(r=>r.id===rec.id);
-  if(idx>=0) chqRecords[idx]=rec; else{chqCurrentId=rec.id;chqRecords.unshift(rec);}
-  localStorage.setItem('gpm_cheques',JSON.stringify(chqRecords));
-  chqToast('✅ تم حفظ الشيك','success');
-  chqRenderList();
+  if(!payto||!amount){
+    chqFsToast('⚠️ يرجى ملء المستفيد والمبلغ','error');
+    return;
+  }
+  const rec = {
+    id: chqCurrentId || Date.now(),
+    type: chqType,
+    date: document.getElementById('chq_date')?.value||'',
+    num:  document.getElementById('chq_num')?.value||'',
+    payto: payto,
+    amount: amount,
+    words: document.getElementById('chq_words')?.textContent||'',
+    name: document.getElementById('chq_name')?.value||'',
+    account: document.getElementById('chq_account')?.value||'',
+    branch: document.getElementById('chq_branch')?.value||'',
+    status: chqCurrentId ? (chqRecords.find(r=>r.id===chqCurrentId)?.status||'pending') : 'pending',
+    created: new Date().toISOString(),
+  };
+  const idx = chqRecords.findIndex(r=>r.id===rec.id);
+  if(idx>=0) chqRecords[idx]=rec;
+  else { chqCurrentId=rec.id; chqRecords.unshift(rec); }
+  localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+  chqFsToast('✅ تم حفظ الشيك','success');
+  chqFsRender();
 }
 
-/* ── Print ── */
-function chqPrint(){ chqUpdatePreview(); window.print(); }
-
-/* ── Void ── */
-function chqVoid(){
-  if(!chqCurrentId){chqToast('اختر شيكاً أولاً','error');return;}
-  if(!confirm('هل تريد إلغاء هذا الشيك؟'))return;
-  const idx=chqRecords.findIndex(r=>r.id===chqCurrentId);
-  if(idx>=0){chqRecords[idx].status='void';localStorage.setItem('gpm_cheques',JSON.stringify(chqRecords));}
-  chqToast('🚫 تم إلغاء الشيك','info');
-  chqRenderList();
-}
-
-/* ── Load ── */
-function chqLoad(id){
-  const rec=chqRecords.find(r=>r.id===id);
-  if(!rec)return;
-  chqCurrentId=id;
-  chqSelectType(rec.type||'classic');
-  const set=(elId,v)=>{const el=document.getElementById(elId);if(el)el.value=v||'';};
-  set('chq_date',rec.date); set('chq_num',rec.num);
-  set('chq_payto',rec.payto); set('chq_amount',rec.amount);
-  set('chq_name',rec.name); set('chq_account',rec.account); set('chq_branch',rec.branch);
-  const wEl=document.getElementById('chq_words');if(wEl)wEl.textContent=rec.words||'—';
+/* ── Print (drawer) ── */
+function chqDrawerPrint(){
+  const payto=document.getElementById('chq_payto')?.value;
+  const amount=document.getElementById('chq_amount')?.value;
+  if(!payto||!amount){
+    chqFsToast('⚠️ يرجى ملء المستفيد والمبلغ','error');
+    return;
+  }
+  // Auto-save before printing
+  chqDrawerSave();
+  // Mark as printed
+  if(chqCurrentId){
+    const idx = chqRecords.findIndex(r=>r.id===chqCurrentId);
+    if(idx>=0){
+      chqRecords[idx].status='printed';
+      localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+      chqFsRender();
+    }
+  }
   chqUpdatePreview();
-  chqRenderList();
+  setTimeout(()=>window.print(), 100);
 }
 
-/* ── Mark printed ── */
-function chqMarkPrinted(id,e){
-  e&&e.stopPropagation();
-  const idx=chqRecords.findIndex(r=>r.id===id);
-  if(idx>=0){chqRecords[idx].status='printed';localStorage.setItem('gpm_cheques',JSON.stringify(chqRecords));}
-  chqToast('🖨️ تم تمييز الشيك كمطبوع','success');
-  chqRenderList();
+/* ── Void (drawer) ── */
+function chqDrawerVoid(){
+  if(!chqCurrentId){ chqFsToast('احفظ الشيك أولاً','error'); return; }
+  if(!confirm('هل تريد إلغاء هذا الشيك؟')) return;
+  const idx = chqRecords.findIndex(r=>r.id===chqCurrentId);
+  if(idx>=0){
+    chqRecords[idx].status='void';
+    localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+  }
+  chqFsToast('🚫 تم إلغاء الشيك','info');
+  chqFsRender();
+  chqCloseDrawer();
 }
 
-/* ── Render list (spreadsheet) ── */
-function chqRenderList(){
-  const q=(document.getElementById('chqSearch')?.value||'').toLowerCase();
-  const recs=chqRecords.filter(r=>!q||(r.payto||'').includes(q)||(r.num||'').includes(q)||(r.amount||'').includes(q)||(r.date||'').includes(q));
-
-  // Stats
-  document.getElementById('chqStatTotal').textContent=chqRecords.length;
-  document.getElementById('chqStatPend').textContent=chqRecords.filter(c=>c.status==='pending').length;
-  document.getElementById('chqStatDone').textContent=chqRecords.filter(c=>c.status==='printed').length;
-  document.getElementById('chqStatVoid').textContent=chqRecords.filter(c=>c.status==='void').length;
-
-  const body=document.getElementById('chqListBody');
-  if(!recs.length){body.innerHTML='<div class="chq-list-empty">لا توجد شيكات</div>';return;}
-
-  const statusMap={pending:'قيد الطباعة',printed:'مطبوع',void:'ملغي'};
-  body.innerHTML=`
-    <table class="chq-sheet">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>التاريخ</th>
-          <th>المستفيد</th>
-          <th>المبلغ</th>
-          <th>رقم الشيك</th>
-          <th>الحالة</th>
-          <th>🖨️</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${recs.map((r,i)=>`
-          <tr class="${r.id===chqCurrentId?'active':''}" onclick="chqLoad(${r.id})">
-            <td>${i+1}</td>
-            <td style="font-family:'Space Mono',monospace;font-size:.7rem;direction:ltr">${r.date||'—'}</td>
-            <td style="font-weight:600">${r.payto||'—'}</td>
-            <td style="font-family:'Space Mono',monospace;direction:ltr;text-align:left;font-size:.72rem;color:#7a0000;font-weight:700">${r.amount?parseFloat(r.amount).toLocaleString('en',{minimumFractionDigits:2})+' EGP':'—'}</td>
-            <td style="font-family:'Space Mono',monospace;font-size:.7rem;direction:ltr">${r.num||'—'}</td>
-            <td><span class="chq-status ${r.status||'pending'}">${statusMap[r.status||'pending']}</span></td>
-            <td><button onclick="chqMarkPrinted(${r.id},event)" style="border:none;background:none;cursor:pointer;font-size:.85rem" title="تمييز كمطبوع">🖨️</button></td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
+/* ── Delete row (from sheet) ── */
+function chqDeleteRow(id){
+  if(!confirm('هل تريد حذف هذا الشيك نهائياً؟')) return;
+  chqRecords = chqRecords.filter(r=>r.id!==id);
+  localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+  if(chqCurrentId===id){ chqCurrentId=null; chqCloseDrawer(); }
+  chqFsToast('🗑️ تم الحذف','success');
+  chqFsRender();
 }
 
-function chqFilterList(){ chqRenderList(); }
+/* ── Excel export ── */
+function chqExportXL(){
+  if(!chqRecords.length){ chqFsToast('لا توجد بيانات للتصدير','error'); return; }
+  if(typeof XLSX === 'undefined'){ chqFsToast('مكتبة Excel لم تتحمل','error'); return; }
+  const statusMap = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
+  const data = chqRecords.map((r,i)=>({
+    '#': i+1,
+    'التاريخ': r.date||'',
+    'رقم الشيك': r.num||'',
+    'المستفيد': r.payto||'',
+    'المبلغ بالأرقام': r.amount||'',
+    'المبلغ بالكلمات': r.words||'',
+    'اسم الحساب': r.name||'',
+    'رقم الحساب': r.account||'',
+    'رقم الفرع': r.branch||'',
+    'النموذج': r.type==='modern' ? 'الثاني' : 'الأول',
+    'الحالة': statusMap[r.status||'pending'],
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'الشيكات');
+  XLSX.writeFile(wb, 'cheques_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  chqFsToast('✅ تم تصدير الملف','success');
+}
 
 /* ── Toast ── */
-function chqToast(msg,type='success'){
-  const t=document.getElementById('chqToast');
-  t.textContent=msg; t.className='chq-toast '+type+' show';
-  setTimeout(()=>t.classList.remove('show'),3000);
+function chqFsToast(msg, type='success'){
+  const t = document.getElementById('chqFsToast');
+  if(!t) return;
+  t.textContent = msg;
+  t.className = 'fs-toast '+type+' show';
+  setTimeout(()=>t.classList.remove('show'), 3000);
 }
 </script>
+
 
 <!-- ══════════════════════════════════════
      COST CENTER PAGE
