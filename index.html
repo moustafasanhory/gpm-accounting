@@ -1087,6 +1087,67 @@ async function sbPush(table, record) {
   try { await _sb.from(table).upsert(record, { onConflict: 'id' }); } catch(e) {}
 }
 
+/* ════════════════════════════════════════════════════════════
+   GLOBAL SUPABASE SYNC HELPERS — for "special" pages
+   (Cost Center, Vendors, Customers, Employees, Print Cheque)
+   that don't use the unified GPM_PAGES system.
+═════════════════════════════════════════════════════════════ */
+window._sbSpecialLoaded = window._sbSpecialLoaded || {};
+
+/* Pull all records from a Supabase table.
+   Returns a Promise resolving to an array (or [] on failure).
+   Records are normalized: if the row has {id, data:{...}} we unwrap data. */
+window.sbPullAll = async function(table){
+  if(!_sb || !table) return [];
+  try {
+    const { data, error } = await _sb.from(table).select('*').order('id', { ascending: false });
+    if(error){ console.warn('[sbPullAll]', table, error.message); return []; }
+    if(!Array.isArray(data)) return [];
+    return data.map(row => {
+      if(row && row.data && typeof row.data === 'object'){
+        return Object.assign({}, row.data, { id: row.id });
+      }
+      return row;
+    });
+  } catch(e){ console.warn('[sbPullAll]', e); return []; }
+};
+
+/* Push (upsert) a single record to a Supabase table.
+   Tries jsonb-style {id, data} first, falls back to flat upsert. */
+window.sbUpsert = async function(table, record){
+  if(!_sb || !table || !record) return;
+  try {
+    const payload = { id: record.id, data: record };
+    const { error } = await _sb.from(table).upsert(payload, { onConflict: 'id' });
+    if(error){
+      await _sb.from(table).upsert(record, { onConflict: 'id' });
+    }
+  } catch(e){ console.warn('[sbUpsert]', table, e); }
+};
+
+/* Delete a record by id from a Supabase table. */
+window.sbDelete = async function(table, id){
+  if(!_sb || !table || id == null) return;
+  try { await _sb.from(table).delete().eq('id', id); }
+  catch(e){ console.warn('[sbDelete]', table, e); }
+};
+
+/* Hydrate a localStorage-backed array on first page open.
+   - lsKey: localStorage key
+   - table: Supabase table name
+   - setter: function(records[]) that updates the in-memory array AND triggers a re-render
+   Only fetches once per session per table. */
+window.sbHydrate = async function(lsKey, table, setter){
+  if(!_sb || !table) return;
+  if(window._sbSpecialLoaded[table]) return;
+  window._sbSpecialLoaded[table] = true;
+  const recs = await window.sbPullAll(table);
+  if(recs && recs.length){
+    try { localStorage.setItem(lsKey, JSON.stringify(recs)); } catch(e){}
+    if(typeof setter === 'function') setter(recs);
+  }
+};
+
 
 /* ════════════════════════════════════════════════════════════
    WELCOME AS HOME PAGE
@@ -1226,11 +1287,22 @@ async function sbPush(table, record) {
       <button class="gpm-si" onclick="openOpeningBalancePage()"><span class="si-ico">📁</span>Opening Balance</button>
       <button class="gpm-si" onclick="openChartOfAccountsPage()"><span class="si-ico">📁</span>Chart of Accounts</button>
       <button class="gpm-si" onclick="openCostCenter()"><span class="si-ico">🏗️</span>Cost Center</button>
-      <button class="gpm-si" onclick="openCurrencyExchangePage()"><span class="si-ico">📁</span>Currency Exchange</button>
+      <button class="gpm-si" onclick="openProfitCenterPage()"><span class="si-ico">🏗️</span>Profit Center</button>
+      <button class="gpm-si" onclick="openCurrencyExchangePage()"><span class="si-ico">💱</span>Currency Exchange</button>
+      <button class="gpm-si" onclick="openCurrencyPage()"><span class="si-ico">💱</span>Currency</button>
       <button class="gpm-si" onclick="openItemsPage()"><span class="si-ico">📁</span>Items</button>
       <button class="gpm-si" onclick="openVendors()"><span class="si-ico">🏭</span>Vendors</button>
       <button class="gpm-si" onclick="openEmployees()"><span class="si-ico">👤</span>Employees</button>
       <button class="gpm-si" onclick="openCustomers()"><span class="si-ico">🏘️</span>Customers</button>
+      <button class="gpm-si" onclick="openCompanyCodePage()"><span class="si-ico">🏢</span>Company Code</button>
+      <button class="gpm-si" onclick="openDocumentTypePage()"><span class="si-ico">📄</span>Document Type</button>
+      <button class="gpm-si" onclick="openStoresListPage()"><span class="si-ico">🏪</span>Stores List</button>
+      <button class="gpm-si" onclick="openMatrialGroupPage()"><span class="si-ico">📦</span>Material Group</button>
+      <button class="gpm-si" onclick="openMatrialItemPage()"><span class="si-ico">🧾</span>Material Item</button>
+      <button class="gpm-si" onclick="openTypeRevenuePage()"><span class="si-ico">💵</span>Type Revenue</button>
+      <button class="gpm-si" onclick="openCashierListPage()"><span class="si-ico">👨‍💼</span>Cashier List</button>
+      <button class="gpm-si" onclick="openPaymentListPage()"><span class="si-ico">💳</span>Payment List</button>
+      <button class="gpm-si" onclick="openPostingKeyPage()"><span class="si-ico">🔑</span>Posting Key</button>
     </div>
   </div><div class="gpm-gdiv"></div>
 
@@ -1248,6 +1320,7 @@ async function sbPush(table, record) {
     <button class="gpm-gb" onclick="gpmGb(this)"><span class="gb-ico">🏢</span><span class="gb-lbl">Assets</span><span class="gb-arr">▼</span></button>
     <div class="gpm-sub">
       <button class="gpm-si" onclick="openAssetRegisterPage()"><span class="si-ico">📁</span>Asset Register</button>
+      <button class="gpm-si" onclick="openAssetsCategoryPage()"><span class="si-ico">🗂️</span>Assets Category</button>
       <button class="gpm-si" onclick="openRunDepreciationPage()"><span class="si-ico">📁</span>Run Depreciation</button>
       <button class="gpm-si" onclick="openAssetsHistoryPage()"><span class="si-ico">📁</span>Assets History</button>
     </div>
@@ -1276,6 +1349,7 @@ async function sbPush(table, record) {
       <button class="gpm-si" onclick="openBankPositionPage()"><span class="si-ico">📁</span>Bank Position</button>
       <button class="gpm-si" onclick="openOutgoingChequePage()"><span class="si-ico">📁</span>Outgoing Cheque</button>
       <button class="gpm-si" onclick="openChequePage()"><span class="si-ico">🖨️</span>Print Cheque</button>
+      <button class="gpm-si" onclick="openMissingChequePage()"><span class="si-ico">🧾</span>Missing Cheque</button>
     </div>
   </div><div class="gpm-gdiv"></div>
 
@@ -1344,16 +1418,17 @@ async function sbPush(table, record) {
       <div class="gpm-sdiv"></div>
       <div class="gpm-sl" onclick="gpmSlToggle(this)"><span class="si-ico">❓</span>Missing<span class="sl-arr">▼</span></div>
       <div class="gpm-nsub">
-      <button class="gpm-nsi" onclick="openMiscellaneousPage()"><span class="si-ico">📋</span>Miscellaneous</button>
-      <button class="gpm-nsi"><span class="si-ico">📋</span>Food &amp; Beverage</button>
+      <button class="gpm-nsi" onclick="openFoodBavaregaPage()"><span class="si-ico">🍽️</span>Food &amp; Beverage</button>
+      <button class="gpm-nsi" onclick="openGolfOreationPage()"><span class="si-ico">⛳</span>Golf Operation</button>
       <button class="gpm-nsi" onclick="openProShopPage()"><span class="si-ico">📋</span>Pro Shop</button>
-      <button class="gpm-nsi" onclick="openLaundryPage()"><span class="si-ico">📋</span>Laundry</button>
       <button class="gpm-nsi" onclick="openCashReceiptPage()"><span class="si-ico">📋</span>Cash Receipt</button>
       <button class="gpm-nsi" onclick="openDutyPage()"><span class="si-ico">📋</span>Duty</button>
+      <button class="gpm-nsi" onclick="openLaundryPage()"><span class="si-ico">📋</span>Laundry</button>
+      <button class="gpm-nsi" onclick="openMiscellaneousPage()"><span class="si-ico">📋</span>Miscellaneous</button>
       <button class="gpm-nsi" onclick="openMaintenanceRequestPage()"><span class="si-ico">📋</span>Maintenance Request</button>
-      <button class="gpm-nsi" onclick="openTicket25Page()"><span class="si-ico">🎫</span>Ticket 25</button>
-      <button class="gpm-nsi" onclick="openTicket20Page()"><span class="si-ico">🎫</span>Ticket 20</button>
       <button class="gpm-nsi" onclick="openTicket10Page()"><span class="si-ico">🎫</span>Ticket 10</button>
+      <button class="gpm-nsi" onclick="openTicket20Page()"><span class="si-ico">🎫</span>Ticket 20</button>
+      <button class="gpm-nsi" onclick="openTicket25Page()"><span class="si-ico">🎫</span>Ticket 25</button>
       </div>
     </div>
   </div><div class="gpm-gdiv"></div>
@@ -1405,7 +1480,9 @@ async function sbPush(table, record) {
     <div class="gpm-sub">
       <button class="gpm-si" onclick="openTrialBalancePage()"><span class="si-ico">📊</span>Trial Balance</button>
       <button class="gpm-si" onclick="openDailyWorkSheetPage()"><span class="si-ico">📊</span>Daily Work Sheet</button>
+      <button class="gpm-si" onclick="openDepositReportPage()"><span class="si-ico">📊</span>Deposit</button>
       <button class="gpm-si" onclick="openSisterCompanyPage()"><span class="si-ico">📊</span>Sister Company</button>
+      <button class="gpm-si" onclick="openBusinessInsurancePage()"><span class="si-ico">🛡️</span>Business Insurance</button>
       <button class="gpm-si" onclick="openOtherActivityPage()"><span class="si-ico">📊</span>Other Activity</button>
     </div>
   </div>
@@ -4933,6 +5010,12 @@ function openEmployees(){
   pg.style.display = 'block';
   empFsRender();
   closeFlyout();
+  if(window.sbHydrate){
+    window.sbHydrate('gpm_emp_records', 'emploee_code', recs => {
+      empRecords = recs;
+      empFsRender();
+    });
+  }
 }
 function closeEmployees(){
   document.getElementById('empPage').style.display='none';
@@ -5068,6 +5151,7 @@ function empDrawerSave(){
   const idx=empRecords.findIndex(r=>r.id===rec.id);
   if(idx>=0) empRecords[idx]=rec; else{ empCurrentId=rec.id; empRecords.push(rec); }
   localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
+  if(window.sbUpsert) window.sbUpsert('emploee_code', rec);
   empFsToast('✅ تم حفظ بيانات الموظف','success');
   empCloseDrawer();
   empFsRender();
@@ -5077,8 +5161,10 @@ function empDrawerDelete(){
   if(!empCurrentId){ empFsToast('لم يتم اختيار موظف','error'); return; }
   const rec=empRecords.find(r=>r.id===empCurrentId);
   if(!confirm(`حذف "${rec?.['اسم_الموظف']||'هذا الموظف'}"؟`)) return;
+  const delId=empCurrentId;
   empRecords=empRecords.filter(r=>r.id!==empCurrentId);
   localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
+  if(window.sbDelete) window.sbDelete('emploee_code', delId);
   empFsToast('🗑️ تم حذف الموظف','success');
   empCurrentId=null;
   empCloseDrawer();
@@ -5090,6 +5176,7 @@ function empQuickDelete(id){
   if(!confirm(`حذف "${rec?.['اسم_الموظف']||'هذا الموظف'}"؟`)) return;
   empRecords=empRecords.filter(r=>r.id!==id);
   localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
+  if(window.sbDelete) window.sbDelete('emploee_code', id);
   if(empCurrentId===id){ empCurrentId=null; empCloseDrawer(); }
   empFsToast('🗑️ تم الحذف','success');
   empFsRender();
@@ -5223,6 +5310,12 @@ function openVendors(){
   pg.style.display='block';
   vndFsRender();
   closeFlyout();
+  if(window.sbHydrate){
+    window.sbHydrate('gpm_vnd_records', 'vendors_list', recs => {
+      vndRecords = recs;
+      vndFsRender();
+    });
+  }
 }
 function closeVendors(){ document.getElementById('vendorPage').style.display='none'; vndCloseDrawer(); }
 
@@ -5358,6 +5451,7 @@ function vndDrawerSave(){
   const idx=vndRecords.findIndex(r=>r.id===rec.id);
   if(idx>=0) vndRecords[idx]=rec; else{ vndCurrentId=rec.id; vndRecords.push(rec); }
   localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
+  if(window.sbUpsert) window.sbUpsert('vendors_list', rec);
   vndFsToast('✅ تم حفظ بيانات المورد','success');
   vndCloseDrawer();
   vndFsRender();
@@ -5367,10 +5461,12 @@ function vndDrawerDelete(){
   if(!vndCurrentId){ vndFsToast('لم يتم اختيار مورد','error'); return; }
   const rec=vndRecords.find(r=>r.id===vndCurrentId);
   if(!confirm(`حذف "${rec?.['اسم_الشركة']||'هذا المورد'}"؟`)) return;
+  const delId=vndCurrentId;
   vndRecords=vndRecords.filter(r=>r.id!==vndCurrentId);
   delete vndAttachments[vndCurrentId];
   localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
   localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
+  if(window.sbDelete) window.sbDelete('vendors_list', delId);
   vndFsToast('🗑️ تم الحذف','success');
   vndCurrentId=null; vndCloseDrawer(); vndFsRender();
 }
@@ -5382,6 +5478,7 @@ function vndQuickDelete(id){
   delete vndAttachments[id];
   localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
   localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
+  if(window.sbDelete) window.sbDelete('vendors_list', id);
   if(vndCurrentId===id){ vndCurrentId=null; vndCloseDrawer(); }
   vndFsToast('🗑️ تم الحذف','success'); vndFsRender();
 }
@@ -5512,6 +5609,12 @@ function openCustomers(){
   pg.style.display='block';
   custFsRender();
   closeFlyout();
+  if(window.sbHydrate){
+    window.sbHydrate('gpm_cust_records', 'customer_list', recs => {
+      custRecords = recs;
+      custFsRender();
+    });
+  }
 }
 function closeCustomers(){ document.getElementById('custPage').style.display='none'; custCloseDrawer(); }
 
@@ -5662,6 +5765,7 @@ function custDrawerSave(){
   const idx=custRecords.findIndex(r=>r.id===rec.id);
   if(idx>=0) custRecords[idx]=rec; else{ custCurrentId=rec.id; custRecords.push(rec); }
   localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
+  if(window.sbUpsert) window.sbUpsert('customer_list', rec);
   custFsToast('✅ تم حفظ بيانات العميل','success');
   custCloseDrawer();
   custFsRender();
@@ -5671,8 +5775,10 @@ function custDrawerDelete(){
   if(!custCurrentId){ custFsToast('لم يتم اختيار عميل','error'); return; }
   const rec=custRecords.find(r=>r.id===custCurrentId);
   if(!confirm(`حذف "${rec?.['اسم_العميل']||'هذا العميل'}"؟`)) return;
+  const delId=custCurrentId;
   custRecords=custRecords.filter(r=>r.id!==custCurrentId);
   localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
+  if(window.sbDelete) window.sbDelete('customer_list', delId);
   custFsToast('🗑️ تم الحذف','success');
   custCurrentId=null; custCloseDrawer(); custFsRender();
 }
@@ -5682,6 +5788,7 @@ function custQuickDelete(id){
   if(!confirm(`حذف "${rec?.['اسم_العميل']||'هذا العميل'}"؟`)) return;
   custRecords=custRecords.filter(r=>r.id!==id);
   localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
+  if(window.sbDelete) window.sbDelete('customer_list', id);
   if(custCurrentId===id){ custCurrentId=null; custCloseDrawer(); }
   custFsToast('🗑️ تم الحذف','success'); custFsRender();
 }
@@ -6155,6 +6262,12 @@ function openChequePage(){
   chqFsRender();
   closeFlyout();
   if(isMobile()) gpmMobClose();
+  if(window.sbHydrate){
+    window.sbHydrate('gpm_cheques', 'print_cheque', recs => {
+      chqRecords = recs;
+      chqFsRender();
+    });
+  }
 }
 function closeChequePage(){
   document.getElementById('chequePage').style.display='none';
@@ -6361,6 +6474,7 @@ function chqDrawerSave(){
   if(idx>=0) chqRecords[idx]=rec;
   else { chqCurrentId=rec.id; chqRecords.unshift(rec); }
   localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+  if(window.sbUpsert) window.sbUpsert('print_cheque', rec);
   chqFsToast('✅ تم حفظ الشيك','success');
   chqFsRender();
 }
@@ -6381,6 +6495,7 @@ function chqDrawerPrint(){
     if(idx>=0){
       chqRecords[idx].status='printed';
       localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+      if(window.sbUpsert) window.sbUpsert('print_cheque', chqRecords[idx]);
       chqFsRender();
     }
   }
@@ -6396,6 +6511,7 @@ function chqDrawerVoid(){
   if(idx>=0){
     chqRecords[idx].status='void';
     localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+    if(window.sbUpsert) window.sbUpsert('print_cheque', chqRecords[idx]);
   }
   chqFsToast('🚫 تم إلغاء الشيك','info');
   chqFsRender();
@@ -6407,6 +6523,7 @@ function chqDeleteRow(id){
   if(!confirm('هل تريد حذف هذا الشيك نهائياً؟')) return;
   chqRecords = chqRecords.filter(r=>r.id!==id);
   localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+  if(window.sbDelete) window.sbDelete('print_cheque', id);
   if(chqCurrentId===id){ chqCurrentId=null; chqCloseDrawer(); }
   chqFsToast('🗑️ تم الحذف','success');
   chqFsRender();
@@ -6539,6 +6656,12 @@ function openCostCenter(){
   pg.style.display = 'block';
   ccFsRender();
   closeFlyout();
+  if(window.sbHydrate){
+    window.sbHydrate('gpm_cc_records', 'cost_center', recs => {
+      ccRecords = recs;
+      ccFsRender();
+    });
+  }
 }
 function closeCostCenter(){
   document.getElementById('ccPage').style.display='none';
@@ -6683,6 +6806,7 @@ function ccDrawerSave(){
   const idx=ccRecords.findIndex(r=>r.id===rec.id);
   if(idx>=0) ccRecords[idx]=rec; else{ ccCurrentId=rec.id; ccRecords.push(rec); }
   localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
+  if(window.sbUpsert) window.sbUpsert('cost_center', rec);
   ccFsToast('✅ تم حفظ مركز التكلفة','success');
   ccCloseDrawer();
   ccFsRender();
@@ -6692,8 +6816,10 @@ function ccDrawerDelete(){
   if(!ccCurrentId){ ccFsToast('لم يتم اختيار مركز تكلفة','error'); return; }
   const rec=ccRecords.find(r=>r.id===ccCurrentId);
   if(!confirm(`حذف "${rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'هذا المركز'}"؟`)) return;
+  const delId=ccCurrentId;
   ccRecords=ccRecords.filter(r=>r.id!==ccCurrentId);
   localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
+  if(window.sbDelete) window.sbDelete('cost_center', delId);
   ccFsToast('🗑️ تم حذف مركز التكلفة','success');
   ccCurrentId=null;
   ccCloseDrawer();
@@ -6705,6 +6831,7 @@ function ccQuickDelete(id){
   if(!confirm(`حذف "${rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'هذا المركز'}"؟`)) return;
   ccRecords=ccRecords.filter(r=>r.id!==id);
   localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
+  if(window.sbDelete) window.sbDelete('cost_center', id);
   if(ccCurrentId===id){ ccCurrentId=null; ccCloseDrawer(); }
   ccFsToast('🗑️ تم الحذف','success');
   ccFsRender();
@@ -7506,6 +7633,7 @@ window.addEventListener('resize', function(){
     "color2": "#533483",
     "lsKey": "gpm_openingBalance_records",
     "prefix": "openingBalance",
+    "sbTable": "opening_balance",
     "fields": [
       "Account_Code",
       "Account_Name",
@@ -7551,6 +7679,7 @@ window.addEventListener('resize', function(){
     "color2": "#2563eb",
     "lsKey": "gpm_chartOfAccounts_records",
     "prefix": "chartOfAccounts",
+    "sbTable": "chart_of_account",
     "fields": [
       "Account_No",
       "Account_Name_AR",
@@ -7591,6 +7720,7 @@ window.addEventListener('resize', function(){
     "color2": "#d97706",
     "lsKey": "gpm_currencyExchange_records",
     "prefix": "currencyExchange",
+    "sbTable": "currency_exchange",
     "fields": [
       "Currency",
       "Currency_Name_AR",
@@ -7680,6 +7810,7 @@ window.addEventListener('resize', function(){
     "color2": "#2563eb",
     "lsKey": "gpm_journalVoucher_records",
     "prefix": "journalVoucher",
+    "sbTable": "journal_voucher_posting",
     "fields": [
       "Voucher_No",
       "Date",
@@ -7968,6 +8099,7 @@ window.addEventListener('resize', function(){
     "color2": "#2563eb",
     "lsKey": "gpm_assetsHistory_records",
     "prefix": "assetsHistory",
+    "sbTable": "assets_history",
     "fields": [
       "Asset_No",
       "Asset_Name",
@@ -8008,6 +8140,7 @@ window.addEventListener('resize', function(){
     "color2": "#16a34a",
     "lsKey": "gpm_albarakaBankStmt_records",
     "prefix": "albarakaBankStmt",
+    "sbTable": "albaraka_bank_088179_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8050,6 +8183,7 @@ window.addEventListener('resize', function(){
     "color2": "#2563eb",
     "lsKey": "gpm_cib1BankStmt_records",
     "prefix": "cib1BankStmt",
+    "sbTable": "cib_6156000496_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8092,6 +8226,7 @@ window.addEventListener('resize', function(){
     "color2": "#3b82f6",
     "lsKey": "gpm_cib2BankStmt_records",
     "prefix": "cib2BankStmt",
+    "sbTable": "cib_6156000512_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8134,6 +8269,7 @@ window.addEventListener('resize', function(){
     "color2": "#3b82f6",
     "lsKey": "gpm_cib3BankStmt_records",
     "prefix": "cib3BankStmt",
+    "sbTable": "cib_6156000520_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8176,6 +8312,7 @@ window.addEventListener('resize', function(){
     "color2": "#dc2626",
     "lsKey": "gpm_qnb1BankStmt_records",
     "prefix": "qnb1BankStmt",
+    "sbTable": "qnb_20313324343_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8218,6 +8355,7 @@ window.addEventListener('resize', function(){
     "color2": "#ef4444",
     "lsKey": "gpm_qnb2BankStmt_records",
     "prefix": "qnb2BankStmt",
+    "sbTable": "qnb_20314997353_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8260,6 +8398,7 @@ window.addEventListener('resize', function(){
     "color2": "#e11d48",
     "lsKey": "gpm_qnb3BankStmt_records",
     "prefix": "qnb3BankStmt",
+    "sbTable": "qnb_20318068252_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8302,6 +8441,7 @@ window.addEventListener('resize', function(){
     "color2": "#f43f5e",
     "lsKey": "gpm_qnb4BankStmt_records",
     "prefix": "qnb4BankStmt",
+    "sbTable": "qnb_20318068267_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8344,6 +8484,7 @@ window.addEventListener('resize', function(){
     "color2": "#f87171",
     "lsKey": "gpm_qnb5BankStmt_records",
     "prefix": "qnb5BankStmt",
+    "sbTable": "qnb_20315898901_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8386,6 +8527,7 @@ window.addEventListener('resize', function(){
     "color2": "#ca8a04",
     "lsKey": "gpm_adib1BankStmt_records",
     "prefix": "adib1BankStmt",
+    "sbTable": "adib_100001107450_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -8428,6 +8570,7 @@ window.addEventListener('resize', function(){
     "color2": "#d97706",
     "lsKey": "gpm_adib2BankStmt_records",
     "prefix": "adib2BankStmt",
+    "sbTable": "adib_100001121162_egp",
     "fields": [
       "Txn_No",
       "Date",
@@ -9347,6 +9490,7 @@ window.addEventListener('resize', function(){
     "color2": "#16a34a",
     "lsKey": "gpm_dailyInvoice_records",
     "prefix": "dailyInvoice",
+    "sbTable": "daily_invoice",
     "fields": [
       "Ref_No",
       "Date",
@@ -10007,6 +10151,7 @@ window.addEventListener('resize', function(){
     "color2": "#94a3b8",
     "lsKey": "gpm_miscellaneous_records",
     "prefix": "miscellaneous",
+    "sbTable": "miscellaneous",
     "fields": [
       "Ref_No",
       "Date",
@@ -10051,6 +10196,7 @@ window.addEventListener('resize', function(){
     "color2": "#16a34a",
     "lsKey": "gpm_proShop_records",
     "prefix": "proShop",
+    "sbTable": "pro_shop",
     "fields": [
       "Ref_No",
       "Date",
@@ -10095,6 +10241,7 @@ window.addEventListener('resize', function(){
     "color2": "#0891b2",
     "lsKey": "gpm_laundry_records",
     "prefix": "laundry",
+    "sbTable": "luandry",
     "fields": [
       "Ref_No",
       "Date",
@@ -10139,6 +10286,7 @@ window.addEventListener('resize', function(){
     "color2": "#d97706",
     "lsKey": "gpm_cashReceipt_records",
     "prefix": "cashReceipt",
+    "sbTable": "cash_receipt",
     "fields": [
       "Ref_No",
       "Date",
@@ -10183,6 +10331,7 @@ window.addEventListener('resize', function(){
     "color2": "#2563eb",
     "lsKey": "gpm_duty_records",
     "prefix": "duty",
+    "sbTable": "duty",
     "fields": [
       "Ref_No",
       "Date",
@@ -10227,6 +10376,7 @@ window.addEventListener('resize', function(){
     "color2": "#8b5cf6",
     "lsKey": "gpm_maintenanceRequest_records",
     "prefix": "maintenanceRequest",
+    "sbTable": "maintenance_request",
     "fields": [
       "Ref_No",
       "Date",
@@ -10271,6 +10421,7 @@ window.addEventListener('resize', function(){
     "color2": "#16a34a",
     "lsKey": "gpm_ticket25_records",
     "prefix": "ticket25",
+    "sbTable": "ticket_25",
     "fields": [
       "Ref_No",
       "Date",
@@ -10315,6 +10466,7 @@ window.addEventListener('resize', function(){
     "color2": "#3b82f6",
     "lsKey": "gpm_ticket20_records",
     "prefix": "ticket20",
+    "sbTable": "ticket_20",
     "fields": [
       "Ref_No",
       "Date",
@@ -10359,6 +10511,7 @@ window.addEventListener('resize', function(){
     "color2": "#7c3aed",
     "lsKey": "gpm_ticket10_records",
     "prefix": "ticket10",
+    "sbTable": "ticket_10",
     "fields": [
       "Ref_No",
       "Date",
@@ -11559,6 +11712,7 @@ window.addEventListener('resize', function(){
     "color2": "#7c3aed",
     "lsKey": "gpm_sisterCompany_records",
     "prefix": "sisterCompany",
+    "sbTable": "sister_company",
     "fields": [
       "Ref_No",
       "Date",
@@ -11638,12 +11792,235 @@ window.addEventListener('resize', function(){
       "Cost Center",
       "Status"
     ]
+  },
+  /* ════════ NEW PAGES (added by sync feature) ════════ */
+  "profitCenterPage": {
+    "icon": "🏗️",
+    "titleAr": "مراكز الربح",
+    "titleEn": "Profit Center",
+    "color1": "#0e7490",
+    "color2": "#0891b2",
+    "lsKey": "gpm_profitCenter_records",
+    "prefix": "profitCenter",
+    "sbTable": "profit_center",
+    "fields": ["Profit_Ctr_Code","Short_text","Company_Ar","Company_Code","Person_Responsible","User_Resp","Language","Valid_From","To","Notes"],
+    "sections": [["🏗️","بيانات مركز الربح"],["👤","المسؤوليات"],["📅","الصلاحية"]],
+    "columns": ["Profit Code","Short Text","Company AR","Company Code","Person Resp.","User Resp.","Language","Valid From","To"]
+  },
+  "currencyPage": {
+    "icon": "💱",
+    "titleAr": "العملات",
+    "titleEn": "Currency",
+    "color1": "#b45309",
+    "color2": "#f59e0b",
+    "lsKey": "gpm_currency_records",
+    "prefix": "currency",
+    "sbTable": "currency",
+    "fields": ["Currency_Code","Currency_Name_AR","Currency_Name_EN","Symbol","Decimals","Status","Notes"],
+    "sections": [["💱","بيانات العملة"],["📝","ملاحظات"]],
+    "columns": ["Code","Name AR","Name EN","Symbol","Decimals","Status"]
+  },
+  "companyCodePage": {
+    "icon": "🏢",
+    "titleAr": "أكواد الشركات",
+    "titleEn": "Company Code",
+    "color1": "#1e3a8a",
+    "color2": "#3b82f6",
+    "lsKey": "gpm_companyCode_records",
+    "prefix": "companyCode",
+    "sbTable": "company_code",
+    "fields": ["Company_Code","Company_Name_AR","Company_Name_EN","Country","Currency","Tax_ID","Address","Phone","Status","Notes"],
+    "sections": [["🏢","بيانات الشركة"],["📞","الاتصال والضرائب"]],
+    "columns": ["Code","Name AR","Name EN","Country","Currency","Tax ID","Status"]
+  },
+  "documentTypePage": {
+    "icon": "📄",
+    "titleAr": "أنواع المستندات",
+    "titleEn": "Document Type",
+    "color1": "#7c2d12",
+    "color2": "#c2410c",
+    "lsKey": "gpm_documentType_records",
+    "prefix": "documentType",
+    "sbTable": "document_type",
+    "fields": ["Doc_Type_Code","Doc_Type_AR","Doc_Type_EN","Number_Range","Module","Status","Notes"],
+    "sections": [["📄","بيانات المستند"],["📝","ملاحظات"]],
+    "columns": ["Code","Name AR","Name EN","Number Range","Module","Status"]
+  },
+  "storesListPage": {
+    "icon": "🏪",
+    "titleAr": "المخازن",
+    "titleEn": "Stores List",
+    "color1": "#065f46",
+    "color2": "#10b981",
+    "lsKey": "gpm_storesList_records",
+    "prefix": "storesList",
+    "sbTable": "stores_list",
+    "fields": ["Store_Code","Store_Name_AR","Store_Name_EN","Location","Manager","Phone","Status","Notes"],
+    "sections": [["🏪","بيانات المخزن"],["👤","المسؤول والاتصال"]],
+    "columns": ["Code","Name AR","Name EN","Location","Manager","Phone","Status"]
+  },
+  "matrialGroupPage": {
+    "icon": "📦",
+    "titleAr": "مجموعات الأصناف",
+    "titleEn": "Material Group",
+    "color1": "#581c87",
+    "color2": "#8b5cf6",
+    "lsKey": "gpm_matrialGroup_records",
+    "prefix": "matrialGroup",
+    "sbTable": "matrial_group",
+    "fields": ["Group_Code","Group_Name_AR","Group_Name_EN","Parent_Group","Status","Notes"],
+    "sections": [["📦","بيانات المجموعة"],["📝","ملاحظات"]],
+    "columns": ["Code","Name AR","Name EN","Parent","Status"]
+  },
+  "matrialItemPage": {
+    "icon": "🧾",
+    "titleAr": "أصناف المواد",
+    "titleEn": "Material Item",
+    "color1": "#0c4a6e",
+    "color2": "#0284c7",
+    "lsKey": "gpm_matrialItem_records",
+    "prefix": "matrialItem",
+    "sbTable": "matrial_item",
+    "fields": ["Item_Code","Item_Name_AR","Item_Name_EN","Group_Code","Unit","Barcode","Unit_Price","Stock_Qty","Status","Notes"],
+    "sections": [["🧾","بيانات الصنف"],["💰","التسعير والمخزون"]],
+    "columns": ["Code","Name AR","Name EN","Group","Unit","Price","Qty","Status"]
+  },
+  "typeRevenuePage": {
+    "icon": "💵",
+    "titleAr": "أنواع الإيرادات",
+    "titleEn": "Type Revenue",
+    "color1": "#14532d",
+    "color2": "#16a34a",
+    "lsKey": "gpm_typeRevenue_records",
+    "prefix": "typeRevenue",
+    "sbTable": "type_revenue",
+    "fields": ["Revenue_Code","Revenue_Name_AR","Revenue_Name_EN","Account_Code","Status","Notes"],
+    "sections": [["💵","بيانات نوع الإيراد"],["📝","ملاحظات"]],
+    "columns": ["Code","Name AR","Name EN","Account","Status"]
+  },
+  "cashierListPage": {
+    "icon": "👨‍💼",
+    "titleAr": "قائمة الكاشير",
+    "titleEn": "Cashier List",
+    "color1": "#831843",
+    "color2": "#db2777",
+    "lsKey": "gpm_cashierList_records",
+    "prefix": "cashierList",
+    "sbTable": "cashier_list",
+    "fields": ["Cashier_Code","Cashier_Name_AR","Cashier_Name_EN","Outlet","Shift","Phone","Status","Notes"],
+    "sections": [["👨‍💼","بيانات الكاشير"],["🏢","المحل والوردية"]],
+    "columns": ["Code","Name AR","Name EN","Outlet","Shift","Phone","Status"]
+  },
+  "paymentListPage": {
+    "icon": "💳",
+    "titleAr": "طرق الدفع",
+    "titleEn": "Payment List",
+    "color1": "#4c1d95",
+    "color2": "#7c3aed",
+    "lsKey": "gpm_paymentList_records",
+    "prefix": "paymentList",
+    "sbTable": "payment_list",
+    "fields": ["Payment_Code","Payment_Name_AR","Payment_Name_EN","Type","Account_Code","Status","Notes"],
+    "sections": [["💳","بيانات طريقة الدفع"],["📝","ملاحظات"]],
+    "columns": ["Code","Name AR","Name EN","Type","Account","Status"]
+  },
+  "postingKeyPage": {
+    "icon": "🔑",
+    "titleAr": "مفاتيح الترحيل",
+    "titleEn": "Posting Key",
+    "color1": "#78350f",
+    "color2": "#d97706",
+    "lsKey": "gpm_postingKey_records",
+    "prefix": "postingKey",
+    "sbTable": "posting_key",
+    "fields": ["Key_Code","Key_Name_AR","Key_Name_EN","Debit_Credit","Account_Type","Status","Notes"],
+    "sections": [["🔑","بيانات المفتاح"],["📝","ملاحظات"]],
+    "columns": ["Code","Name AR","Name EN","D/C","Account Type","Status"]
+  },
+  "missingChequePage": {
+    "icon": "🧾",
+    "titleAr": "الشيكات المفقودة",
+    "titleEn": "Missing Cheque",
+    "color1": "#991b1b",
+    "color2": "#ef4444",
+    "lsKey": "gpm_missingCheque_records",
+    "prefix": "missingCheque",
+    "sbTable": "missing_cheque",
+    "fields": ["Cheque_No","Bank","Date","Amount","Beneficiary","Reason","Status","Notes"],
+    "sections": [["🧾","بيانات الشيك"],["💰","المبالغ والحالة"],["📝","ملاحظات"]],
+    "columns": ["Cheque No","Bank","Date","Amount","Beneficiary","Reason","Status"]
+  },
+  "foodBavaregaPage": {
+    "icon": "🍽️",
+    "titleAr": "Food & Beverage Missing",
+    "titleEn": "Food & Beverage",
+    "color1": "#7c2d12",
+    "color2": "#ea580c",
+    "lsKey": "gpm_foodBavarega_records",
+    "prefix": "foodBavarega",
+    "sbTable": "food_bavarega",
+    "fields": ["Ref_No","Date","Description","Outlet","Amount","Tax","Total","Status","Notes"],
+    "sections": [["🍽️","بيانات الإيراد"],["💰","المبالغ"],["📝","ملاحظات"]],
+    "columns": ["Ref No","Date","Description","Outlet","Amount","Tax","Total","Status"]
+  },
+  "golfOreationPage": {
+    "icon": "⛳",
+    "titleAr": "Golf Operation Missing",
+    "titleEn": "Golf Operation",
+    "color1": "#14532d",
+    "color2": "#22c55e",
+    "lsKey": "gpm_golfOreation_records",
+    "prefix": "golfOreation",
+    "sbTable": "golf_oreation",
+    "fields": ["Ref_No","Date","Description","Cost_Center","Amount","Tax","Total","Status","Notes"],
+    "sections": [["⛳","بيانات الإيراد"],["💰","المبالغ"],["📝","ملاحظات"]],
+    "columns": ["Ref No","Date","Description","Cost Center","Amount","Tax","Total","Status"]
+  },
+  "depositReportPage": {
+    "icon": "📊",
+    "titleAr": "تقرير الإيداعات",
+    "titleEn": "Deposit Report",
+    "color1": "#0c4a6e",
+    "color2": "#0ea5e9",
+    "lsKey": "gpm_depositReport_records",
+    "prefix": "depositReport",
+    "sbTable": "deposit",
+    "fields": ["Ref_No","Date","Description","Bank","Cost_Center","Amount","Tax","Total","Status","Notes"],
+    "sections": [["📊","بيانات الإيداع"],["💰","المبالغ"],["📝","ملاحظات"]],
+    "columns": ["Ref No","Date","Description","Bank","Cost Center","Amount","Total","Status"]
+  },
+  "assetsCategoryPage": {
+    "icon": "🗂️",
+    "titleAr": "فئات الأصول",
+    "titleEn": "Assets Category",
+    "color1": "#365314",
+    "color2": "#84cc16",
+    "lsKey": "gpm_assetsCategory_records",
+    "prefix": "assetsCategory",
+    "sbTable": "assetes_catogrey",
+    "fields": ["Category_Code","Category_Name_AR","Category_Name_EN","Depreciation_Rate","Useful_Life","Status","Notes"],
+    "sections": [["🗂️","بيانات الفئة"],["📉","الإهلاك"]],
+    "columns": ["Code","Name AR","Name EN","Depr. Rate","Useful Life","Status"]
+  },
+  "businessInsurancePage": {
+    "icon": "🛡️",
+    "titleAr": "تأمينات الأعمال",
+    "titleEn": "Business Insurance",
+    "color1": "#1e3a8a",
+    "color2": "#6366f1",
+    "lsKey": "gpm_businessInsurance_records",
+    "prefix": "businessInsurance",
+    "sbTable": "bussines_insurance",
+    "fields": ["Policy_No","Insurance_Company","Type","Start_Date","End_Date","Premium","Coverage","Status","Notes"],
+    "sections": [["🛡️","بيانات الوثيقة"],["💰","المبالغ"],["📝","ملاحظات"]],
+    "columns": ["Policy No","Company","Type","Start","End","Premium","Coverage","Status"]
   }
 };
 
   // ─── Records cache: prefix → array ───
   const _records = {};
   const _curId = {};
+  const _sbLoaded = {}; // tracks which prefixes have already pulled from Supabase
   
   function _loadRecords(prefix, lsKey){
     if(!_records[prefix]){
@@ -11655,6 +12032,57 @@ window.addEventListener('resize', function(){
   
   function _save(prefix, lsKey){
     localStorage.setItem(lsKey, JSON.stringify(_records[prefix] || []));
+  }
+
+  // ─── Supabase sync helpers ───────────────────────────────────────────
+  // Each page config can carry a "sbTable" (Supabase table name). When
+  // present, records are also pulled/pushed from/to that table.
+  // Tables are expected to have at least: id (bigint/numeric primary key)
+  // and a "data" (jsonb) column that holds the full record.
+  // If the schema differs, we fall back to upserting flat columns.
+  async function _sbPullRecords(pid){
+    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
+    if(typeof _sb === 'undefined' || !_sb) return;
+    if(_sbLoaded[cfg.prefix]) return;
+    try {
+      const { data, error } = await _sb.from(cfg.sbTable).select('*').order('id', { ascending: false });
+      if(error){ console.warn('[Supabase] pull '+cfg.sbTable+':', error.message); _sbLoaded[cfg.prefix] = true; return; }
+      if(Array.isArray(data) && data.length){
+        // If rows have a "data" jsonb column, unwrap it; otherwise use the row itself
+        const recs = data.map(row => {
+          if(row && row.data && typeof row.data === 'object'){
+            return Object.assign({}, row.data, { id: row.id });
+          }
+          return row;
+        });
+        _records[cfg.prefix] = recs;
+        try { localStorage.setItem(cfg.lsKey, JSON.stringify(recs)); } catch(e){}
+      }
+      _sbLoaded[cfg.prefix] = true;
+    } catch(e){
+      console.warn('[Supabase] pull error:', e); _sbLoaded[cfg.prefix] = true;
+    }
+  }
+
+  async function _sbPushRecord(pid, rec){
+    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
+    if(typeof _sb === 'undefined' || !_sb) return;
+    try {
+      // Try jsonb-style first: { id, data }
+      const payload = { id: rec.id, data: rec };
+      const { error } = await _sb.from(cfg.sbTable).upsert(payload, { onConflict: 'id' });
+      if(error){
+        // Fallback: upsert the flat record (assumes flat schema with same column names)
+        await _sb.from(cfg.sbTable).upsert(rec, { onConflict: 'id' });
+      }
+    } catch(e){ console.warn('[Supabase] push error:', e); }
+  }
+
+  async function _sbDeleteRecord(pid, id){
+    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
+    if(typeof _sb === 'undefined' || !_sb) return;
+    try { await _sb.from(cfg.sbTable).delete().eq('id', id); }
+    catch(e){ console.warn('[Supabase] delete error:', e); }
   }
 
   // ─── Build page DOM lazily on first open ───
@@ -11842,6 +12270,8 @@ window.addEventListener('resize', function(){
       _curId[px] = data.id;
     }
     _save(px, cfg.lsKey);
+    // Push to Supabase (non-blocking)
+    if(cfg.sbTable) _sbPushRecord(pid, data);
     _toast(px, '✅ تم الحفظ', 'success');
     render(pid);
     closeDrawer(pid);
@@ -11852,8 +12282,10 @@ window.addEventListener('resize', function(){
     const px = cfg.prefix;
     if(!_curId[px]){ _toast(px, '⚠️ لا يوجد سجل محدد', 'error'); return; }
     if(!confirm('هل تريد حذف هذا السجل؟')) return;
-    _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== _curId[px]);
+    const delId = _curId[px];
+    _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== delId);
     _save(px, cfg.lsKey);
+    if(cfg.sbTable) _sbDeleteRecord(pid, delId);
     _curId[px] = null;
     _toast(px, '🗑️ تم الحذف', 'success');
     render(pid);
@@ -11866,6 +12298,7 @@ window.addEventListener('resize', function(){
     if(!confirm('هل تريد حذف هذا السجل؟')) return;
     _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== id);
     _save(px, cfg.lsKey);
+    if(cfg.sbTable) _sbDeleteRecord(pid, id);
     if(_curId[px] === id) _curId[px] = null;
     _toast(px, '🗑️ تم الحذف', 'success');
     render(pid);
@@ -11910,6 +12343,10 @@ window.addEventListener('resize', function(){
     pg.style.marginLeft = '0';
     pg.style.display = 'block';
     render(pid);
+    // Pull from Supabase on first open (non-blocking)
+    if(cfg.sbTable && !_sbLoaded[cfg.prefix]){
+      _sbPullRecords(pid).then(() => render(pid));
+    }
     if(typeof closeFlyout === 'function') closeFlyout();
     if(typeof isMobile === 'function' && isMobile() && typeof gpmMobClose === 'function') gpmMobClose();
   }
