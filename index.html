@@ -1148,6 +1148,93 @@ window.sbHydrate = async function(lsKey, table, setter){
   }
 };
 
+/* ════════════════════════════════════════════════════════════
+   GENERIC INLINE-EDIT HELPER for "special" pages
+   - Tracks edit-mode state per page key
+   - Provides a toast-and-save flow that matches the GPM_PAGES one
+═════════════════════════════════════════════════════════════ */
+window._spEditMode = {}; // pageKey -> bool
+window._spSaveTimers = {};
+
+/* Toggle a special page's edit mode. pageKey is a free-form string
+   identifying the page (e.g. "cc", "vnd", "cust", "emp", "chq").
+   - pageEl: the .fs-page DOM element to toggle the .edit-mode class on
+   - btnEl:  the toggle button to flip label/style on
+   - rerender: a function that re-renders the table */
+window.spToggleEditMode = function(pageKey, pageEl, btnEl, rerender){
+  window._spEditMode[pageKey] = !window._spEditMode[pageKey];
+  if(window._spEditMode[pageKey]){
+    pageEl?.classList.add('edit-mode');
+    if(btnEl){ btnEl.classList.add('on'); btnEl.innerHTML = '✓ إنهاء التعديل'; }
+  } else {
+    pageEl?.classList.remove('edit-mode');
+    if(btnEl){ btnEl.classList.remove('on'); btnEl.innerHTML = '✏️ تعديل'; }
+  }
+  if(typeof rerender === 'function') rerender();
+};
+
+window.spIsEditMode = function(pageKey){ return !!window._spEditMode[pageKey]; };
+
+/* Build an inline cell <input> string. Used inside table HTML in edit mode.
+   - pageKey: the special page key
+   - rec: the record object (must have rec.id)
+   - field: field name within the record
+   - opts: { type?: 'text'|'date'|'number', onChangeFn: 'window.spInlineSave_cc'  ...} */
+window.spCellInput = function(pageKey, rec, field, opts){
+  opts = opts || {};
+  const v = (rec && rec[field] != null) ? rec[field] : '';
+  const escVal = String(v).replace(/"/g, '&quot;');
+  const type = opts.type || 'text';
+  const fnName = opts.onChangeFn || ('window.spDefaultInlineSave');
+  const cellKey = pageKey + '_' + rec.id + '_' + field;
+  return `<input class="fs-cell-input" type="${type}" data-cell="${cellKey}" value="${escVal}" oninput="${fnName}(${rec.id},'${field}',this.value)">`;
+};
+
+/* Generic debounced inline save for special pages.
+   Each special page passes its own context (records array, lsKey, sbTable). */
+window.spInlineSaveFactory = function(ctx){
+  // ctx = { pageKey, records: () => array, lsKey, sbTable, onAfter? }
+  return function(id, field, value){
+    const arr = ctx.records();
+    const rec = arr.find(r => r.id === id);
+    if(!rec) return;
+    rec[field] = value;
+    try { localStorage.setItem(ctx.lsKey, JSON.stringify(arr)); } catch(e){}
+    const evtKey = ctx.pageKey + '_' + id + '_' + field;
+    const inp = document.querySelector(`[data-cell="${evtKey}"]`);
+    if(inp) inp.classList.add('saving');
+    clearTimeout(window._spSaveTimers[evtKey]);
+    window._spSaveTimers[evtKey] = setTimeout(() => {
+      if(ctx.sbTable && window.sbUpsert) window.sbUpsert(ctx.sbTable, rec);
+      if(inp){
+        inp.classList.remove('saving');
+        inp.classList.add('saved');
+        setTimeout(() => inp && inp.classList.remove('saved'), 1200);
+      }
+      if(typeof ctx.onAfter === 'function') ctx.onAfter(rec);
+    }, 500);
+  };
+};
+
+/* Add a blank inline row for a special page.
+   ctx = { pageKey, records: () => array, lsKey, sbTable, fields: [], rerender, focusFirst? } */
+window.spAddInlineRow = function(ctx){
+  const arr = ctx.records();
+  const rec = { id: Date.now() };
+  (ctx.fields || []).forEach(f => rec[f] = '');
+  arr.unshift(rec);
+  try { localStorage.setItem(ctx.lsKey, JSON.stringify(arr)); } catch(e){}
+  if(ctx.sbTable && window.sbUpsert) window.sbUpsert(ctx.sbTable, rec);
+  if(typeof ctx.rerender === 'function') ctx.rerender();
+  if(ctx.focusFirst && ctx.fields && ctx.fields.length){
+    setTimeout(() => {
+      const first = document.querySelector(`[data-cell="${ctx.pageKey}_${rec.id}_${ctx.fields[0]}"]`);
+      if(first) first.focus();
+    }, 50);
+  }
+  return rec;
+};
+
 
 /* ════════════════════════════════════════════════════════════
    WELCOME AS HOME PAGE
@@ -4871,6 +4958,63 @@ function scToast(msg,type='success'){
 .fs-row-btn-edit{background:#dbeafe;color:#1d4ed8}.fs-row-btn-edit:hover{background:#bfdbfe}
 .fs-row-btn-del{background:#fee2e2;color:#dc2626}.fs-row-btn-del:hover{background:#fecaca}
 
+/* INLINE EDIT MODE */
+.fs-btn-edit-mode{background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff}
+.fs-btn-edit-mode.on{background:linear-gradient(135deg,#dc2626,#ef4444)}
+.fs-page.edit-mode .fs-table tbody tr{cursor:default}
+.fs-page.edit-mode .fs-table tbody tr:hover{background:transparent}
+.fs-page.edit-mode .fs-table tbody tr:nth-child(even){background:#fafbff}
+.fs-page.edit-mode .fs-table tbody tr.fs-row-active{background:transparent!important;border-right:none}
+.fs-cell-input{
+  width:100%;
+  border:1px solid transparent;
+  background:transparent;
+  padding:6px 8px;
+  font-family:inherit;
+  font-size:.82rem;
+  color:#1e293b;
+  border-radius:5px;
+  outline:none;
+  direction:rtl;
+  transition:all .15s;
+  box-sizing:border-box;
+}
+.fs-cell-input:focus,.fs-cell-input:hover{
+  background:#fff;
+  border-color:#a78bfa;
+  box-shadow:0 0 0 3px rgba(167,139,250,.15);
+}
+.fs-cell-input.saving{border-color:#16a34a;background:#f0fdf4}
+.fs-cell-input.saved{border-color:#16a34a;background:#dcfce7}
+.fs-cell-input[type=number]{text-align:left;direction:ltr;font-family:'Space Mono',monospace}
+.fs-cell-input[type=date]{font-family:'Space Mono',monospace;direction:ltr}
+.fs-edit-banner{
+  background:linear-gradient(135deg,#fef3c7,#fde68a);
+  border:1px solid #f59e0b;
+  border-radius:8px;
+  padding:8px 14px;
+  margin:0 0 10px 0;
+  color:#78350f;
+  font-size:.82rem;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.fs-edit-add-row{
+  background:linear-gradient(135deg,#16a34a,#22c55e);
+  color:#fff;
+  border:none;
+  padding:7px 14px;
+  border-radius:7px;
+  font-family:'Tajawal',sans-serif;
+  font-size:.82rem;
+  font-weight:700;
+  cursor:pointer;
+  margin-right:auto;
+}
+.fs-edit-add-row:hover{filter:brightness(1.05)}
+
 /* Drawer */
 .fs-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:890;opacity:0;pointer-events:none;transition:opacity .25s}
 .fs-drawer-overlay.open{opacity:1;pointer-events:all}
@@ -4932,6 +5076,7 @@ function scToast(msg,type='success'){
     <span class="fs-topbar-ico">👤</span>
     <div class="fs-topbar-title">الموظفون <small>Master Data — Employees</small></div>
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#1a3a6e,#2563eb)" onclick="empNewDrawer()">➕ موظف جديد</button>
+    <button class="fs-btn fs-btn-edit-mode" id="empEditModeBtn" onclick="empToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="empExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-light" onclick="closeEmployees()">✕ إغلاق</button>
   </div>
@@ -5037,6 +5182,43 @@ function empFsRender(){
 
   const tbody=document.getElementById('empFsTbody');
   if(!recs.length){ tbody.innerHTML='<tr><td colspan="11" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+
+  // Edit-mode banner
+  let empBanner = document.getElementById('empEditBanner');
+  if(window.spIsEditMode && window.spIsEditMode('emp')){
+    if(!empBanner){
+      empBanner = document.createElement('div');
+      empBanner.id = 'empEditBanner';
+      empBanner.className = 'fs-edit-banner';
+      const tb = document.querySelector('#empFsPage .fs-toolbar');
+      if(tb && tb.parentNode) tb.parentNode.insertBefore(empBanner, tb.nextSibling);
+    }
+    empBanner.innerHTML = '<span>✏️</span><span>وضع التعديل المباشر — اضغط على أي خلية لتعديلها. الحفظ تلقائي.</span>'+
+      '<button class="fs-edit-add-row" onclick="empAddInlineRow()">➕ إضافة سطر جديد</button>';
+    empBanner.style.display = 'flex';
+
+    const inp = (rec, f, type) => window.spCellInput('emp', rec, f, { type: type||'text', onChangeFn: 'window.empInlineSave' });
+    tbody.innerHTML = recs.map((r,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${inp(r,'كود_الموظف')}</td>
+        <td>${inp(r,'اسم_الموظف')}</td>
+        <td>${inp(r,'الإدارة')}</td>
+        <td>${inp(r,'القسم')}</td>
+        <td>${inp(r,'الوظيفة')}</td>
+        <td>${inp(r,'تاريخ_التعين','date')}</td>
+        <td>${inp(r,'رقم_الهاتف')}</td>
+        <td>${inp(r,'الراتب','number')}</td>
+        <td>${inp(r,'رقم_حساب_البنك')}</td>
+        <td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="empQuickDelete(${r.id})">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+    return;
+  } else if(empBanner){
+    empBanner.style.display = 'none';
+  }
+
   tbody.innerHTML=recs.map((r,i)=>`
     <tr class="${r.id===empCurrentId?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
       <td>${i+1}</td>
@@ -5056,6 +5238,31 @@ function empFsRender(){
         </div>
       </td>
     </tr>`).join('');
+}
+
+/* Employees inline edit handlers */
+function empToggleEditMode(){
+  window.spToggleEditMode('emp',
+    document.getElementById('empFsPage'),
+    document.getElementById('empEditModeBtn'),
+    empFsRender);
+}
+window.empInlineSave = window.spInlineSaveFactory({
+  pageKey: 'emp',
+  records: () => empRecords,
+  lsKey: 'gpm_emp_records',
+  sbTable: 'emploee_code'
+});
+function empAddInlineRow(){
+  window.spAddInlineRow({
+    pageKey: 'emp',
+    records: () => empRecords,
+    lsKey: 'gpm_emp_records',
+    sbTable: 'emploee_code',
+    fields: ['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك'],
+    rerender: empFsRender,
+    focusFirst: true
+  });
 }
 
 /* Drawer: New */
@@ -5238,11 +5445,12 @@ function empFsToast(msg,type='success'){
 <div id="vendorPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- VENDORS PAGE -->
-<div class="fs-page">
+<div class="fs-page" id="vndFsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🏭</span>
     <div class="fs-topbar-title">الموردون <small>Master Data — Vendors</small></div>
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#0f3460,#1a3a6e)" onclick="vndNewDrawer()">➕ مورد جديد</button>
+    <button class="fs-btn fs-btn-edit-mode" id="vndEditModeBtn" onclick="vndToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="vndExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-light" onclick="closeVendors()">✕ إغلاق</button>
   </div>
@@ -5330,6 +5538,45 @@ function vndFsRender(){
 
   const tbody=document.getElementById('vndFsTbody');
   if(!recs.length){ tbody.innerHTML='<tr><td colspan="11" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+
+  // Edit-mode banner
+  let vndBanner = document.getElementById('vndEditBanner');
+  if(window.spIsEditMode && window.spIsEditMode('vnd')){
+    if(!vndBanner){
+      vndBanner = document.createElement('div');
+      vndBanner.id = 'vndEditBanner';
+      vndBanner.className = 'fs-edit-banner';
+      const tb = document.querySelector('#vndFsPage .fs-toolbar');
+      if(tb && tb.parentNode) tb.parentNode.insertBefore(vndBanner, tb.nextSibling);
+    }
+    vndBanner.innerHTML = '<span>✏️</span><span>وضع التعديل المباشر — اضغط على أي خلية لتعديلها. الحفظ تلقائي.</span>'+
+      '<button class="fs-edit-add-row" onclick="vndAddInlineRow()">➕ إضافة سطر جديد</button>';
+    vndBanner.style.display = 'flex';
+
+    const inp = (rec, f) => window.spCellInput('vnd', rec, f, { onChangeFn: 'window.vndInlineSave' });
+    tbody.innerHTML = recs.map((r,i) => {
+      const att = (vndAttachments[r.id]||[]).length;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${inp(r,'كود_المورد')}</td>
+        <td>${inp(r,'كود_المورد_ساب')}</td>
+        <td>${inp(r,'اسم_الشركة')}</td>
+        <td>${inp(r,'اسم_المسئول')}</td>
+        <td>${inp(r,'التليفون')}</td>
+        <td>${inp(r,'رقم_السجل_التجاري')}</td>
+        <td>${inp(r,'رقم_التسجيل_الضريبي')}</td>
+        <td>${inp(r,'العنوان')}</td>
+        <td style="text-align:center">${att?`<span style="background:#ede9fe;color:#7c3aed;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700">📎 ${att}</span>`:'—'}</td>
+        <td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="vndQuickDelete(${r.id})">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    return;
+  } else if(vndBanner){
+    vndBanner.style.display = 'none';
+  }
+
   tbody.innerHTML=recs.map((r,i)=>{
     const att=(vndAttachments[r.id]||[]).length;
     return `<tr class="${r.id===vndCurrentId?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
@@ -5351,6 +5598,31 @@ function vndFsRender(){
       </td>
     </tr>`;
   }).join('');
+}
+
+/* Vendors inline edit handlers */
+function vndToggleEditMode(){
+  window.spToggleEditMode('vnd',
+    document.getElementById('vndFsPage'),
+    document.getElementById('vndEditModeBtn'),
+    vndFsRender);
+}
+window.vndInlineSave = window.spInlineSaveFactory({
+  pageKey: 'vnd',
+  records: () => vndRecords,
+  lsKey: 'gpm_vnd_records',
+  sbTable: 'vendors_list'
+});
+function vndAddInlineRow(){
+  window.spAddInlineRow({
+    pageKey: 'vnd',
+    records: () => vndRecords,
+    lsKey: 'gpm_vnd_records',
+    sbTable: 'vendors_list',
+    fields: ['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'],
+    rerender: vndFsRender,
+    focusFirst: true
+  });
 }
 
 function vndNewDrawer(){
@@ -5526,11 +5798,12 @@ function vndFsToast(msg,type='success'){
 <div id="custPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- CUSTOMERS PAGE -->
-<div class="fs-page">
+<div class="fs-page" id="custFsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🏘️</span>
     <div class="fs-topbar-title">العملاء <small>Master Data — Customers</small></div>
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#065f46,#059669)" onclick="custNewDrawer()">➕ عميل جديد</button>
+    <button class="fs-btn fs-btn-edit-mode" id="custEditModeBtn" onclick="custToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="custExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-light" onclick="closeCustomers()">✕ إغلاق</button>
   </div>
@@ -5644,6 +5917,45 @@ function custFsRender(){
 
   const tbody=document.getElementById('custFsTbody');
   if(!recs.length){ tbody.innerHTML='<tr><td colspan="13" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+
+  // Edit-mode banner
+  let custBanner = document.getElementById('custEditBanner');
+  if(window.spIsEditMode && window.spIsEditMode('cust')){
+    if(!custBanner){
+      custBanner = document.createElement('div');
+      custBanner.id = 'custEditBanner';
+      custBanner.className = 'fs-edit-banner';
+      const tb = document.querySelector('#custFsPage .fs-toolbar');
+      if(tb && tb.parentNode) tb.parentNode.insertBefore(custBanner, tb.nextSibling);
+    }
+    custBanner.innerHTML = '<span>✏️</span><span>وضع التعديل المباشر — اضغط على أي خلية لتعديلها. الحفظ تلقائي.</span>'+
+      '<button class="fs-edit-add-row" onclick="custAddInlineRow()">➕ إضافة سطر جديد</button>';
+    custBanner.style.display = 'flex';
+
+    const inp = (rec, f, type) => window.spCellInput('cust', rec, f, { type: type||'text', onChangeFn: 'window.custInlineSave' });
+    tbody.innerHTML = recs.map((r,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${inp(r,'رقم_العميل')}</td>
+        <td>${inp(r,'اسم_العميل')}</td>
+        <td>${inp(r,'رقم_العقد')}</td>
+        <td>${inp(r,'اسم_المشروع')}</td>
+        <td>${inp(r,'اسم_المنطقة')}</td>
+        <td>${inp(r,'رقم_الوحدة')}</td>
+        <td>${inp(r,'مساحة_الوحدة','number')}</td>
+        <td>${inp(r,'قيمة_الوحدة','number')}</td>
+        <td>${inp(r,'قيمة_الصيانة','number')}</td>
+        <td>${inp(r,'الموقف_من_التسليم')}</td>
+        <td>${inp(r,'تاريخ_التسليم','date')}</td>
+        <td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="custQuickDelete(${r.id})">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+    return;
+  } else if(custBanner){
+    custBanner.style.display = 'none';
+  }
+
   tbody.innerHTML=recs.map((r,i)=>{
     const sColor=CUST_STATUS_COLOR[r['الموقف_من_التسليم']]||'#94a3b8';
     return `<tr class="${r.id===custCurrentId?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
@@ -5667,6 +5979,31 @@ function custFsRender(){
       </td>
     </tr>`;
   }).join('');
+}
+
+/* Customers inline edit handlers */
+function custToggleEditMode(){
+  window.spToggleEditMode('cust',
+    document.getElementById('custFsPage'),
+    document.getElementById('custEditModeBtn'),
+    custFsRender);
+}
+window.custInlineSave = window.spInlineSaveFactory({
+  pageKey: 'cust',
+  records: () => custRecords,
+  lsKey: 'gpm_cust_records',
+  sbTable: 'customer_list'
+});
+function custAddInlineRow(){
+  window.spAddInlineRow({
+    pageKey: 'cust',
+    records: () => custRecords,
+    lsKey: 'gpm_cust_records',
+    sbTable: 'customer_list',
+    fields: ['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'],
+    rerender: custFsRender,
+    focusFirst: true
+  });
 }
 
 function custNewDrawer(){
@@ -5993,6 +6330,7 @@ function custFsToast(msg,type='success'){
     <span class="fs-topbar-ico">🖨️</span>
     <div class="fs-topbar-title">طباعة الشيكات <small>Print Cheque — QNB ALAHLI</small></div>
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#7a0000,#b91c1c)" onclick="chqNewDrawer()">➕ شيك جديد</button>
+    <button class="fs-btn fs-btn-edit-mode" id="chqEditModeBtn" onclick="chqToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="chqExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-light" onclick="closeChequePage()">✕ إغلاق</button>
   </div>
@@ -6305,6 +6643,44 @@ function chqFsRender(){
     return;
   }
 
+  // Edit-mode banner
+  let chqBanner = document.getElementById('chqEditBanner');
+  if(window.spIsEditMode && window.spIsEditMode('chq')){
+    if(!chqBanner){
+      chqBanner = document.createElement('div');
+      chqBanner.id = 'chqEditBanner';
+      chqBanner.className = 'fs-edit-banner';
+      const tb = document.querySelector('#chqFsPage .fs-toolbar');
+      if(tb && tb.parentNode) tb.parentNode.insertBefore(chqBanner, tb.nextSibling);
+    }
+    chqBanner.innerHTML = '<span>✏️</span><span>وضع التعديل المباشر — اضغط على أي خلية لتعديلها. الحفظ تلقائي.</span>'+
+      '<button class="fs-edit-add-row" onclick="chqAddInlineRow()">➕ إضافة شيك</button>';
+    chqBanner.style.display = 'flex';
+
+    const inp = (rec, f, type) => window.spCellInput('chq', rec, f, { type: type||'text', onChangeFn: 'window.chqInlineSave' });
+    const statusMapEdit = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
+    tbody.innerHTML = recs.map((r,i) => {
+      const status = r.status||'pending';
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${inp(r,'date','date')}</td>
+        <td>${inp(r,'num')}</td>
+        <td>${inp(r,'payto')}</td>
+        <td>${inp(r,'amount','number')}</td>
+        <td>${inp(r,'name')}</td>
+        <td>${inp(r,'account')}</td>
+        <td>${inp(r,'type')}</td>
+        <td><span class="chq-status ${status}">${statusMapEdit[status]||status}</span></td>
+        <td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="chqDeleteRow(${r.id})">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    return;
+  } else if(chqBanner){
+    chqBanner.style.display = 'none';
+  }
+
   const statusMap = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
   tbody.innerHTML = recs.map((r,i)=>{
     const status = r.status||'pending';
@@ -6329,6 +6705,31 @@ function chqFsRender(){
       </td>
     </tr>`;
   }).join('');
+}
+
+/* Cheque inline edit handlers */
+function chqToggleEditMode(){
+  window.spToggleEditMode('chq',
+    document.getElementById('chqFsPage'),
+    document.getElementById('chqEditModeBtn'),
+    chqFsRender);
+}
+window.chqInlineSave = window.spInlineSaveFactory({
+  pageKey: 'chq',
+  records: () => chqRecords,
+  lsKey: 'gpm_cheques',
+  sbTable: 'print_cheque'
+});
+function chqAddInlineRow(){
+  window.spAddInlineRow({
+    pageKey: 'chq',
+    records: () => chqRecords,
+    lsKey: 'gpm_cheques',
+    sbTable: 'print_cheque',
+    fields: ['date','num','payto','amount','name','account','branch','type'],
+    rerender: chqFsRender,
+    focusFirst: true
+  });
 }
 
 /* ── Status filter chips ── */
@@ -6578,6 +6979,7 @@ function chqFsToast(msg, type='success'){
     <span class="fs-topbar-ico">🏗️</span>
     <div class="fs-topbar-title">مراكز التكلفة <small>Master Data — Cost Center</small></div>
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#15803d,#16a34a)" onclick="ccNewDrawer()">➕ مركز جديد</button>
+    <button class="fs-btn fs-btn-edit-mode" id="ccEditModeBtn" onclick="ccToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="ccExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-light" onclick="closeCostCenter()">✕ إغلاق</button>
   </div>
@@ -6689,6 +7091,46 @@ function ccFsRender(){
 
   const tbody=document.getElementById('ccFsTbody');
   if(!recs.length){ tbody.innerHTML='<tr><td colspan="13" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+
+  // Edit-mode banner
+  const ccPageEl = document.getElementById('ccFsPage');
+  let ccBanner = document.getElementById('ccEditBanner');
+  if(window.spIsEditMode && window.spIsEditMode('cc')){
+    if(!ccBanner){
+      ccBanner = document.createElement('div');
+      ccBanner.id = 'ccEditBanner';
+      ccBanner.className = 'fs-edit-banner';
+      const tb = document.querySelector('#ccFsPage .fs-toolbar');
+      if(tb && tb.parentNode) tb.parentNode.insertBefore(ccBanner, tb.nextSibling);
+    }
+    ccBanner.innerHTML = '<span>✏️</span><span>وضع التعديل المباشر — اضغط على أي خلية لتعديلها. الحفظ تلقائي.</span>'+
+      '<button class="fs-edit-add-row" onclick="ccAddInlineRow()">➕ إضافة سطر جديد</button>';
+    ccBanner.style.display = 'flex';
+
+    const inp = (rec, f, type) => window.spCellInput('cc', rec, f, { type: type||'text', onChangeFn: 'window.ccInlineSave' });
+    tbody.innerHTML = recs.map((r,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${inp(r,'Cost_Ctr_Code')}</td>
+        <td>${inp(r,'Company_Ar')}</td>
+        <td>${inp(r,'Company_Code')}</td>
+        <td>${inp(r,'CCtC')}</td>
+        <td>${inp(r,'Person_Responsible')}</td>
+        <td>${inp(r,'User_Resp')}</td>
+        <td>${inp(r,'Short_text')}</td>
+        <td>${inp(r,'Language')}</td>
+        <td>${inp(r,'Valid_From','date')}</td>
+        <td>${inp(r,'To','date')}</td>
+        <td>${inp(r,'Content_Type')}</td>
+        <td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
+        </div></td>
+      </tr>`).join('');
+    return;
+  } else if(ccBanner){
+    ccBanner.style.display = 'none';
+  }
+
   tbody.innerHTML=recs.map((r,i)=>`
     <tr class="${r.id===ccCurrentId?'fs-row-active':''}" onclick="ccOpenDrawer(${r.id})">
       <td>${i+1}</td>
@@ -6710,6 +7152,31 @@ function ccFsRender(){
         </div>
       </td>
     </tr>`).join('');
+}
+
+/* Cost Center inline edit handlers */
+function ccToggleEditMode(){
+  window.spToggleEditMode('cc',
+    document.getElementById('ccFsPage'),
+    document.getElementById('ccEditModeBtn'),
+    ccFsRender);
+}
+window.ccInlineSave = window.spInlineSaveFactory({
+  pageKey: 'cc',
+  records: () => ccRecords,
+  lsKey: 'gpm_cc_records',
+  sbTable: 'cost_center'
+});
+function ccAddInlineRow(){
+  window.spAddInlineRow({
+    pageKey: 'cc',
+    records: () => ccRecords,
+    lsKey: 'gpm_cc_records',
+    sbTable: 'cost_center',
+    fields: ['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'],
+    rerender: ccFsRender,
+    focusFirst: true
+  });
 }
 
 /* Drawer: New */
@@ -12097,12 +12564,13 @@ window.addEventListener('resize', function(){
     const colspan = cfg.columns.length + 2;
     
     const html = `
-<div id="${pid}" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
-<div class="fs-page">
+<div id="${pid}" class="fs-page-wrap" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div class="fs-page" id="${px}FsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">${cfg.icon}</span>
     <div class="fs-topbar-title">${cfg.titleAr} <small>— ${cfg.titleEn}</small></div>
     <button class="fs-btn fs-btn-primary" style="background:${grad}" onclick="GPM.newDrawer('${pid}')">➕ إضافة جديد</button>
+    <button class="fs-btn fs-btn-edit-mode" id="${px}EditModeBtn" onclick="GPM.toggleEditMode('${pid}')">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="GPM.exportXL('${pid}')">📊 Excel</button>
     <button class="fs-btn fs-btn-light" onclick="GPM.closePage('${pid}')">✕ إغلاق</button>
   </div>
@@ -12139,6 +12607,70 @@ window.addEventListener('resize', function(){
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
+  // ─── Inline edit mode tracking ─────────────────────────────────────
+  const _editMode = {}; // pid -> bool
+  const _saveTimers = {}; // px+id+field -> timeout id
+
+  function toggleEditMode(pid){
+    const cfg = GPM_PAGES[pid]; if(!cfg) return;
+    const px = cfg.prefix;
+    _editMode[pid] = !_editMode[pid];
+    const page = document.getElementById(px + 'FsPage');
+    const btn = document.getElementById(px + 'EditModeBtn');
+    if(_editMode[pid]){
+      page?.classList.add('edit-mode');
+      if(btn){ btn.classList.add('on'); btn.innerHTML = '✓ إنهاء التعديل'; }
+    } else {
+      page?.classList.remove('edit-mode');
+      if(btn){ btn.classList.remove('on'); btn.innerHTML = '✏️ تعديل'; }
+    }
+    render(pid);
+  }
+
+  // Called on input/change of an inline cell. Debounced save.
+  window._gpmInlineSave = function(pid, id, field, value){
+    const cfg = GPM_PAGES[pid]; if(!cfg) return;
+    const px = cfg.prefix;
+    const records = _loadRecords(px, cfg.lsKey);
+    const rec = records.find(r => r.id === id);
+    if(!rec) return;
+    rec[field] = value;
+    _save(px, cfg.lsKey);
+    // Visual feedback
+    const evtKey = px + '_' + id + '_' + field;
+    const inp = document.querySelector(`[data-cell="${evtKey}"]`);
+    if(inp){
+      inp.classList.add('saving');
+      clearTimeout(_saveTimers[evtKey]);
+      _saveTimers[evtKey] = setTimeout(() => {
+        if(cfg.sbTable) _sbPushRecord(pid, rec);
+        inp.classList.remove('saving');
+        inp.classList.add('saved');
+        setTimeout(() => inp.classList.remove('saved'), 1200);
+      }, 500);
+    } else if(cfg.sbTable){
+      _sbPushRecord(pid, rec);
+    }
+  };
+
+  // Add a blank row in edit mode (creates a new record placeholder)
+  window._gpmAddInlineRow = function(pid){
+    const cfg = GPM_PAGES[pid]; if(!cfg) return;
+    const px = cfg.prefix;
+    const records = _loadRecords(px, cfg.lsKey);
+    const data = { id: Date.now() };
+    cfg.fields.forEach(f => data[f] = '');
+    records.unshift(data);
+    _save(px, cfg.lsKey);
+    if(cfg.sbTable) _sbPushRecord(pid, data);
+    render(pid);
+    // Focus the first cell of the new row
+    setTimeout(() => {
+      const firstCell = document.querySelector(`[data-cell="${px}_${data.id}_${cfg.fields[0]}"]`);
+      if(firstCell) firstCell.focus();
+    }, 50);
+  };
+
   // ─── Render the table ───
   function render(pid){
     const cfg = GPM_PAGES[pid]; if(!cfg) return;
@@ -12160,10 +12692,54 @@ window.addEventListener('resize', function(){
     
     const tbody = document.getElementById(px + 'Tbody');
     if(!tbody) return;
+
+    const isEdit = !!_editMode[pid];
+
+    // Show/hide the "add row" banner above the table
+    let banner = document.getElementById(px + 'EditBanner');
+    if(isEdit){
+      if(!banner){
+        banner = document.createElement('div');
+        banner.id = px + 'EditBanner';
+        banner.className = 'fs-edit-banner';
+        const toolbar = document.getElementById(px + 'Search')?.closest('.fs-toolbar');
+        if(toolbar && toolbar.parentNode){
+          toolbar.parentNode.insertBefore(banner, toolbar.nextSibling);
+        }
+      }
+      banner.innerHTML = `<span>✏️</span><span>وضع التعديل المباشر — اضغط على أي خلية لتعديلها. الحفظ تلقائي.</span>
+        <button class="fs-edit-add-row" onclick="window._gpmAddInlineRow('${pid}')">➕ إضافة سطر جديد</button>`;
+      banner.style.display = 'flex';
+    } else if(banner){
+      banner.style.display = 'none';
+    }
+
     if(!recs.length){
       tbody.innerHTML = `<tr><td colspan="${cfg.columns.length + 2}" class="fs-empty">لا توجد نتائج</td></tr>`;
       return;
     }
+
+    if(isEdit){
+      // Inline edit rendering: every cell is an <input>
+      tbody.innerHTML = recs.map((r, i) => {
+        const cells = cfg.fields.map(f => {
+          const v = (r[f] == null ? '' : r[f]);
+          const escVal = String(v).replace(/"/g,'&quot;');
+          const isDate = /Date|تاريخ/i.test(f);
+          const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
+          const type = isDate ? 'date' : (isNumeric ? 'number' : 'text');
+          const cellKey = px + '_' + r.id + '_' + f;
+          return `<td style="padding:4px 6px"><input class="fs-cell-input" type="${type}" data-cell="${cellKey}" value="${escVal}" oninput="window._gpmInlineSave('${pid}',${r.id},'${f}',this.value)"></td>`;
+        }).join('');
+        return `<tr>
+          <td>${i+1}</td>${cells}
+          <td><div class="fs-row-btns" style="opacity:1">
+            <button class="fs-row-btn fs-row-btn-del" onclick="GPM.quickDel('${pid}',${r.id})">🗑️</button>
+          </div></td></tr>`;
+      }).join('');
+      return;
+    }
+
     tbody.innerHTML = recs.map((r, i) => {
       const cells = cfg.fields.map(f => {
         const v = r[f] || '—';
@@ -12363,6 +12939,7 @@ window.addEventListener('resize', function(){
     openPage, closePage,
     render, newDrawer, openDrawer, closeDrawer,
     saveDrawer, deleteDrawer, quickDel, exportXL,
+    toggleEditMode,
   };
 
   // ─── Backwards-compat: create open<Xxx>Page() and close<Xxx>Page() globals ───
