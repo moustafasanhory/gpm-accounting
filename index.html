@@ -737,7 +737,37 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
+}
 
+/* ══════════════════════════════════════════════════════════════════
+   DESKTOP FIX (>768px) — Full-screen pages with position:fixed;inset:0
+   are positioned with margin-left:52px in their inline styles, but with
+   inset:0 (which sets left:0;right:0) the page extends from 0 to 100%
+   of viewport, then margin-left pushes it further right, causing the
+   right edge to overflow off-screen and the visible content to be the
+   empty background. Override on desktop by neutralizing margin-left and
+   using the appropriate left offset based on sidebar state.
+═══════════════════════════════════════════════════════════════════ */
+@media(min-width:769px){
+  /* Default: sidebar expanded (240px) — pages should start after it.
+     The pages have position:fixed;inset:0 in their inline style, so we
+     override margin-left to 0 and use `left` for the actual offset. */
+  [id$="Page"][style*="position:fixed"]{
+    margin-left:0 !important;
+    left:240px !important;
+    right:0 !important;
+  }
+  /* When sidebar is collapsed (52px) — pages should start after collapsed sidebar.
+     Uses :has() to target body when any descendant sidebar is collapsed. */
+  body:has(.gpm-sidebar.collapsed) [id$="Page"][style*="position:fixed"]{
+    left:52px !important;
+  }
+}
+
+/* ══════════════════════
+   MOBILE PAGE OVERFLOW FIX ≤768px (continuation)
+══════════════════════ */
+@media(max-width:768px){
   /* Inputs / search bars must respect container width */
   [id$="Page"] input,
   [id$="Page"] select,
@@ -998,10 +1028,12 @@ function _sbShowApp() {
     document.body.appendChild(w);
     var nm = document.getElementById('gpmWelName');
     if (nm) nm.textContent = (_sbUser.user_metadata && _sbUser.user_metadata.full_name) || (_sbUser.email||'').split('@')[0] || '';
-    /* Adjust margin for collapsed sidebar / mobile */
-    if (typeof isMobile === 'function' && isMobile()) w.style.marginLeft = '0';
-    else if (typeof isCollapsed === 'function' && isCollapsed()) w.style.marginLeft = '52px';
-    else w.style.marginLeft = '240px';
+    /* Adjust position for collapsed sidebar / mobile — use `left` not marginLeft because position:fixed + inset:0 locks left=0 */
+    w.style.marginLeft = '0';
+    w.style.right = '0';
+    if (typeof isMobile === 'function' && isMobile()) w.style.left = '0';
+    else if (typeof isCollapsed === 'function' && isCollapsed()) w.style.left = '52px';
+    else w.style.left = '240px';
   }, 500);
 }
 
@@ -1088,13 +1120,19 @@ async function sbPush(table, record) {
     if (!w) return;
     if (window.innerWidth <= 768) {
       // Full screen on mobile — sidebar is slide-in
+      w.style.left = '0';
+      w.style.right = '0';
       w.style.marginLeft = '0';
-      w.style.width = '100vw';
-      w.style.maxWidth = '100vw';
+      w.style.width = '';
+      w.style.maxWidth = '';
     } else {
       var sb = document.getElementById('gpmSidebar');
       var collapsed = sb && sb.classList.contains('collapsed');
-      w.style.marginLeft = collapsed ? '52px' : '240px';
+      // Use `left` (not marginLeft) because position:fixed + inset:0 already locks left=0
+      // Fall back to also setting marginLeft to 0 to clear any prior value
+      w.style.left = (collapsed ? '52px' : '240px');
+      w.style.right = '0';
+      w.style.marginLeft = '0';
       w.style.width = '';
       w.style.maxWidth = '';
     }
@@ -3287,7 +3325,12 @@ function syncPageMargins(){
           : sidebar.classList.contains('collapsed') ? 52 : 240;
   ['posPage','apPage','scPage','empPage','vendorPage','custPage','ccPage','openingBalancePage','chartOfAccountsPage','currencyExchangePage','itemsPage','journalVoucherPage','accountStatementPage','accountBalancePage','interCompanyPage','assetRegisterPage','runDepreciationPage','assetsHistoryPage','albarakaBankStmtPage','cib1BankStmtPage','cib2BankStmtPage','cib3BankStmtPage','qnb1BankStmtPage','qnb2BankStmtPage','qnb3BankStmtPage','qnb4BankStmtPage','qnb5BankStmtPage','adib1BankStmtPage','adib2BankStmtPage','bankReconciliationPage','bankJournalVoucherPage','bankPositionPage','outgoingChequePage','vendorsInvoicePage','vendorsContractsPage','downPaymentPage','expensesAccrualPage','vendorStatementPage','vendorBalancePage','attendanceSheetPage','contractSocialInsurancePage','fnbAuditPage','addDeductionTaxPage','salaryStatementPage','salaryPayslipPage','employeeLoanPage','outOfSourceIBSPage','incomeTaxPage','uploadDataPage','dailyInvoicePage','electricityInvoicePage','waterInvoicePage','headOfficeCollectionPage','customerSearchPage','cashWitnessPage','creditCardReceiptPage','generalCashierPage','creditCardByDatePage','creditCardByCashierPage','creditCardDiffByBankPage','checkUnderCollectionPage','depositPage','salesTaxPage','incentivePage','miscellaneousPage','proShopPage','laundryPage','cashReceiptPage','dutyPage','maintenanceRequestPage','ticket25Page','ticket20Page','ticket10Page','purchasingOrderPage','purchasingRequestPage','goodsReceiptPage','goodsIssuePage','itemMovementPage','storesMovementPage','storesConsumptionPage','transferItemPage','storesBalancePage','cashRevenuePage','cashDepositAtBankPage','otherCashReceiptPage','duesFromOwnerPage','houseFundPage','cashExpensesPage','advancedPaymentCashPage','employeeLoanCashPage','distributionPage','cashInventoryPage','denominationOfCurrencyPage','backUpPage','compactRepairPage','shiftPage','trialBalancePage','dailyWorkSheetPage','sisterCompanyPage','otherActivityPage','logOutPage'].forEach(id=>{
     const pg = document.getElementById(id);
-    if(pg && pg.style.display !== 'none') pg.style.marginLeft = w + 'px';
+    if(pg && pg.style.display !== 'none'){
+      // Use `left` instead of marginLeft because position:fixed + inset:0 needs left/right not margins
+      pg.style.left = w + 'px';
+      pg.style.right = '0';
+      pg.style.marginLeft = '0';
+    }
   });
 }
 // Patch gpmToggle to also sync pages
@@ -3330,11 +3373,10 @@ gpmToggle = function(){
   }
 
   function applyPageStyling(pg){
-    // Force margin and ensure the page sits correctly
-    pg.style.marginLeft = getCurrentMargin() + 'px';
-    pg.style.marginRight = '0';
     // On mobile: full viewport width and height — sidebar is slide-in, so no offset needed
     if(window.innerWidth <= 768){
+      pg.style.marginLeft = '0';
+      pg.style.marginRight = '0';
       pg.style.maxWidth = '100vw';
       pg.style.width = '100vw';
       pg.style.height = '100vh';
@@ -3344,14 +3386,18 @@ gpmToggle = function(){
       pg.style.right = '0';
       pg.style.bottom = '0';
     } else {
+      // On desktop: use `left` (not marginLeft) because position:fixed + inset:0 locks left=0,
+      // and adding marginLeft pushes the element off-screen to the right.
+      pg.style.marginLeft = '0';
+      pg.style.marginRight = '0';
       pg.style.maxWidth = '';
       pg.style.width = '';
       pg.style.height = '';
       pg.style.minHeight = '';
-      pg.style.top = '';
-      pg.style.left = '';
-      pg.style.right = '';
-      pg.style.bottom = '';
+      pg.style.top = '0';
+      pg.style.left = getCurrentMargin() + 'px';
+      pg.style.right = '0';
+      pg.style.bottom = '0';
     }
   }
 
@@ -26001,11 +26047,12 @@ function logOutFsToast(msg,type='success'){
 function openDictionaryPage(){
   var pg = document.getElementById('dictionaryPage');
   if(!pg) return;
-  // Compute correct margin-left based on sidebar state
+  // Compute correct left offset based on sidebar state (use `left` not marginLeft because position:fixed + left:0 + right:0 locks both)
   var isM = window.innerWidth <= 768;
   var sb = document.getElementById('gpmSidebar');
-  var marginLeft = isM ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
-  pg.style.marginLeft = marginLeft + 'px';
+  var leftOffset = isM ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
+  pg.style.left = leftOffset + 'px';
+  pg.style.marginLeft = '0';
   pg.style.display = 'block';
 
   // Close the sidebar / drill panels
@@ -26061,8 +26108,9 @@ window.addEventListener('resize', function(){
   if(pg && pg.style.display === 'block'){
     var isM = window.innerWidth <= 768;
     var sb = document.getElementById('gpmSidebar');
-    var marginLeft = isM ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
-    pg.style.marginLeft = marginLeft + 'px';
+    var leftOffset = isM ? 0 : (sb && sb.classList.contains('collapsed') ? 52 : 240);
+    pg.style.left = leftOffset + 'px';
+    pg.style.marginLeft = '0';
   }
 });
 </script>
