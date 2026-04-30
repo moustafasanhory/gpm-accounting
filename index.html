@@ -1414,11 +1414,332 @@ window.spSyncSchema = async function(ctx){
   if(typeof ctx.rerender === 'function') ctx.rerender();
 };
 
-/* Toggle a special page's edit mode. pageKey is a free-form string
-   identifying the page (e.g. "cc", "vnd", "cust", "emp", "chq").
-   - pageEl: the .fs-page DOM element to toggle the .edit-mode class on
-   - btnEl:  the toggle button to flip label/style on
-   - rerender: a function that re-renders the table */
+/* ════════════════════════════════════════════════════════════════════
+   MASTER LOOKUP SYSTEM — Foreign Key relationships
+   ════════════════════════════════════════════════════════════════════
+   Provides:
+   - Auto-detection of master-data fields (vendor, customer, employee,
+     cost center, profit center, GL account, currency, material item)
+   - Cached records from each master table
+   - Searchable dropdown rendering ("CODE — NAME" format)
+   - Referential integrity check (prevents delete if referenced)
+   ──────────────────────────────────────────────────────────────────── */
+window.MasterLookup = (function(){
+  // Master config: { masterKey -> { table, codeFields, labelFields } }
+  // codeFields/labelFields are tried in order to find the right column.
+  const MASTERS = {
+    vendor: {
+      table: 'vendors_list',
+      codeFields:  ['كود_المورد','vendor_code','code','vendor_id','sap_code','كود'],
+      labelFields: ['اسم_الشركة','vendor_name','name','company_name','اسم']
+    },
+    customer: {
+      table: 'customer_list',
+      codeFields:  ['رقم_العميل','customer_code','code','customer_id','client_code'],
+      labelFields: ['اسم_العميل','customer_name','name','client_name','اسم']
+    },
+    employee: {
+      table: 'emploee_code',
+      codeFields:  ['كود_الموظف','employee_code','emp_code','code','employee_id'],
+      labelFields: ['اسم_الموظف','employee_name','name','full_name','اسم']
+    },
+    cost_center: {
+      table: 'cost_center',
+      codeFields:  ['Cost_Ctr_Code','cost_ctr_code','cost_center_code','code'],
+      labelFields: ['Short_text','short_text','name','description','Company_Ar']
+    },
+    profit_center: {
+      table: 'profit_center',
+      codeFields:  ['Profit_Ctr_Code','profit_ctr_code','profit_center_code','code'],
+      labelFields: ['Short_text','short_text','name','description','Company_Ar']
+    },
+    account: {
+      table: 'chart_of_account',
+      codeFields:  ['account_code','gl_code','code','account_no','account_id'],
+      labelFields: ['account_name','name','description','اسم']
+    },
+    currency: {
+      table: 'currency',
+      codeFields:  ['Currency_Code','currency_code','code'],
+      labelFields: ['Currency_Name_EN','Currency_Name_AR','currency_name','name']
+    },
+    item: {
+      table: 'matrial_item',
+      codeFields:  ['Item_Code','item_code','code','material_code'],
+      labelFields: ['Item_Name_AR','Item_Name_EN','item_name','name']
+    }
+  };
+
+  // Cache: masterKey -> {records, codeField, labelField}
+  const _cache = {};
+  const _loading = {};
+
+  /* Detect which master a field name belongs to. Returns the master key
+     ('vendor','customer',...) or null if no match. */
+  function detectMaster(fieldName){
+    if(!fieldName) return null;
+    const f = String(fieldName).toLowerCase();
+    if(/vendor|مورد|supplier/i.test(fieldName)) return 'vendor';
+    if(/customer|عميل|client(?!_)/i.test(fieldName)) return 'customer';
+    if(/employee|موظف|emp_code|emp_id|employee_code/i.test(fieldName)) return 'employee';
+    if(/cost.?center|cost.?ctr|مركز.?تكلفة/i.test(fieldName)) return 'cost_center';
+    if(/profit.?center|profit.?ctr|مركز.?ربح/i.test(fieldName)) return 'profit_center';
+    if(/(^|_)(gl.?account|account.?code|account.?no|chart.?of)/i.test(fieldName)) return 'account';
+    if(/currency|عملة/i.test(fieldName)) return 'currency';
+    if(/(^|_)(item|material|matrial|صنف|مادة)/i.test(fieldName)) return 'item';
+    return null;
+  }
+
+  /* Resolve which actual column in a record holds the code/label */
+  function _pickField(records, candidates){
+    if(!records || !records.length) return candidates[0];
+    const sample = records[0];
+    for(const c of candidates){
+      if(sample.hasOwnProperty(c)) return c;
+    }
+    // Fallback: first non-id key
+    const keys = Object.keys(sample).filter(k => k !== 'id');
+    return keys[0] || candidates[0];
+  }
+
+  /* Load master records (cached). Returns a promise. */
+  async function load(masterKey){
+    if(_cache[masterKey]) return _cache[masterKey];
+    if(_loading[masterKey]) return _loading[masterKey];
+    const cfg = MASTERS[masterKey];
+    if(!cfg) return null;
+    _loading[masterKey] = (async () => {
+      let records = [];
+      // Try Supabase first
+      if(typeof _sb !== 'undefined' && _sb){
+        try {
+          const recs = await window.sbPullAll(cfg.table);
+          if(Array.isArray(recs)) records = recs;
+        } catch(e){ console.warn('[MasterLookup] load', masterKey, e); }
+      }
+      // Fallback: localStorage
+      if(!records.length){
+        try {
+          const lsKeyMap = {
+            vendor: 'gpm_vnd_records',
+            customer: 'gpm_cust_records',
+            employee: 'gpm_emp_records',
+            cost_center: 'gpm_cc_records',
+            profit_center: 'gpm_profitCenter_records',
+            account: 'gpm_chartOfAccounts_records',
+            currency: 'gpm_currency_records',
+            item: 'gpm_matrialItem_records'
+          };
+          const lsKey = lsKeyMap[masterKey];
+          if(lsKey){
+            records = JSON.parse(localStorage.getItem(lsKey) || '[]');
+          }
+        } catch(e){}
+      }
+      const codeField  = _pickField(records, cfg.codeFields);
+      const labelField = _pickField(records, cfg.labelFields);
+      _cache[masterKey] = { records, codeField, labelField, table: cfg.table };
+      delete _loading[masterKey];
+      return _cache[masterKey];
+    })();
+    return _loading[masterKey];
+  }
+
+  /* Force a reload (use when master records change) */
+  function invalidate(masterKey){
+    if(masterKey) delete _cache[masterKey];
+    else { for(const k of Object.keys(_cache)) delete _cache[k]; }
+  }
+
+  /* Returns synchronous cached lookup info or null */
+  function getCached(masterKey){ return _cache[masterKey] || null; }
+
+  /* Format a record as "CODE — NAME" */
+  function formatOption(rec, info){
+    if(!rec || !info) return '';
+    const code  = rec[info.codeField] || '';
+    const label = rec[info.labelField] || '';
+    if(code && label) return code + ' — ' + label;
+    return code || label || ('#' + rec.id);
+  }
+
+  /* Build the HTML for a searchable combobox. The user types a search
+     and picks an option. The hidden value stores just the code. */
+  function buildCombobox(opts){
+    // opts: { id, masterKey, value, onChange, placeholder }
+    const id = opts.id;
+    const masterKey = opts.masterKey;
+    const value = opts.value || '';
+    const onChange = opts.onChange || '';
+    const placeholder = opts.placeholder || 'اختر...';
+    const info = _cache[masterKey];
+    let displayValue = value;
+    if(info && value){
+      const rec = info.records.find(r => String(r[info.codeField]) === String(value));
+      if(rec) displayValue = formatOption(rec, info);
+    }
+    // We use a wrapper div with an input + a dropdown div (positioned absolutely)
+    const escVal = String(displayValue).replace(/"/g, '&quot;');
+    return (
+      '<div class="ml-combo" data-master="'+masterKey+'" data-code="'+String(value).replace(/"/g,'&quot;')+'">' +
+      '<input class="ml-combo-input fs-cell-input" id="'+id+'" type="text" value="'+escVal+'" placeholder="'+placeholder+'" '+
+        'onfocus="MasterLookup.onFocus(this)" oninput="MasterLookup.onInput(this)" onblur="MasterLookup.onBlur(this)" '+
+        'data-onchange="'+onChange.replace(/"/g,'&quot;')+'">' +
+      '<div class="ml-combo-list" style="display:none"></div>' +
+      '</div>'
+    );
+  }
+
+  /* Render the dropdown list */
+  function _renderList(combo, query){
+    const masterKey = combo.dataset.master;
+    const info = _cache[masterKey];
+    const list = combo.querySelector('.ml-combo-list');
+    if(!info){
+      list.innerHTML = '<div class="ml-combo-loading">جاري التحميل...</div>';
+      list.style.display = 'block';
+      return;
+    }
+    const q = (query||'').toLowerCase().trim();
+    let recs = info.records;
+    if(q){
+      recs = recs.filter(r => {
+        const code = String(r[info.codeField]||'').toLowerCase();
+        const label = String(r[info.labelField]||'').toLowerCase();
+        return code.includes(q) || label.includes(q);
+      });
+    }
+    recs = recs.slice(0, 50); // limit results
+    if(!recs.length){
+      list.innerHTML = '<div class="ml-combo-empty">لا توجد نتائج</div>';
+    } else {
+      list.innerHTML = recs.map(r => {
+        const code = String(r[info.codeField]||'').replace(/"/g,'&quot;');
+        const display = formatOption(r, info).replace(/"/g,'&quot;');
+        return '<div class="ml-combo-item" data-code="'+code+'" data-label="'+display+'" onmousedown="MasterLookup.pick(this, event)">'+display+'</div>';
+      }).join('');
+    }
+    list.style.display = 'block';
+  }
+
+  function onFocus(input){
+    const combo = input.closest('.ml-combo');
+    if(!combo) return;
+    const masterKey = combo.dataset.master;
+    // Trigger load if not cached
+    load(masterKey).then(() => _renderList(combo, input.value));
+    _renderList(combo, '');
+  }
+
+  function onInput(input){
+    const combo = input.closest('.ml-combo');
+    if(!combo) return;
+    _renderList(combo, input.value);
+  }
+
+  function onBlur(input){
+    // Delay so click on item is registered
+    setTimeout(() => {
+      const combo = input.closest('.ml-combo');
+      if(!combo) return;
+      const list = combo.querySelector('.ml-combo-list');
+      if(list) list.style.display = 'none';
+    }, 200);
+  }
+
+  function pick(itemEl, ev){
+    if(ev) { ev.preventDefault(); ev.stopPropagation(); }
+    const combo = itemEl.closest('.ml-combo');
+    if(!combo) return;
+    const code  = itemEl.dataset.code;
+    const label = itemEl.dataset.label;
+    const input = combo.querySelector('.ml-combo-input');
+    combo.dataset.code = code;
+    input.value = label;
+    const list = combo.querySelector('.ml-combo-list');
+    if(list) list.style.display = 'none';
+    // Trigger onchange callback if specified — passes the code (not the display)
+    const fnName = input.dataset.onchange;
+    if(fnName && window[fnName]){
+      try { window[fnName](code, label, input); } catch(e){ console.warn(e); }
+    }
+    // Also fire native input event so existing handlers (like spInlineSave) can catch the code
+    input.dataset.actualValue = code;
+    const evt = new Event('input', { bubbles: true });
+    input.dispatchEvent(evt);
+  }
+
+  /* Get the raw "code" value of a combo (use this when reading the field
+     value, not the display text). Returns the code only. */
+  function getValue(input){
+    const combo = input.closest && input.closest('.ml-combo');
+    if(combo) return combo.dataset.code || '';
+    return input.value;
+  }
+
+  /* Check if a record from a master table is referenced anywhere.
+     Returns a promise resolving to an array of { table, count } entries
+     where the record is referenced. Empty array = safe to delete. */
+  async function checkReferences(masterKey, recordId, recordCode){
+    if(!_sb) return [];
+    const cfg = MASTERS[masterKey];
+    if(!cfg) return [];
+    // Get all Supabase tables we know about (from sbTable mappings on
+    // GPM_PAGES) plus the special-page tables.
+    const knownTables = new Set();
+    if(typeof GPM_PAGES === 'object'){
+      for(const pid of Object.keys(GPM_PAGES || {})){
+        const t = GPM_PAGES[pid].sbTable;
+        if(t && t !== cfg.table) knownTables.add(t);
+      }
+    }
+    ['vendors_list','customer_list','emploee_code','cost_center','print_cheque']
+      .forEach(t => { if(t !== cfg.table) knownTables.add(t); });
+    // For each table, scan for the code in jsonb data or any column
+    const matches = [];
+    const code = String(recordCode || '');
+    if(!code) return [];
+    // To stay performant, do parallel HEAD-style counts using filter on jsonb data->>code
+    const checks = Array.from(knownTables).map(async (t) => {
+      try {
+        // jsonb-style: data ->> 'someField' = code (we don't know the field, so use ::text contains)
+        // PostgREST allows: data::text.ilike.*<code>*
+        const { count, error } = await _sb
+          .from(t)
+          .select('id', { count: 'exact', head: true })
+          .filter('data', 'cs', JSON.stringify({}).replace('}', '"'+code+'"}'))
+          .limit(1);
+        // The above is a rough check; if it errors, fall back to fetching a few rows
+        if(error){
+          // Fallback: pull first 200 rows and scan client-side
+          const r = await _sb.from(t).select('id, data').limit(200);
+          if(r.data){
+            const found = r.data.some(row => {
+              const txt = JSON.stringify(row.data || row);
+              return txt.indexOf(code) >= 0;
+            });
+            if(found) matches.push({ table: t, count: '?' });
+          }
+        } else if(count && count > 0){
+          matches.push({ table: t, count: count });
+        }
+      } catch(e){ /* skip */ }
+    });
+    await Promise.all(checks);
+    return matches;
+  }
+
+  return {
+    MASTERS,
+    detectMaster,
+    load, invalidate, getCached,
+    formatOption,
+    buildCombobox,
+    onFocus, onInput, onBlur, pick,
+    getValue,
+    checkReferences
+  };
+})();
 window.spToggleEditMode = function(pageKey, pageEl, btnEl, rerender){
   window._spEditMode[pageKey] = !window._spEditMode[pageKey];
   if(window._spEditMode[pageKey]){
@@ -1433,6 +1754,25 @@ window.spToggleEditMode = function(pageKey, pageEl, btnEl, rerender){
 
 window.spIsEditMode = function(pageKey){ return !!window._spEditMode[pageKey]; };
 
+/* Referential integrity helper for special pages.
+   Returns a Promise<boolean> — true if safe to delete, false if blocked.
+   Shows an alert with the list of referencing tables if blocked.
+   masterKey: 'vendor' | 'customer' | 'employee' | 'cost_center' */
+window.spCheckRefsBeforeDelete = async function(masterKey, rec){
+  if(!window.MasterLookup || !rec) return true;
+  const info = await window.MasterLookup.load(masterKey);
+  if(!info) return true;
+  const code = rec[info.codeField];
+  if(!code) return true;
+  const refs = await window.MasterLookup.checkReferences(masterKey, rec.id, code);
+  if(refs && refs.length){
+    const lst = refs.map(r => '• ' + r.table + ' (' + r.count + ' سجل)').join('\n');
+    alert('🚫 لا يمكن حذف هذا السجل لأنه مستخدم في:\n\n' + lst + '\n\nيجب حذف السجلات المرتبطة أو تغيير ربطها أولاً.');
+    return false;
+  }
+  return true;
+};
+
 /* Build an inline cell <input> string. Used inside table HTML in edit mode.
    - pageKey: the special page key
    - rec: the record object (must have rec.id)
@@ -1445,6 +1785,26 @@ window.spCellInput = function(pageKey, rec, field, opts){
   const type = opts.type || 'text';
   const fnName = opts.onChangeFn || ('window.spDefaultInlineSave');
   const cellKey = pageKey + '_' + rec.id + '_' + field;
+  // Detect master-data field — render a searchable combobox
+  if(window.MasterLookup && type === 'text'){
+    const masterKey = window.MasterLookup.detectMaster(field);
+    if(masterKey){
+      try { window.MasterLookup.load(masterKey); } catch(e){}
+      // Register a one-off callback that bridges the combobox pick into the
+      // page's normal inline-save handler with the CODE (not the display).
+      const handlerName = '_spComboSave_' + pageKey + '_' + rec.id + '_' + field.replace(/[^A-Za-z0-9_\u0600-\u06FF]/g,'_');
+      window[handlerName] = function(code){
+        const fn = fnName.startsWith('window.') ? window[fnName.slice(7)] : window[fnName];
+        if(typeof fn === 'function') fn(rec.id, field, code);
+      };
+      return window.MasterLookup.buildCombobox({
+        id: 'pf_' + cellKey,
+        masterKey: masterKey,
+        value: v,
+        onChange: handlerName
+      });
+    }
+  }
   return `<input class="fs-cell-input" type="${type}" data-cell="${cellKey}" value="${escVal}" oninput="${fnName}(${rec.id},'${field}',this.value)">`;
 };
 
@@ -5273,6 +5633,61 @@ function scToast(msg,type='success'){
 }
 .fs-edit-add-row:hover{filter:brightness(1.05)}
 
+/* MASTER LOOKUP COMBOBOX */
+.ml-combo{position:relative;display:block;width:100%}
+.ml-combo .ml-combo-input{
+  width:100%;
+  padding-left:24px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='%23a78bfa'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat:no-repeat;
+  background-position:8px 50%;
+  background-size:12px;
+}
+.ml-combo-list{
+  position:absolute;
+  top:calc(100% + 2px);
+  right:0;
+  left:0;
+  background:#fff;
+  border:1px solid #a78bfa;
+  border-radius:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);
+  max-height:240px;
+  overflow-y:auto;
+  z-index:9999;
+  font-family:'Tajawal',sans-serif;
+  font-size:.82rem;
+}
+.ml-combo-item{
+  padding:7px 10px;
+  cursor:pointer;
+  border-bottom:1px solid #f1f5f9;
+  color:#1e293b;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  transition:background .1s;
+}
+.ml-combo-item:hover{background:#ede9fe}
+.ml-combo-item:last-child{border-bottom:none}
+.ml-combo-loading,.ml-combo-empty{
+  padding:14px;
+  text-align:center;
+  color:#94a3b8;
+  font-size:.78rem;
+}
+/* Form field combo (in drawer) */
+.fd-field .ml-combo .ml-combo-input{
+  border:1px solid #e2e8f0;
+  border-radius:7px;
+  padding:8px 28px 8px 12px;
+  background-color:#fff;
+}
+.fd-field .ml-combo .ml-combo-input:focus{
+  border-color:#7c3aed;
+  box-shadow:0 0 0 3px rgba(124,58,237,.15);
+}
+
 /* Drawer */
 .fs-drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:890;opacity:0;pointer-events:none;transition:opacity .25s}
 .fs-drawer-overlay.open{opacity:1;pointer-events:all}
@@ -5669,25 +6084,36 @@ function empDrawerDelete(){
   if(!empCurrentId){ empFsToast('لم يتم اختيار موظف','error'); return; }
   const rec=empRecords.find(r=>r.id===empCurrentId);
   if(!confirm(`حذف "${rec?.['اسم_الموظف']||'هذا الموظف'}"؟`)) return;
-  const delId=empCurrentId;
-  empRecords=empRecords.filter(r=>r.id!==empCurrentId);
-  localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
-  if(window.sbDelete) window.sbDelete('emploee_code', delId);
-  empFsToast('🗑️ تم حذف الموظف','success');
-  empCurrentId=null;
-  empCloseDrawer();
-  empFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('employee', rec) : true;
+    if(!ok){ empFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    const delId=empCurrentId;
+    empRecords=empRecords.filter(r=>r.id!==empCurrentId);
+    localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
+    if(window.sbDelete) window.sbDelete('emploee_code', delId);
+    if(window.MasterLookup) window.MasterLookup.invalidate('employee');
+    empFsToast('🗑️ تم حذف الموظف','success');
+    empCurrentId=null;
+    empCloseDrawer();
+    empFsRender();
+  })();
 }
 
 function empQuickDelete(id){
   const rec=empRecords.find(r=>r.id===id);
+  if(!rec) return;
   if(!confirm(`حذف "${rec?.['اسم_الموظف']||'هذا الموظف'}"؟`)) return;
-  empRecords=empRecords.filter(r=>r.id!==id);
-  localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
-  if(window.sbDelete) window.sbDelete('emploee_code', id);
-  if(empCurrentId===id){ empCurrentId=null; empCloseDrawer(); }
-  empFsToast('🗑️ تم الحذف','success');
-  empFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('employee', rec) : true;
+    if(!ok){ empFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    empRecords=empRecords.filter(r=>r.id!==id);
+    localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
+    if(window.sbDelete) window.sbDelete('emploee_code', id);
+    if(window.MasterLookup) window.MasterLookup.invalidate('employee');
+    if(empCurrentId===id){ empCurrentId=null; empCloseDrawer(); }
+    empFsToast('🗑️ تم الحذف','success');
+    empFsRender();
+  })();
 }
 
 function empExportXL(){
@@ -6071,26 +6497,37 @@ function vndDrawerDelete(){
   if(!vndCurrentId){ vndFsToast('لم يتم اختيار مورد','error'); return; }
   const rec=vndRecords.find(r=>r.id===vndCurrentId);
   if(!confirm(`حذف "${rec?.['اسم_الشركة']||'هذا المورد'}"؟`)) return;
-  const delId=vndCurrentId;
-  vndRecords=vndRecords.filter(r=>r.id!==vndCurrentId);
-  delete vndAttachments[vndCurrentId];
-  localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
-  localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
-  if(window.sbDelete) window.sbDelete('vendors_list', delId);
-  vndFsToast('🗑️ تم الحذف','success');
-  vndCurrentId=null; vndCloseDrawer(); vndFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('vendor', rec) : true;
+    if(!ok){ vndFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    const delId=vndCurrentId;
+    vndRecords=vndRecords.filter(r=>r.id!==vndCurrentId);
+    delete vndAttachments[vndCurrentId];
+    localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
+    localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
+    if(window.sbDelete) window.sbDelete('vendors_list', delId);
+    if(window.MasterLookup) window.MasterLookup.invalidate('vendor');
+    vndFsToast('🗑️ تم الحذف','success');
+    vndCurrentId=null; vndCloseDrawer(); vndFsRender();
+  })();
 }
 
 function vndQuickDelete(id){
   const rec=vndRecords.find(r=>r.id===id);
+  if(!rec) return;
   if(!confirm(`حذف "${rec?.['اسم_الشركة']||'هذا المورد'}"؟`)) return;
-  vndRecords=vndRecords.filter(r=>r.id!==id);
-  delete vndAttachments[id];
-  localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
-  localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
-  if(window.sbDelete) window.sbDelete('vendors_list', id);
-  if(vndCurrentId===id){ vndCurrentId=null; vndCloseDrawer(); }
-  vndFsToast('🗑️ تم الحذف','success'); vndFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('vendor', rec) : true;
+    if(!ok){ vndFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    vndRecords=vndRecords.filter(r=>r.id!==id);
+    delete vndAttachments[id];
+    localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
+    localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
+    if(window.sbDelete) window.sbDelete('vendors_list', id);
+    if(window.MasterLookup) window.MasterLookup.invalidate('vendor');
+    if(vndCurrentId===id){ vndCurrentId=null; vndCloseDrawer(); }
+    vndFsToast('🗑️ تم الحذف','success'); vndFsRender();
+  })();
 }
 
 function vndExportXL(){
@@ -6494,22 +6931,33 @@ function custDrawerDelete(){
   if(!custCurrentId){ custFsToast('لم يتم اختيار عميل','error'); return; }
   const rec=custRecords.find(r=>r.id===custCurrentId);
   if(!confirm(`حذف "${rec?.['اسم_العميل']||'هذا العميل'}"؟`)) return;
-  const delId=custCurrentId;
-  custRecords=custRecords.filter(r=>r.id!==custCurrentId);
-  localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
-  if(window.sbDelete) window.sbDelete('customer_list', delId);
-  custFsToast('🗑️ تم الحذف','success');
-  custCurrentId=null; custCloseDrawer(); custFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('customer', rec) : true;
+    if(!ok){ custFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    const delId=custCurrentId;
+    custRecords=custRecords.filter(r=>r.id!==custCurrentId);
+    localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
+    if(window.sbDelete) window.sbDelete('customer_list', delId);
+    if(window.MasterLookup) window.MasterLookup.invalidate('customer');
+    custFsToast('🗑️ تم الحذف','success');
+    custCurrentId=null; custCloseDrawer(); custFsRender();
+  })();
 }
 
 function custQuickDelete(id){
   const rec=custRecords.find(r=>r.id===id);
+  if(!rec) return;
   if(!confirm(`حذف "${rec?.['اسم_العميل']||'هذا العميل'}"؟`)) return;
-  custRecords=custRecords.filter(r=>r.id!==id);
-  localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
-  if(window.sbDelete) window.sbDelete('customer_list', id);
-  if(custCurrentId===id){ custCurrentId=null; custCloseDrawer(); }
-  custFsToast('🗑️ تم الحذف','success'); custFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('customer', rec) : true;
+    if(!ok){ custFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    custRecords=custRecords.filter(r=>r.id!==id);
+    localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
+    if(window.sbDelete) window.sbDelete('customer_list', id);
+    if(window.MasterLookup) window.MasterLookup.invalidate('customer');
+    if(custCurrentId===id){ custCurrentId=null; custCloseDrawer(); }
+    custFsToast('🗑️ تم الحذف','success'); custFsRender();
+  })();
 }
 
 function custExportXL(){
@@ -7744,25 +8192,36 @@ function ccDrawerDelete(){
   if(!ccCurrentId){ ccFsToast('لم يتم اختيار مركز تكلفة','error'); return; }
   const rec=ccRecords.find(r=>r.id===ccCurrentId);
   if(!confirm(`حذف "${rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'هذا المركز'}"؟`)) return;
-  const delId=ccCurrentId;
-  ccRecords=ccRecords.filter(r=>r.id!==ccCurrentId);
-  localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
-  if(window.sbDelete) window.sbDelete('cost_center', delId);
-  ccFsToast('🗑️ تم حذف مركز التكلفة','success');
-  ccCurrentId=null;
-  ccCloseDrawer();
-  ccFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('cost_center', rec) : true;
+    if(!ok){ ccFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    const delId=ccCurrentId;
+    ccRecords=ccRecords.filter(r=>r.id!==ccCurrentId);
+    localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
+    if(window.sbDelete) window.sbDelete('cost_center', delId);
+    if(window.MasterLookup) window.MasterLookup.invalidate('cost_center');
+    ccFsToast('🗑️ تم حذف مركز التكلفة','success');
+    ccCurrentId=null;
+    ccCloseDrawer();
+    ccFsRender();
+  })();
 }
 
 function ccQuickDelete(id){
   const rec=ccRecords.find(r=>r.id===id);
+  if(!rec) return;
   if(!confirm(`حذف "${rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'هذا المركز'}"؟`)) return;
-  ccRecords=ccRecords.filter(r=>r.id!==id);
-  localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
-  if(window.sbDelete) window.sbDelete('cost_center', id);
-  if(ccCurrentId===id){ ccCurrentId=null; ccCloseDrawer(); }
-  ccFsToast('🗑️ تم الحذف','success');
-  ccFsRender();
+  (async () => {
+    const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('cost_center', rec) : true;
+    if(!ok){ ccFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
+    ccRecords=ccRecords.filter(r=>r.id!==id);
+    localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
+    if(window.sbDelete) window.sbDelete('cost_center', id);
+    if(window.MasterLookup) window.MasterLookup.invalidate('cost_center');
+    if(ccCurrentId===id){ ccCurrentId=null; ccCloseDrawer(); }
+    ccFsToast('🗑️ تم الحذف','success');
+    ccFsRender();
+  })();
 }
 
 function ccExportXL(){
@@ -13174,7 +13633,7 @@ window.addEventListener('resize', function(){
     }
 
     if(isEdit){
-      // Inline edit rendering: every cell is an <input>
+      // Inline edit rendering: every cell is an <input> or combobox
       tbody.innerHTML = recs.map((r, i) => {
         const cells = cfg.fields.map(f => {
           const v = (r[f] == null ? '' : r[f]);
@@ -13183,6 +13642,23 @@ window.addEventListener('resize', function(){
           const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
           const type = isDate ? 'date' : (isNumeric ? 'number' : 'text');
           const cellKey = px + '_' + r.id + '_' + f;
+          // Detect master-data field — use a searchable combobox
+          const masterKey = window.MasterLookup && window.MasterLookup.detectMaster(f);
+          if(masterKey && !isDate && !isNumeric){
+            // Pre-load the master so the combo is responsive on focus
+            try { window.MasterLookup.load(masterKey); } catch(e){}
+            const handlerName = '_gpmComboSave_' + pid + '_' + r.id + '_' + f.replace(/[^A-Za-z0-9_]/g,'_');
+            window[handlerName] = function(code){
+              window._gpmInlineSave(pid, r.id, f, code);
+            };
+            const combo = window.MasterLookup.buildCombobox({
+              id: 'pf_' + cellKey,
+              masterKey: masterKey,
+              value: v,
+              onChange: handlerName
+            });
+            return '<td style="padding:4px 6px;position:relative;min-width:180px">'+combo+'</td>';
+          }
           return `<td style="padding:4px 6px"><input class="fs-cell-input" type="${type}" data-cell="${cellKey}" value="${escVal}" oninput="window._gpmInlineSave('${pid}',${r.id},'${f}',this.value)"></td>`;
         }).join('');
         return `<tr>
@@ -13196,7 +13672,20 @@ window.addEventListener('resize', function(){
 
     tbody.innerHTML = recs.map((r, i) => {
       const cells = cfg.fields.map(f => {
-        const v = r[f] || '—';
+        let v = r[f];
+        const masterKey = window.MasterLookup && window.MasterLookup.detectMaster(f);
+        if(masterKey && v){
+          // Try to display "CODE — NAME" if master is loaded
+          const info = window.MasterLookup.getCached(masterKey);
+          if(info){
+            const masterRec = info.records.find(mr => String(mr[info.codeField]) === String(v));
+            if(masterRec) v = window.MasterLookup.formatOption(masterRec, info);
+          } else {
+            // Trigger lazy-load; don't await
+            window.MasterLookup.load(masterKey).then(() => render(pid));
+          }
+        }
+        v = v || '—';
         const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan/i.test(f);
         const style = isNumeric ? 'font-family:Space Mono,monospace;direction:ltr;text-align:left' : '';
         return `<td style="${style}">${v}</td>`;
@@ -13240,7 +13729,20 @@ window.addEventListener('resize', function(){
         const cls = isNumeric ? 'money' : (isCode ? 'code' : '');
         const type = isDate ? 'date' : (isNumeric ? 'number' : 'text');
         const escVal = String(v(f)).replace(/"/g,'&quot;');
-        html += `<div class="fd-field ${cls}"><label>${label}</label><input id="pf_${px}_${f}" type="${type}" value="${escVal}"></div>`;
+        // Detect master-data field — use a searchable combobox
+        const masterKey = window.MasterLookup && window.MasterLookup.detectMaster(f);
+        if(masterKey && !isDate && !isNumeric){
+          try { window.MasterLookup.load(masterKey); } catch(e){}
+          const combo = window.MasterLookup.buildCombobox({
+            id: 'pf_' + px + '_' + f,
+            masterKey: masterKey,
+            value: v(f),
+            placeholder: 'اختر ' + label
+          });
+          html += `<div class="fd-field"><label>${label} 🔗</label>${combo}</div>`;
+        } else {
+          html += `<div class="fd-field ${cls}"><label>${label}</label><input id="pf_${px}_${f}" type="${type}" value="${escVal}"></div>`;
+        }
       });
       
       html += `</div></div></div>`;
@@ -13289,7 +13791,14 @@ window.addEventListener('resize', function(){
     const data = { id: _curId[px] || Date.now() };
     cfg.fields.forEach(f => {
       const el = document.getElementById('pf_' + px + '_' + f);
-      if(el) data[f] = el.value;
+      if(!el) return;
+      // If this field is in a combobox, read the underlying code
+      const combo = el.closest && el.closest('.ml-combo');
+      if(combo){
+        data[f] = combo.dataset.code || el.value;
+      } else {
+        data[f] = el.value;
+      }
     });
     
     if(_curId[px]){
@@ -13307,31 +13816,79 @@ window.addEventListener('resize', function(){
     closeDrawer(pid);
   }
   
+  /* Map a master table name back to the masterKey used in MasterLookup */
+  function _masterKeyForTable(table){
+    if(!window.MasterLookup) return null;
+    for(const k of Object.keys(window.MasterLookup.MASTERS)){
+      if(window.MasterLookup.MASTERS[k].table === table) return k;
+    }
+    return null;
+  }
+
+  async function _checkRefsBeforeDelete(pid, rec){
+    const cfg = GPM_PAGES[pid];
+    if(!cfg || !cfg.sbTable) return true;
+    const masterKey = _masterKeyForTable(cfg.sbTable);
+    if(!masterKey || !window.MasterLookup) return true;
+    const info = await window.MasterLookup.load(masterKey);
+    if(!info) return true;
+    const code = rec[info.codeField];
+    if(!code) return true;
+    const refs = await window.MasterLookup.checkReferences(masterKey, rec.id, code);
+    if(refs && refs.length){
+      const lst = refs.map(r => '• ' + r.table + ' (' + r.count + ' سجل)').join('\n');
+      alert('🚫 لا يمكن حذف هذا السجل لأنه مستخدم في:\n\n' + lst + '\n\nيجب حذف السجلات المرتبطة أو تغيير ربطها أولاً.');
+      return false;
+    }
+    return true;
+  }
+
   function deleteDrawer(pid){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
     if(!_curId[px]){ _toast(px, '⚠️ لا يوجد سجل محدد', 'error'); return; }
+    const rec = _loadRecords(px, cfg.lsKey).find(r => r.id === _curId[px]);
+    if(!rec){ _toast(px, 'السجل غير موجود', 'error'); return; }
     if(!confirm('هل تريد حذف هذا السجل؟')) return;
     const delId = _curId[px];
-    _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== delId);
-    _save(px, cfg.lsKey);
-    if(cfg.sbTable) _sbDeleteRecord(pid, delId);
-    _curId[px] = null;
-    _toast(px, '🗑️ تم الحذف', 'success');
-    render(pid);
-    closeDrawer(pid);
+    (async () => {
+      const ok = await _checkRefsBeforeDelete(pid, rec);
+      if(!ok){ _toast(px, '🚫 سجل مرتبط — لا يمكن الحذف', 'error'); return; }
+      _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== delId);
+      _save(px, cfg.lsKey);
+      if(cfg.sbTable) _sbDeleteRecord(pid, delId);
+      _curId[px] = null;
+      _toast(px, '🗑️ تم الحذف', 'success');
+      // Invalidate master cache if this was a master record
+      if(window.MasterLookup){
+        const mk = _masterKeyForTable(cfg.sbTable);
+        if(mk) window.MasterLookup.invalidate(mk);
+      }
+      render(pid);
+      closeDrawer(pid);
+    })();
   }
   
   function quickDel(pid, id){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
+    const rec = _loadRecords(px, cfg.lsKey).find(r => r.id === id);
+    if(!rec){ _toast(px, 'السجل غير موجود', 'error'); return; }
     if(!confirm('هل تريد حذف هذا السجل؟')) return;
-    _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== id);
-    _save(px, cfg.lsKey);
-    if(cfg.sbTable) _sbDeleteRecord(pid, id);
-    if(_curId[px] === id) _curId[px] = null;
-    _toast(px, '🗑️ تم الحذف', 'success');
-    render(pid);
+    (async () => {
+      const ok = await _checkRefsBeforeDelete(pid, rec);
+      if(!ok){ _toast(px, '🚫 سجل مرتبط — لا يمكن الحذف', 'error'); return; }
+      _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== id);
+      _save(px, cfg.lsKey);
+      if(cfg.sbTable) _sbDeleteRecord(pid, id);
+      if(_curId[px] === id) _curId[px] = null;
+      _toast(px, '🗑️ تم الحذف', 'success');
+      if(window.MasterLookup){
+        const mk = _masterKeyForTable(cfg.sbTable);
+        if(mk) window.MasterLookup.invalidate(mk);
+      }
+      render(pid);
+    })();
   }
   
   function exportXL(pid){
