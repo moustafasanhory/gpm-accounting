@@ -1096,16 +1096,46 @@ window._sbSpecialLoaded = window._sbSpecialLoaded || {};
 
 /* Pull all records from a Supabase table.
    Returns a Promise resolving to an array (or [] on failure).
-   Records are normalized: if the row has {id, data:{...}} we unwrap data. */
-window.sbPullAll = async function(table){
+   - If row has {data: jsonb}, we unwrap data (preserving the user's
+     original field names like "كود_المورد", "Cost_Ctr_Code").
+   - If row is flat, we return as-is. The caller may also pass `expectedKeys`
+     (the field names the UI expects). For each expected key, we look for
+     a matching column using normalization rules and rename it back. */
+window.sbPullAll = async function(table, expectedKeys){
   if(!_sb || !table) return [];
   try {
     const { data, error } = await _sb.from(table).select('*').order('id', { ascending: false });
     if(error){ console.warn('[sbPullAll]', table, error.message); return []; }
     if(!Array.isArray(data)) return [];
+    // Cache columns for later upserts
+    if(data.length > 0){
+      window._sbColumnsCache[table] = new Set(Object.keys(data[0]));
+      const cols = window._sbColumnsCache[table];
+      window._sbSchemaCache[table] = (cols.has('data') && cols.size <= 3) ? 'jsonb' : 'flat';
+    }
     return data.map(row => {
+      // jsonb-style row → unwrap
       if(row && row.data && typeof row.data === 'object'){
         return Object.assign({}, row.data, { id: row.id });
+      }
+      // flat row → optionally remap normalized columns back to expected keys
+      if(expectedKeys && expectedKeys.length){
+        const out = { id: row.id };
+        const colsLower = {};
+        for(const c of Object.keys(row)) colsLower[c.toLowerCase()] = c;
+        for(const k of expectedKeys){
+          const norm = window._sbNormKey(k);
+          if(row.hasOwnProperty(norm)) out[k] = row[norm];
+          else if(row.hasOwnProperty(k)) out[k] = row[k];
+          else if(colsLower[norm.toLowerCase()]) out[k] = row[colsLower[norm.toLowerCase()]];
+        }
+        // Also keep any unrecognized columns under their original names
+        for(const c of Object.keys(row)){
+          if(c !== 'id' && !out.hasOwnProperty(c) && !Object.values(out).includes(row[c])){
+            // Don't add duplicates of values already mapped
+          }
+        }
+        return out;
       }
       return row;
     });
@@ -1114,14 +1144,116 @@ window.sbPullAll = async function(table){
 
 /* Push (upsert) a single record to a Supabase table.
    Tries jsonb-style {id, data} first, falls back to flat upsert. */
+/* ─── Schema-detection cache and field-name normalization ─── */
+window._sbSchemaCache = window._sbSchemaCache || {}; // table -> 'jsonb' | 'flat' | 'unknown'
+window._sbColumnsCache = window._sbColumnsCache || {}; // table -> Set of known columns
+
+/* Convert any field name (Arabic/English/mixed) to a safe snake_case key.
+   Examples:
+     "كود_المورد"        -> "كود_المورد" (kept; Postgres supports unicode identifiers if quoted)
+     "Cost_Ctr_Code"     -> "cost_ctr_code"
+     "Person Responsible"-> "person_responsible"
+     "Amount (EGP)"      -> "amount_egp"
+   The Arabic characters are LEFT INTACT — Postgres allows unicode column
+   names when the column was created quoted. We just normalize ASCII parts. */
+window._sbNormKey = function(key){
+  if(!key) return key;
+  return String(key)
+    .trim()
+    .replace(/[()[\]{}<>'".,;:!?#]/g, '')   // strip punctuation
+    .replace(/\s+/g, '_')                    // spaces -> underscore
+    .replace(/__+/g, '_')                    // collapse repeats
+    .replace(/^_+|_+$/g, '')                 // trim underscores
+    .replace(/[A-Z]/g, c => c.toLowerCase()); // ASCII to lower
+};
+
+/* Build a record with normalized keys for flat-schema fallback. */
+window._sbNormalizeRecord = function(rec){
+  if(!rec || typeof rec !== 'object') return rec;
+  const out = {};
+  for(const k of Object.keys(rec)){
+    const nk = (k === 'id') ? 'id' : window._sbNormKey(k);
+    out[nk] = rec[k];
+  }
+  return out;
+};
+
+/* Filter a normalized record to only columns that actually exist on the
+   target table. Falls back to original record if cache is empty. */
+window._sbProjectToColumns = function(rec, columns){
+  if(!columns || !columns.size) return rec;
+  const out = {};
+  for(const k of Object.keys(rec)){
+    if(columns.has(k)) out[k] = rec[k];
+  }
+  if(rec.id != null) out.id = rec.id;
+  return out;
+};
+
+/* Detect schema by attempting one row read. Result cached per table. */
+window._sbDetectSchema = async function(table){
+  if(!_sb || !table) return 'unknown';
+  if(window._sbSchemaCache[table]) return window._sbSchemaCache[table];
+  try {
+    const { data, error } = await _sb.from(table).select('*').limit(1);
+    if(error){
+      window._sbSchemaCache[table] = 'unknown';
+      return 'unknown';
+    }
+    if(Array.isArray(data) && data.length > 0){
+      const row = data[0];
+      const cols = new Set(Object.keys(row));
+      window._sbColumnsCache[table] = cols;
+      // jsonb-style means there's a 'data' column AND no other meaningful columns
+      if(cols.has('data') && cols.size <= 3){ // id, data, maybe created_at
+        window._sbSchemaCache[table] = 'jsonb';
+      } else {
+        window._sbSchemaCache[table] = 'flat';
+      }
+      return window._sbSchemaCache[table];
+    }
+    // Empty table — try to peek at columns via a dummy filter
+    window._sbSchemaCache[table] = 'unknown';
+    return 'unknown';
+  } catch(e){
+    window._sbSchemaCache[table] = 'unknown';
+    return 'unknown';
+  }
+};
+
+/* Push (upsert) a single record to a Supabase table.
+   - First detects schema (cached after first call)
+   - For 'jsonb' schema: stores as { id, data: <record> }
+   - For 'flat' schema: normalizes keys and projects onto known columns
+   - For 'unknown': tries jsonb first, then flat, then jsonb again */
 window.sbUpsert = async function(table, record){
   if(!_sb || !table || !record) return;
+  const schema = await window._sbDetectSchema(table);
   try {
-    const payload = { id: record.id, data: record };
-    const { error } = await _sb.from(table).upsert(payload, { onConflict: 'id' });
-    if(error){
-      await _sb.from(table).upsert(record, { onConflict: 'id' });
+    if(schema === 'jsonb'){
+      // Strip 'id' from data clone, but keep top-level id
+      const dataClone = Object.assign({}, record);
+      const payload = { id: record.id, data: dataClone };
+      const { error } = await _sb.from(table).upsert(payload, { onConflict: 'id' });
+      if(error){ console.warn('[sbUpsert][jsonb]', table, error.message); }
+      return;
     }
+    if(schema === 'flat'){
+      const normalized = window._sbNormalizeRecord(record);
+      const columns = window._sbColumnsCache[table];
+      const projected = window._sbProjectToColumns(normalized, columns);
+      const { error } = await _sb.from(table).upsert(projected, { onConflict: 'id' });
+      if(error){ console.warn('[sbUpsert][flat]', table, error.message); }
+      return;
+    }
+    // schema === 'unknown' — try jsonb, then flat
+    let p1 = await _sb.from(table).upsert({ id: record.id, data: record }, { onConflict: 'id' });
+    if(!p1.error){ window._sbSchemaCache[table] = 'jsonb'; return; }
+    let p2 = await _sb.from(table).upsert(window._sbNormalizeRecord(record), { onConflict: 'id' });
+    if(!p2.error){ window._sbSchemaCache[table] = 'flat'; return; }
+    let p3 = await _sb.from(table).upsert(record, { onConflict: 'id' });
+    if(!p3.error){ window._sbSchemaCache[table] = 'flat'; return; }
+    console.warn('[sbUpsert] all attempts failed for', table, p1.error?.message);
   } catch(e){ console.warn('[sbUpsert]', table, e); }
 };
 
@@ -1136,12 +1268,16 @@ window.sbDelete = async function(table, id){
    - lsKey: localStorage key
    - table: Supabase table name
    - setter: function(records[]) that updates the in-memory array AND triggers a re-render
+   - expectedKeys: optional array of UI field names; used to remap flat-schema
+     rows back to the original field names (e.g. "كود_المورد" from "كود_المورد"
+     or "code" or whatever the column is actually named). For jsonb-schema
+     tables this argument is ignored.
    Only fetches once per session per table. */
-window.sbHydrate = async function(lsKey, table, setter){
+window.sbHydrate = async function(lsKey, table, setter, expectedKeys){
   if(!_sb || !table) return;
   if(window._sbSpecialLoaded[table]) return;
   window._sbSpecialLoaded[table] = true;
-  const recs = await window.sbPullAll(table);
+  const recs = await window.sbPullAll(table, expectedKeys);
   if(recs && recs.length){
     try { localStorage.setItem(lsKey, JSON.stringify(recs)); } catch(e){}
     if(typeof setter === 'function') setter(recs);
@@ -5159,7 +5295,7 @@ function openEmployees(){
     window.sbHydrate('gpm_emp_records', 'emploee_code', recs => {
       empRecords = recs;
       empFsRender();
-    });
+    }, ['كود_الموظف','اسم_الموظف','الإدارة','القسم','تاريخ_الميلاد','رقم_البطاقة','الرقم_التأميني','تاريخ_التعين','العنوان','رقم_الهاتف','الوظيفة','الراتب','رقم_حساب_البنك']);
   }
 }
 function closeEmployees(){
@@ -5522,7 +5658,7 @@ function openVendors(){
     window.sbHydrate('gpm_vnd_records', 'vendors_list', recs => {
       vndRecords = recs;
       vndFsRender();
-    });
+    }, ['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان']);
   }
 }
 function closeVendors(){ document.getElementById('vendorPage').style.display='none'; vndCloseDrawer(); }
@@ -5886,7 +6022,7 @@ function openCustomers(){
     window.sbHydrate('gpm_cust_records', 'customer_list', recs => {
       custRecords = recs;
       custFsRender();
-    });
+    }, ['اسم_المشروع','اسم_المنطقة','رقم_الوحدة','الموقف_من_التسليم','تاريخ_التسليم','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','رقم_العميل','اسم_العميل','رقم_العقد']);
   }
 }
 function closeCustomers(){ document.getElementById('custPage').style.display='none'; custCloseDrawer(); }
@@ -6604,7 +6740,7 @@ function openChequePage(){
     window.sbHydrate('gpm_cheques', 'print_cheque', recs => {
       chqRecords = recs;
       chqFsRender();
-    });
+    }, ['date','num','payto','amount','words','name','account','branch','type','status','created']);
   }
 }
 function closeChequePage(){
@@ -7062,7 +7198,7 @@ function openCostCenter(){
     window.sbHydrate('gpm_cc_records', 'cost_center', recs => {
       ccRecords = recs;
       ccFsRender();
-    });
+    }, ['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type']);
   }
 }
 function closeCostCenter(){
@@ -12512,16 +12648,13 @@ window.addEventListener('resize', function(){
     if(typeof _sb === 'undefined' || !_sb) return;
     if(_sbLoaded[cfg.prefix]) return;
     try {
-      const { data, error } = await _sb.from(cfg.sbTable).select('*').order('id', { ascending: false });
-      if(error){ console.warn('[Supabase] pull '+cfg.sbTable+':', error.message); _sbLoaded[cfg.prefix] = true; return; }
-      if(Array.isArray(data) && data.length){
-        // If rows have a "data" jsonb column, unwrap it; otherwise use the row itself
-        const recs = data.map(row => {
-          if(row && row.data && typeof row.data === 'object'){
-            return Object.assign({}, row.data, { id: row.id });
-          }
-          return row;
-        });
+      // Use the shared sbPullAll helper so the same schema-detection /
+      // key-remapping logic applies here too. cfg.fields tells the helper
+      // what UI keys to map flat-schema columns back into.
+      const recs = window.sbPullAll
+        ? await window.sbPullAll(cfg.sbTable, cfg.fields || [])
+        : [];
+      if(Array.isArray(recs) && recs.length){
         _records[cfg.prefix] = recs;
         try { localStorage.setItem(cfg.lsKey, JSON.stringify(recs)); } catch(e){}
       }
@@ -12534,15 +12667,11 @@ window.addEventListener('resize', function(){
   async function _sbPushRecord(pid, rec){
     const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
     if(typeof _sb === 'undefined' || !_sb) return;
-    try {
-      // Try jsonb-style first: { id, data }
-      const payload = { id: rec.id, data: rec };
-      const { error } = await _sb.from(cfg.sbTable).upsert(payload, { onConflict: 'id' });
-      if(error){
-        // Fallback: upsert the flat record (assumes flat schema with same column names)
-        await _sb.from(cfg.sbTable).upsert(rec, { onConflict: 'id' });
-      }
-    } catch(e){ console.warn('[Supabase] push error:', e); }
+    // Delegate to the schema-aware sbUpsert (handles both jsonb and flat schemas
+    // with automatic key normalization for Arabic/English field names).
+    if(window.sbUpsert){
+      await window.sbUpsert(cfg.sbTable, rec);
+    }
   }
 
   async function _sbDeleteRecord(pid, id){
