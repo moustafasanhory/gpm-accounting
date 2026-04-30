@@ -1221,6 +1221,82 @@ window._sbDetectSchema = async function(table){
   }
 };
 
+/* Fetch the column list for a Supabase table, even if the table is empty.
+   Strategy:
+     1. Try select(*).limit(1) — if a row exists, we get column names from it.
+     2. If empty, do a dummy filter that returns no rows but still returns
+        the schema in the PostgREST response headers via Range header.
+     3. If both fail, try inserting a dummy row and reading the error.
+   Returns an array of column names (or [] on failure). Cached per table.
+   Excludes 'id' from the returned columns (since id is always present
+   as the primary key). */
+window._sbFetchColumns = async function(table){
+  if(!_sb || !table) return [];
+  if(window._sbColumnsCache[table] && window._sbColumnsCache[table].size > 0){
+    return Array.from(window._sbColumnsCache[table]).filter(c => c !== 'id');
+  }
+  try {
+    // Strategy 1: try to read one row (works if table has data)
+    let { data, error } = await _sb.from(table).select('*').limit(1);
+    if(!error && Array.isArray(data) && data.length > 0){
+      const cols = new Set(Object.keys(data[0]));
+      window._sbColumnsCache[table] = cols;
+      if(cols.has('data') && cols.size <= 3){
+        window._sbSchemaCache[table] = 'jsonb';
+      } else {
+        window._sbSchemaCache[table] = 'flat';
+      }
+      return Array.from(cols).filter(c => c !== 'id');
+    }
+    // Strategy 2: empty table — fetch the PostgREST OpenAPI spec which
+    // contains column definitions for every table. This is the most
+    // reliable way to get column names without inserting any data.
+    try {
+      const baseUrl = (typeof _SB_URL === 'string' ? _SB_URL : '').replace(/\/+$/, '');
+      const apiKey = (typeof _SB_KEY === 'string' ? _SB_KEY : '');
+      if(baseUrl && apiKey){
+        const resp = await fetch(baseUrl + '/rest/v1/', {
+          headers: { 'apikey': apiKey, 'Accept': 'application/openapi+json' }
+        });
+        if(resp.ok){
+          const spec = await resp.json();
+          const def = (spec.definitions && spec.definitions[table])
+                    || (spec.components && spec.components.schemas && spec.components.schemas[table]);
+          if(def && def.properties){
+            const colNames = Object.keys(def.properties);
+            const cols = new Set(colNames);
+            window._sbColumnsCache[table] = cols;
+            if(cols.has('data') && cols.size <= 3){
+              window._sbSchemaCache[table] = 'jsonb';
+            } else {
+              window._sbSchemaCache[table] = 'flat';
+            }
+            return colNames.filter(c => c !== 'id');
+          }
+        }
+      }
+    } catch(specErr){ console.warn('[sbFetchColumns] OpenAPI fetch failed:', specErr); }
+    // Strategy 3 (last resort): try a dummy insert (RLS may block this)
+    const dummyId = -Math.floor(Math.random()*1e12);
+    let ins = await _sb.from(table).insert({ id: dummyId }).select();
+    if(!ins.error && Array.isArray(ins.data) && ins.data.length > 0){
+      const cols = new Set(Object.keys(ins.data[0]));
+      window._sbColumnsCache[table] = cols;
+      if(cols.has('data') && cols.size <= 3){
+        window._sbSchemaCache[table] = 'jsonb';
+      } else {
+        window._sbSchemaCache[table] = 'flat';
+      }
+      _sb.from(table).delete().eq('id', dummyId).then(()=>{}, ()=>{});
+      return Array.from(cols).filter(c => c !== 'id');
+    }
+    return [];
+  } catch(e){
+    console.warn('[sbFetchColumns]', table, e);
+    return [];
+  }
+};
+
 /* Push (upsert) a single record to a Supabase table.
    - First detects schema (cached after first call)
    - For 'jsonb' schema: stores as { id, data: <record> }
@@ -1291,6 +1367,52 @@ window.sbHydrate = async function(lsKey, table, setter, expectedKeys){
 ═════════════════════════════════════════════════════════════ */
 window._spEditMode = {}; // pageKey -> bool
 window._spSaveTimers = {};
+
+/* Per-special-page dynamic schema cache.
+   When we sync columns from Supabase, we store them here so the page
+   can rebuild its <thead> and tbody using the real DB column names. */
+window._spSchema = {};   // pageKey -> array of column names
+window._spSynced = {};   // pageKey -> bool
+
+/* Sync a special page's schema from Supabase, then rebuild its table
+   header and re-render. The page must have a stable HTML structure with:
+     - A <table> whose <thead> has the row to replace
+     - A <tbody> with the page-specific id (e.g., 'ccFsTbody')
+   ctx = {
+     pageKey:   'cc' | 'vnd' | ...
+     table:     supabase table name
+     theadSel:  CSS selector for the <thead> <tr> to rewrite
+     headerBg:  CSS background string for the <th> row (gradient)
+     rerender:  function to call to redraw the tbody
+   } */
+window.spSyncSchema = async function(ctx){
+  if(!_sb || !ctx || !ctx.table) return;
+  if(window._spSynced[ctx.pageKey]) return;
+  window._spSynced[ctx.pageKey] = true;
+  if(!window._sbFetchColumns) return;
+  const cols = await window._sbFetchColumns(ctx.table);
+  if(!cols || !cols.length) return;
+  const schema = window._sbSchemaCache[ctx.table];
+  // For jsonb-style tables we keep the page's hardcoded headers
+  if(schema === 'jsonb') return;
+  // Filter out metadata columns
+  const fields = cols.filter(c => c !== 'id' && c !== 'created_at' && c !== 'updated_at');
+  if(!fields.length) return;
+  window._spSchema[ctx.pageKey] = fields;
+  // Rewrite the <thead> row with the real column names
+  if(ctx.theadSel){
+    const tr = document.querySelector(ctx.theadSel);
+    if(tr){
+      const bg = ctx.headerBg || 'linear-gradient(135deg,#1e3a8a,#2563eb)';
+      tr.style.background = bg;
+      const ths = ['<th style="color:#fff">#</th>'];
+      for(const f of fields) ths.push('<th style="color:#fff">'+f+'</th>');
+      ths.push('<th style="color:#fff">إجراء</th>');
+      tr.innerHTML = ths.join('');
+    }
+  }
+  if(typeof ctx.rerender === 'function') ctx.rerender();
+};
 
 /* Toggle a special page's edit mode. pageKey is a free-form string
    identifying the page (e.g. "cc", "vnd", "cust", "emp", "chq").
@@ -5234,7 +5356,7 @@ function scToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="empFsTable">
       <thead>
-        <tr style="background:linear-gradient(135deg,#1a3a6e,#2563eb)">
+        <tr id="empFsThead" style="background:linear-gradient(135deg,#1a3a6e,#2563eb)">
           <th style="color:#fff">#</th>
           <th style="color:#fff">كود الموظف</th>
           <th style="color:#fff">اسم الموظف</th>
@@ -5291,11 +5413,20 @@ function openEmployees(){
   pg.style.display = 'block';
   empFsRender();
   closeFlyout();
+  if(window.spSyncSchema){
+    window.spSyncSchema({
+      pageKey: 'emp',
+      table: 'emploee_code',
+      theadSel: '#empFsThead',
+      headerBg: 'linear-gradient(135deg,#1a3a6e,#2563eb)',
+      rerender: empFsRender
+    });
+  }
   if(window.sbHydrate){
     window.sbHydrate('gpm_emp_records', 'emploee_code', recs => {
       empRecords = recs;
       empFsRender();
-    }, ['كود_الموظف','اسم_الموظف','الإدارة','القسم','تاريخ_الميلاد','رقم_البطاقة','الرقم_التأميني','تاريخ_التعين','العنوان','رقم_الهاتف','الوظيفة','الراتب','رقم_حساب_البنك']);
+    });
   }
 }
 function closeEmployees(){
@@ -5306,18 +5437,23 @@ function closeEmployees(){
 /* Render full table */
 function empFsRender(){
   const q=(document.getElementById('empFsSearch')?.value||'').toLowerCase();
-  const recs=empRecords.filter(r=>!q||(r['اسم_الموظف']||'').includes(q)||(r['كود_الموظف']||'').toLowerCase().includes(q)||(r['الإدارة']||'').includes(q)||(r['الوظيفة']||'').includes(q));
+  const dynFields = window._spSchema && window._spSchema['emp'];
+  const searchFields = dynFields || ['اسم_الموظف','كود_الموظف','الإدارة','الوظيفة'];
+  const recs=empRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
 
   // Stats
-  const totalSal=empRecords.reduce((s,r)=>s+parseFloat(r['الراتب']||0),0);
-  const depts=new Set(empRecords.map(r=>r['الإدارة']).filter(Boolean)).size;
+  const salaryKey = dynFields ? (dynFields.find(f => /راتب|salary|net_pay/i.test(f)) || 'الراتب') : 'الراتب';
+  const deptKey = dynFields ? (dynFields.find(f => /إدارة|دائرة|dept|department/i.test(f)) || 'الإدارة') : 'الإدارة';
+  const totalSal=empRecords.reduce((s,r)=>s+parseFloat(r[salaryKey]||0),0);
+  const depts=new Set(empRecords.map(r=>r[deptKey]).filter(Boolean)).size;
   document.getElementById('empStatCount').textContent=empRecords.length;
   document.getElementById('empStatSalary').textContent=totalSal?totalSal.toLocaleString('en',{maximumFractionDigits:0}):'—';
   document.getElementById('empStatDepts').textContent=depts||'—';
   document.getElementById('empFsCount').textContent=recs.length+' موظف';
 
   const tbody=document.getElementById('empFsTbody');
-  if(!recs.length){ tbody.innerHTML='<tr><td colspan="11" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+  const colspan = dynFields ? (dynFields.length + 2) : 11;
+  if(!recs.length){ tbody.innerHTML=`<tr><td colspan="${colspan}" class="fs-empty">لا توجد نتائج</td></tr>`; return; }
 
   // Edit-mode banner
   let empBanner = document.getElementById('empEditBanner');
@@ -5334,6 +5470,19 @@ function empFsRender(){
     empBanner.style.display = 'flex';
 
     const inp = (rec, f, type) => window.spCellInput('emp', rec, f, { type: type||'text', onChangeFn: 'window.empInlineSave' });
+    if(dynFields){
+      tbody.innerHTML = recs.map((r,i) => {
+        const cells = dynFields.map(f => {
+          const isDate = /date|تاريخ/i.test(f);
+          const isNum = /راتب|salary|amount|loan|net_pay/i.test(f);
+          return `<td>${inp(r, f, isDate?'date':(isNum?'number':'text'))}</td>`;
+        }).join('');
+        return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="empQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+      }).join('');
+      return;
+    }
     tbody.innerHTML = recs.map((r,i) => `
       <tr>
         <td>${i+1}</td>
@@ -5353,6 +5502,20 @@ function empFsRender(){
     return;
   } else if(empBanner){
     empBanner.style.display = 'none';
+  }
+
+  // Read-only — dynamic
+  if(dynFields){
+    tbody.innerHTML = recs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+      return `<tr class="${r.id===empCurrentId?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
+        <td>${i+1}</td>${cells}
+        <td onclick="event.stopPropagation()"><div class="fs-row-btns">
+          <button class="fs-row-btn fs-row-btn-edit" onclick="empOpenDrawer(${r.id})">✏️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="empQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+    }).join('');
+    return;
   }
 
   tbody.innerHTML=recs.map((r,i)=>`
@@ -5390,12 +5553,14 @@ window.empInlineSave = window.spInlineSaveFactory({
   sbTable: 'emploee_code'
 });
 function empAddInlineRow(){
+  const dynFields = window._spSchema && window._spSchema['emp'];
+  const fields = dynFields || ['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك'];
   window.spAddInlineRow({
     pageKey: 'emp',
     records: () => empRecords,
     lsKey: 'gpm_emp_records',
     sbTable: 'emploee_code',
-    fields: ['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك'],
+    fields: fields,
     rerender: empFsRender,
     focusFirst: true
   });
@@ -5601,7 +5766,7 @@ function empFsToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="vndFsTable">
       <thead>
-        <tr style="background:linear-gradient(135deg,#0f3460,#1a3a6e)">
+        <tr id="vndFsThead" style="background:linear-gradient(135deg,#0f3460,#1a3a6e)">
           <th style="color:#fff">#</th>
           <th style="color:#fff">كود المورد</th>
           <th style="color:#fff">كود SAP</th>
@@ -5654,18 +5819,29 @@ function openVendors(){
   pg.style.display='block';
   vndFsRender();
   closeFlyout();
+  if(window.spSyncSchema){
+    window.spSyncSchema({
+      pageKey: 'vnd',
+      table: 'vendors_list',
+      theadSel: '#vndFsThead',
+      headerBg: 'linear-gradient(135deg,#0f3460,#1a3a6e)',
+      rerender: vndFsRender
+    });
+  }
   if(window.sbHydrate){
     window.sbHydrate('gpm_vnd_records', 'vendors_list', recs => {
       vndRecords = recs;
       vndFsRender();
-    }, ['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان']);
+    });
   }
 }
 function closeVendors(){ document.getElementById('vendorPage').style.display='none'; vndCloseDrawer(); }
 
 function vndFsRender(){
   const q=(document.getElementById('vndFsSearch')?.value||'').toLowerCase();
-  const recs=vndRecords.filter(r=>!q||(r['اسم_الشركة']||'').includes(q)||(r['كود_المورد']||'').toLowerCase().includes(q)||(r['كود_المورد_ساب']||'').toLowerCase().includes(q)||(r['اسم_المسئول']||'').includes(q));
+  const dynFields = window._spSchema && window._spSchema['vnd'];
+  const searchFields = dynFields || ['اسم_الشركة','كود_المورد','كود_المورد_ساب','اسم_المسئول'];
+  const recs=vndRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
 
   const totalAtt=Object.values(vndAttachments).reduce((s,a)=>s+(a?.length||0),0);
   document.getElementById('vndStatCount').textContent=vndRecords.length;
@@ -5673,7 +5849,8 @@ function vndFsRender(){
   document.getElementById('vndFsCount').textContent=recs.length+' مورد';
 
   const tbody=document.getElementById('vndFsTbody');
-  if(!recs.length){ tbody.innerHTML='<tr><td colspan="11" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+  const colspan = dynFields ? (dynFields.length + 2) : 11;
+  if(!recs.length){ tbody.innerHTML=`<tr><td colspan="${colspan}" class="fs-empty">لا توجد نتائج</td></tr>`; return; }
 
   // Edit-mode banner
   let vndBanner = document.getElementById('vndEditBanner');
@@ -5690,6 +5867,15 @@ function vndFsRender(){
     vndBanner.style.display = 'flex';
 
     const inp = (rec, f) => window.spCellInput('vnd', rec, f, { onChangeFn: 'window.vndInlineSave' });
+    if(dynFields){
+      tbody.innerHTML = recs.map((r,i) => {
+        const cells = dynFields.map(f => `<td>${inp(r, f)}</td>`).join('');
+        return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="vndQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+      }).join('');
+      return;
+    }
     tbody.innerHTML = recs.map((r,i) => {
       const att = (vndAttachments[r.id]||[]).length;
       return `<tr>
@@ -5711,6 +5897,20 @@ function vndFsRender(){
     return;
   } else if(vndBanner){
     vndBanner.style.display = 'none';
+  }
+
+  // Read-only mode
+  if(dynFields){
+    tbody.innerHTML = recs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+      return `<tr class="${r.id===vndCurrentId?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
+        <td>${i+1}</td>${cells}
+        <td onclick="event.stopPropagation()"><div class="fs-row-btns">
+          <button class="fs-row-btn fs-row-btn-edit" onclick="vndOpenDrawer(${r.id})">✏️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="vndQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+    }).join('');
+    return;
   }
 
   tbody.innerHTML=recs.map((r,i)=>{
@@ -5750,12 +5950,14 @@ window.vndInlineSave = window.spInlineSaveFactory({
   sbTable: 'vendors_list'
 });
 function vndAddInlineRow(){
+  const dynFields = window._spSchema && window._spSchema['vnd'];
+  const fields = dynFields || ['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'];
   window.spAddInlineRow({
     pageKey: 'vnd',
     records: () => vndRecords,
     lsKey: 'gpm_vnd_records',
     sbTable: 'vendors_list',
-    fields: ['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'],
+    fields: fields,
     rerender: vndFsRender,
     focusFirst: true
   });
@@ -5960,7 +6162,7 @@ function vndFsToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="custFsTable">
       <thead>
-        <tr style="background:linear-gradient(135deg,#065f46,#059669)">
+        <tr id="custFsThead" style="background:linear-gradient(135deg,#065f46,#059669)">
           <th style="color:#fff">#</th>
           <th style="color:#fff">رقم العميل</th>
           <th style="color:#fff">اسم العميل</th>
@@ -6018,11 +6220,20 @@ function openCustomers(){
   pg.style.display='block';
   custFsRender();
   closeFlyout();
+  if(window.spSyncSchema){
+    window.spSyncSchema({
+      pageKey: 'cust',
+      table: 'customer_list',
+      theadSel: '#custFsThead',
+      headerBg: 'linear-gradient(135deg,#065f46,#059669)',
+      rerender: custFsRender
+    });
+  }
   if(window.sbHydrate){
     window.sbHydrate('gpm_cust_records', 'customer_list', recs => {
       custRecords = recs;
       custFsRender();
-    }, ['اسم_المشروع','اسم_المنطقة','رقم_الوحدة','الموقف_من_التسليم','تاريخ_التسليم','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','رقم_العميل','اسم_العميل','رقم_العقد']);
+    });
   }
 }
 function closeCustomers(){ document.getElementById('custPage').style.display='none'; custCloseDrawer(); }
@@ -6036,15 +6247,20 @@ function custSetChip(val,btn){
 
 function custFsRender(){
   const q=(document.getElementById('custFsSearch')?.value||'').toLowerCase();
+  const dynFields = window._spSchema && window._spSchema['cust'];
+  const searchFields = dynFields || ['اسم_العميل','رقم_العميل','اسم_المشروع','رقم_الوحدة','رقم_العقد'];
   let recs=custRecords.filter(r=>{
-    const mq=!q||(r['اسم_العميل']||'').includes(q)||(r['رقم_العميل']||'').toLowerCase().includes(q)||(r['اسم_المشروع']||'').includes(q)||(r['رقم_الوحدة']||'').toLowerCase().includes(q)||(r['رقم_العقد']||'').toLowerCase().includes(q);
-    const mf=custChipVal==='الكل'||r['الموقف_من_التسليم']===custChipVal;
+    const mq=!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q));
+    const statusKey = dynFields ? (dynFields.find(f => /موقف|status/i.test(f)) || 'الموقف_من_التسليم') : 'الموقف_من_التسليم';
+    const mf=custChipVal==='الكل'||r[statusKey]===custChipVal;
     return mq&&mf;
   });
 
-  const totalVal=custRecords.reduce((s,r)=>s+parseFloat(r['قيمة_الوحدة']||0),0);
-  const done=custRecords.filter(r=>r['الموقف_من_التسليم']==='تم التسليم').length;
-  const late=custRecords.filter(r=>r['الموقف_من_التسليم']==='متأخر').length;
+  const valueKey = dynFields ? (dynFields.find(f => /قيمة_الوحدة|unit_value|value/i.test(f)) || 'قيمة_الوحدة') : 'قيمة_الوحدة';
+  const statusKey2 = dynFields ? (dynFields.find(f => /موقف|status/i.test(f)) || 'الموقف_من_التسليم') : 'الموقف_من_التسليم';
+  const totalVal=custRecords.reduce((s,r)=>s+parseFloat(r[valueKey]||0),0);
+  const done=custRecords.filter(r=>r[statusKey2]==='تم التسليم').length;
+  const late=custRecords.filter(r=>r[statusKey2]==='متأخر').length;
   document.getElementById('custStatCount').textContent=custRecords.length;
   document.getElementById('custStatVal').textContent=totalVal?totalVal.toLocaleString('en',{maximumFractionDigits:0}):'—';
   document.getElementById('custStatDone').textContent=done;
@@ -6052,7 +6268,8 @@ function custFsRender(){
   document.getElementById('custFsCount').textContent=recs.length+' عميل';
 
   const tbody=document.getElementById('custFsTbody');
-  if(!recs.length){ tbody.innerHTML='<tr><td colspan="13" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+  const colspan = dynFields ? (dynFields.length + 2) : 13;
+  if(!recs.length){ tbody.innerHTML=`<tr><td colspan="${colspan}" class="fs-empty">لا توجد نتائج</td></tr>`; return; }
 
   // Edit-mode banner
   let custBanner = document.getElementById('custEditBanner');
@@ -6069,6 +6286,19 @@ function custFsRender(){
     custBanner.style.display = 'flex';
 
     const inp = (rec, f, type) => window.spCellInput('cust', rec, f, { type: type||'text', onChangeFn: 'window.custInlineSave' });
+    if(dynFields){
+      tbody.innerHTML = recs.map((r,i) => {
+        const cells = dynFields.map(f => {
+          const isDate = /date|تاريخ/i.test(f);
+          const isNum = /قيمة|مساحة|amount|price|value|qty|stock/i.test(f);
+          return `<td>${inp(r, f, isDate?'date':(isNum?'number':'text'))}</td>`;
+        }).join('');
+        return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="custQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+      }).join('');
+      return;
+    }
     tbody.innerHTML = recs.map((r,i) => `
       <tr>
         <td>${i+1}</td>
@@ -6090,6 +6320,20 @@ function custFsRender(){
     return;
   } else if(custBanner){
     custBanner.style.display = 'none';
+  }
+
+  // Read-only — dynamic
+  if(dynFields){
+    tbody.innerHTML = recs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+      return `<tr class="${r.id===custCurrentId?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
+        <td>${i+1}</td>${cells}
+        <td onclick="event.stopPropagation()"><div class="fs-row-btns">
+          <button class="fs-row-btn fs-row-btn-edit" onclick="custOpenDrawer(${r.id})">✏️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="custQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+    }).join('');
+    return;
   }
 
   tbody.innerHTML=recs.map((r,i)=>{
@@ -6131,12 +6375,14 @@ window.custInlineSave = window.spInlineSaveFactory({
   sbTable: 'customer_list'
 });
 function custAddInlineRow(){
+  const dynFields = window._spSchema && window._spSchema['cust'];
+  const fields = dynFields || ['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'];
   window.spAddInlineRow({
     pageKey: 'cust',
     records: () => custRecords,
     lsKey: 'gpm_cust_records',
     sbTable: 'customer_list',
-    fields: ['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'],
+    fields: fields,
     rerender: custFsRender,
     focusFirst: true
   });
@@ -6494,7 +6740,7 @@ function custFsToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="chqFsTable">
       <thead>
-        <tr style="background:linear-gradient(135deg,#7a0000,#b91c1c)">
+        <tr id="chqFsThead" style="background:linear-gradient(135deg,#7a0000,#b91c1c)">
           <th style="color:#fff">#</th>
           <th style="color:#fff">التاريخ</th>
           <th style="color:#fff">رقم الشيك</th>
@@ -6736,11 +6982,20 @@ function openChequePage(){
   chqFsRender();
   closeFlyout();
   if(isMobile()) gpmMobClose();
+  if(window.spSyncSchema){
+    window.spSyncSchema({
+      pageKey: 'chq',
+      table: 'print_cheque',
+      theadSel: '#chqFsThead',
+      headerBg: 'linear-gradient(135deg,#7a0000,#b91c1c)',
+      rerender: chqFsRender
+    });
+  }
   if(window.sbHydrate){
     window.sbHydrate('gpm_cheques', 'print_cheque', recs => {
       chqRecords = recs;
       chqFsRender();
-    }, ['date','num','payto','amount','words','name','account','branch','type','status','created']);
+    });
   }
 }
 function closeChequePage(){
@@ -6751,10 +7006,10 @@ function closeChequePage(){
 /* ── Render full sheet ── */
 function chqFsRender(){
   const q = (document.getElementById('chqFsSearch')?.value||'').toLowerCase();
+  const dynFields = window._spSchema && window._spSchema['chq'];
+  const searchFields = dynFields || ['payto','num','amount','date','name'];
   let recs = chqRecords.filter(r =>
-    (!q || (r.payto||'').toLowerCase().includes(q) || (r.num||'').includes(q) ||
-           (r.amount||'').toString().includes(q) || (r.date||'').includes(q) ||
-           (r.name||'').toLowerCase().includes(q))
+    (!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)))
     && (!chqStatusFilter || (r.status||'pending') === chqStatusFilter)
   );
 
@@ -6763,9 +7018,10 @@ function chqFsRender(){
   const pend   = chqRecords.filter(c=>(c.status||'pending')==='pending').length;
   const done   = chqRecords.filter(c=>c.status==='printed').length;
   const voidC  = chqRecords.filter(c=>c.status==='void').length;
+  const amtKey = dynFields ? (dynFields.find(f => /amount|مبلغ/i.test(f)) || 'amount') : 'amount';
   const totalAmount = chqRecords
     .filter(c=>c.status!=='void')
-    .reduce((s,c)=>s+parseFloat(c.amount||0),0);
+    .reduce((s,c)=>s+parseFloat(c[amtKey]||0),0);
   document.getElementById('chqStatTotal').textContent  = total;
   document.getElementById('chqStatPend').textContent   = pend;
   document.getElementById('chqStatDone').textContent   = done;
@@ -6774,8 +7030,9 @@ function chqFsRender(){
   document.getElementById('chqFsCount').textContent    = recs.length + ' شيك';
 
   const tbody = document.getElementById('chqFsTbody');
+  const colspan = dynFields ? (dynFields.length + 2) : 10;
   if(!recs.length){
-    tbody.innerHTML = '<tr><td colspan="10" class="fs-empty">لا توجد نتائج</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${colspan}" class="fs-empty">لا توجد نتائج</td></tr>`;
     return;
   }
 
@@ -6794,6 +7051,19 @@ function chqFsRender(){
     chqBanner.style.display = 'flex';
 
     const inp = (rec, f, type) => window.spCellInput('chq', rec, f, { type: type||'text', onChangeFn: 'window.chqInlineSave' });
+    if(dynFields){
+      tbody.innerHTML = recs.map((r,i) => {
+        const cells = dynFields.map(f => {
+          const isDate = /date|تاريخ/i.test(f);
+          const isNum = /amount|مبلغ/i.test(f);
+          return `<td>${inp(r, f, isDate?'date':(isNum?'number':'text'))}</td>`;
+        }).join('');
+        return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="chqDeleteRow(${r.id})">🗑️</button>
+        </div></td></tr>`;
+      }).join('');
+      return;
+    }
     const statusMapEdit = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
     tbody.innerHTML = recs.map((r,i) => {
       const status = r.status||'pending';
@@ -6815,6 +7085,20 @@ function chqFsRender(){
     return;
   } else if(chqBanner){
     chqBanner.style.display = 'none';
+  }
+
+  // Read-only — dynamic
+  if(dynFields){
+    tbody.innerHTML = recs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+      return `<tr class="${r.id===chqCurrentId?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
+        <td>${i+1}</td>${cells}
+        <td><div class="fs-row-btns">
+          <button class="fs-row-btn fs-row-btn-edit" onclick="event.stopPropagation();chqOpenDrawer(${r.id})">✎</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="event.stopPropagation();chqDeleteRow(${r.id})">🗑</button>
+        </div></td></tr>`;
+    }).join('');
+    return;
   }
 
   const statusMap = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
@@ -6857,12 +7141,14 @@ window.chqInlineSave = window.spInlineSaveFactory({
   sbTable: 'print_cheque'
 });
 function chqAddInlineRow(){
+  const dynFields = window._spSchema && window._spSchema['chq'];
+  const fields = dynFields || ['date','num','payto','amount','name','account','branch','type'];
   window.spAddInlineRow({
     pageKey: 'chq',
     records: () => chqRecords,
     lsKey: 'gpm_cheques',
     sbTable: 'print_cheque',
-    fields: ['date','num','payto','amount','name','account','branch','type'],
+    fields: fields,
     rerender: chqFsRender,
     focusFirst: true
   });
@@ -7137,7 +7423,7 @@ function chqFsToast(msg, type='success'){
   <div class="fs-body">
     <table class="fs-table" id="ccFsTable">
       <thead>
-        <tr style="background:linear-gradient(135deg,#15803d,#16a34a)">
+        <tr id="ccFsThead" style="background:linear-gradient(135deg,#15803d,#16a34a)">
           <th style="color:#fff">#</th>
           <th style="color:#fff">Cost_Ctr_Code</th>
           <th style="color:#fff">Company_Ar</th>
@@ -7194,11 +7480,21 @@ function openCostCenter(){
   pg.style.display = 'block';
   ccFsRender();
   closeFlyout();
+  // Sync schema from Supabase first (rebuilds <thead> with real DB columns)
+  if(window.spSyncSchema){
+    window.spSyncSchema({
+      pageKey: 'cc',
+      table: 'cost_center',
+      theadSel: '#ccFsThead',
+      headerBg: 'linear-gradient(135deg,#15803d,#16a34a)',
+      rerender: ccFsRender
+    });
+  }
   if(window.sbHydrate){
     window.sbHydrate('gpm_cc_records', 'cost_center', recs => {
       ccRecords = recs;
       ccFsRender();
-    }, ['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type']);
+    });
   }
 }
 function closeCostCenter(){
@@ -7209,24 +7505,24 @@ function closeCostCenter(){
 /* Render full table */
 function ccFsRender(){
   const q=(document.getElementById('ccFsSearch')?.value||'').toLowerCase();
-  const recs=ccRecords.filter(r=>!q
-    ||(r['Cost_Ctr_Code']||'').toLowerCase().includes(q)
-    ||(r['Company_Ar']||'').includes(q)
-    ||(r['Company_Code']||'').toLowerCase().includes(q)
-    ||(r['Short_text']||'').includes(q)
-    ||(r['Person_Responsible']||'').includes(q)
-  );
+  // Use dynamic schema if synced, else use defaults
+  const dynFields = window._spSchema && window._spSchema['cc'];
+  const searchFields = dynFields || ['Cost_Ctr_Code','Company_Ar','Company_Code','Short_text','Person_Responsible'];
+  const recs = ccRecords.filter(r => !q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
 
-  // Stats
-  const companies = new Set(ccRecords.map(r=>r['Company_Code']).filter(Boolean)).size;
-  const persons   = new Set(ccRecords.map(r=>r['Person_Responsible']).filter(Boolean)).size;
+  // Stats — use first 2 fields if dynamic, else defaults
+  const companyKey = dynFields ? (dynFields.find(f => /comp.*code|company_code/i.test(f)) || dynFields[1]) : 'Company_Code';
+  const personKey = dynFields ? (dynFields.find(f => /person|resp/i.test(f)) || dynFields[2] || dynFields[1]) : 'Person_Responsible';
+  const companies = new Set(ccRecords.map(r=>r[companyKey]).filter(Boolean)).size;
+  const persons   = new Set(ccRecords.map(r=>r[personKey]).filter(Boolean)).size;
   document.getElementById('ccStatCount').textContent     = ccRecords.length;
   document.getElementById('ccStatCompanies').textContent = companies||'—';
   document.getElementById('ccStatPersons').textContent   = persons||'—';
   document.getElementById('ccFsCount').textContent       = recs.length+' مركز';
 
   const tbody=document.getElementById('ccFsTbody');
-  if(!recs.length){ tbody.innerHTML='<tr><td colspan="13" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
+  const colspan = dynFields ? (dynFields.length + 2) : 13;
+  if(!recs.length){ tbody.innerHTML=`<tr><td colspan="${colspan}" class="fs-empty">لا توجد نتائج</td></tr>`; return; }
 
   // Edit-mode banner
   const ccPageEl = document.getElementById('ccFsPage');
@@ -7244,6 +7540,19 @@ function ccFsRender(){
     ccBanner.style.display = 'flex';
 
     const inp = (rec, f, type) => window.spCellInput('cc', rec, f, { type: type||'text', onChangeFn: 'window.ccInlineSave' });
+    if(dynFields){
+      // Dynamic table from real DB columns
+      tbody.innerHTML = recs.map((r,i) => {
+        const cells = dynFields.map(f => {
+          const isDate = /date|تاريخ|valid_from|^to$/i.test(f);
+          return `<td>${inp(r, f, isDate?'date':'text')}</td>`;
+        }).join('');
+        return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+      }).join('');
+      return;
+    }
     tbody.innerHTML = recs.map((r,i) => `
       <tr>
         <td>${i+1}</td>
@@ -7265,6 +7574,20 @@ function ccFsRender(){
     return;
   } else if(ccBanner){
     ccBanner.style.display = 'none';
+  }
+
+  // Read-only mode
+  if(dynFields){
+    tbody.innerHTML = recs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+      return `<tr class="${r.id===ccCurrentId?'fs-row-active':''}" onclick="ccOpenDrawer(${r.id})">
+        <td>${i+1}</td>${cells}
+        <td onclick="event.stopPropagation()"><div class="fs-row-btns">
+          <button class="fs-row-btn fs-row-btn-edit" onclick="ccOpenDrawer(${r.id})">✏️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
+        </div></td></tr>`;
+    }).join('');
+    return;
   }
 
   tbody.innerHTML=recs.map((r,i)=>`
@@ -7304,12 +7627,14 @@ window.ccInlineSave = window.spInlineSaveFactory({
   sbTable: 'cost_center'
 });
 function ccAddInlineRow(){
+  const dynFields = window._spSchema && window._spSchema['cc'];
+  const fields = dynFields || ['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'];
   window.spAddInlineRow({
     pageKey: 'cc',
     records: () => ccRecords,
     lsKey: 'gpm_cc_records',
     sbTable: 'cost_center',
-    fields: ['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'],
+    fields: fields,
     rerender: ccFsRender,
     focusFirst: true
   });
@@ -13036,24 +13361,73 @@ window.addEventListener('resize', function(){
   }
 
   // ─── Page open/close ───
+  // Track which pages have had their schema synced from Supabase
+  const _schemaSynced = {};
+
+  /* When a page has an sbTable, fetch its column list from Supabase and
+     replace cfg.fields/cfg.columns with the real columns. This makes the
+     UI show exactly the same field names as the database. */
+  async function _syncPageSchema(pid){
+    const cfg = GPM_PAGES[pid];
+    if(!cfg || !cfg.sbTable) return;
+    if(_schemaSynced[pid]) return;
+    _schemaSynced[pid] = true;
+    if(!window._sbFetchColumns) return;
+    const cols = await window._sbFetchColumns(cfg.sbTable);
+    if(!cols || !cols.length) return;
+    // If the schema is jsonb {id, data}, we don't override fields — fields
+    // are stored inside 'data' so the UI keeps its own field list.
+    const schema = window._sbSchemaCache[cfg.sbTable];
+    if(schema === 'jsonb') return;
+    // For flat schema: replace fields and columns with the real DB columns
+    cfg.fields = cols.filter(c => c !== 'id' && c !== 'created_at' && c !== 'updated_at');
+    cfg.columns = cfg.fields.map(f => f.replace(/_/g, ' '));
+    // Force rebuild of the page DOM next time it's opened
+    const oldPg = document.getElementById(pid);
+    if(oldPg) oldPg.remove();
+  }
+
   function openPage(pid){
     const cfg = GPM_PAGES[pid]; if(!cfg) return;
+    // First time opening a Supabase-backed page: sync schema FIRST,
+    // then build the page with the real column names.
+    if(cfg.sbTable && !_schemaSynced[pid]){
+      _syncPageSchema(pid).then(() => {
+        _buildPage(pid, cfg);
+        _showPage(pid);
+        render(pid);
+        if(!_sbLoaded[cfg.prefix]){
+          _sbPullRecords(pid).then(() => render(pid));
+        }
+      });
+      // Show a temporary placeholder while loading
+      _buildPage(pid, cfg);
+      _showPage(pid);
+      render(pid);
+      if(typeof closeFlyout === 'function') closeFlyout();
+      if(typeof isMobile === 'function' && isMobile() && typeof gpmMobClose === 'function') gpmMobClose();
+      return;
+    }
     _buildPage(pid, cfg);
-    const sb = document.getElementById('gpmSidebar');
-    const w = (typeof isMobile === 'function' && isMobile()) ? 0 :
-              (sb && sb.classList.contains('collapsed') ? 52 : 240);
-    const pg = document.getElementById(pid);
-    pg.style.left = w + 'px';
-    pg.style.right = '0';
-    pg.style.marginLeft = '0';
-    pg.style.display = 'block';
+    _showPage(pid);
     render(pid);
-    // Pull from Supabase on first open (non-blocking)
     if(cfg.sbTable && !_sbLoaded[cfg.prefix]){
       _sbPullRecords(pid).then(() => render(pid));
     }
     if(typeof closeFlyout === 'function') closeFlyout();
     if(typeof isMobile === 'function' && isMobile() && typeof gpmMobClose === 'function') gpmMobClose();
+  }
+
+  function _showPage(pid){
+    const sb = document.getElementById('gpmSidebar');
+    const w = (typeof isMobile === 'function' && isMobile()) ? 0 :
+              (sb && sb.classList.contains('collapsed') ? 52 : 240);
+    const pg = document.getElementById(pid);
+    if(!pg) return;
+    pg.style.left = w + 'px';
+    pg.style.right = '0';
+    pg.style.marginLeft = '0';
+    pg.style.display = 'block';
   }
   
   function closePage(pid){
