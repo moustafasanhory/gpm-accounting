@@ -1023,7 +1023,7 @@ function _sbShowApp() {
     if (existing) { existing.style.display = 'flex'; return; }
     var w = document.createElement('div');
     w.id = 'gpmWelcome';
-    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:rtl;font-family:Tajawal,sans-serif;transition:margin-left .3s';
+    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:ltr;font-family:Tajawal,sans-serif;transition:margin-left .3s';
     w.innerHTML = '<div style="text-align:center;max-width:600px;padding:40px"><div style="width:120px;height:120px;margin:0 auto 30px;background:linear-gradient(135deg,#0f3460 0%,#533483 50%,#e94560 100%);border-radius:32px;display:flex;align-items:center;justify-content:center;font-size:64px;box-shadow:0 20px 60px rgba(83,52,131,.4);animation:gpmWPulse 3s ease-in-out infinite">&#x26F3;</div><h1 style="font-size:2.4rem;font-weight:900;margin:0 0 10px;background:linear-gradient(135deg,#0f3460,#533483,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Golf Porto Marina</h1><p style="font-size:1.1rem;color:#64748b;margin:0 0 28px">&#x646;&#x638;&#x627;&#x645; &#x627;&#x644;&#x645;&#x62D;&#x627;&#x633;&#x628;&#x629; &#x627;&#x644;&#x645;&#x62A;&#x643;&#x627;&#x645;&#x644;</p><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:18px;padding:24px 30px;margin-bottom:20px"><div style="font-size:1rem;color:#1e293b;font-weight:700;margin-bottom:8px">&#x645;&#x631;&#x62D;&#x628;&#x627;&#x064B; <span id="gpmWelName" style="color:#533483"></span></div><div style="font-size:.85rem;color:#64748b;line-height:1.7">&#x627;&#x62E;&#x62A;&#x631; &#x645;&#x646; &#x627;&#x644;&#x642;&#x627;&#x626;&#x645;&#x629; &#x627;&#x644;&#x62C;&#x627;&#x646;&#x628;&#x64A;&#x629; &#x627;&#x644;&#x642;&#x633;&#x645; &#x627;&#x644;&#x644;&#x64A; &#x639;&#x627;&#x648;&#x632; &#x62A;&#x634;&#x62A;&#x63A;&#x644; &#x639;&#x644;&#x64A;&#x647;</div></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F4CA;</span> &#x645;&#x631;&#x643;&#x632; &#x627;&#x644;&#x62A;&#x643;&#x627;&#x644;&#x64A;&#x641;</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F4B0;</span> &#x627;&#x644;&#x631;&#x648;&#x627;&#x62A;&#x628;</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F4CB;</span> &#x62F;&#x644;&#x64A;&#x644; &#x627;&#x644;&#x62D;&#x633;&#x627;&#x628;&#x627;&#x62A;</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">&#x1F3E6;</span> &#x627;&#x644;&#x628;&#x646;&#x648;&#x643;</div></div></div><style>@keyframes gpmWPulse{0%,100%{box-shadow:0 20px 60px rgba(83,52,131,.4)}50%{box-shadow:0 20px 80px rgba(233,69,96,.5)}}</style>';
     document.body.appendChild(w);
     var nm = document.getElementById('gpmWelName');
@@ -1877,7 +1877,7 @@ window.spAddInlineRow = function(ctx){
     if (document.getElementById('gpmWelcome')) return;
     var w = document.createElement('div');
     w.id = 'gpmWelcome';
-    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:rtl;font-family:Tajawal,sans-serif;transition:margin-left .3s';
+    w.style.cssText = 'position:fixed;inset:0;z-index:500;background:linear-gradient(135deg,#f0f4fb 0%,#e8ecf5 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;direction:ltr;font-family:Tajawal,sans-serif;transition:margin-left .3s';
     w.innerHTML = '<div style="text-align:center;max-width:600px;padding:40px"><div style="width:120px;height:120px;margin:0 auto 30px;background:linear-gradient(135deg,#0f3460 0%,#533483 50%,#e94560 100%);border-radius:32px;display:flex;align-items:center;justify-content:center;font-size:64px;box-shadow:0 20px 60px rgba(83,52,131,.4);animation:gpmWPulse 3s ease-in-out infinite">⛳</div><h1 style="font-size:2.4rem;font-weight:900;margin:0 0 10px;background:linear-gradient(135deg,#0f3460,#533483,#e94560);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Golf Porto Marina</h1><p style="font-size:1.1rem;color:#64748b;margin:0 0 28px">نظام المحاسبة المتكامل</p><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:18px;padding:24px 30px;margin-bottom:20px"><div style="font-size:1rem;color:#1e293b;font-weight:700;margin-bottom:8px">مرحباً <span id="gpmWelName" style="color:#533483"></span></div><div style="font-size:.85rem;color:#64748b;line-height:1.7">اختر من القائمة الجانبية القسم اللي عاوز تشتغل عليه</div></div><div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">📊</span> مركز التكاليف</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">💰</span> الرواتب</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">📋</span> دليل الحسابات</div><div style="background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border:1px solid rgba(83,52,131,.15);border-radius:14px;padding:14px 20px;font-size:.78rem;color:#475569;display:flex;align-items:center;gap:8px"><span style="font-size:1rem">🏦</span> البنوك</div></div></div><style>@keyframes gpmWPulse{0%,100%{box-shadow:0 20px 60px rgba(83,52,131,.4)}50%{box-shadow:0 20px 80px rgba(233,69,96,.5)}}</style>';
     document.body.appendChild(w);
   }
@@ -4806,7 +4806,7 @@ function apToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      ANALYSIS OF SERVICE CONTRACTS — Full Screen Page
 ═══════════════════════════════════════════════ -->
-<div id="scPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:rtl;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
+<div id="scPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
 
 <style>
 #scPage *{box-sizing:border-box}
@@ -5512,7 +5512,7 @@ function scToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      EMPLOYEES — Full Screen Sheet + Drawer
 ═══════════════════════════════════════════════ -->
-<div id="empPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="empPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 <style>
 /* ── Shared Sheet+Drawer styles ── */
 .fs-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
@@ -5520,8 +5520,8 @@ function scToast(msg,type='success'){
 /* Top bar */
 .fs-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:#fff;border-bottom:2px solid #dde3f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06);direction:ltr}
 .fs-topbar-ico{font-size:1.3rem}
-.fs-topbar-title{font-weight:800;font-size:.95rem;flex:1;direction:rtl}
-.fs-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400;margin-right:8px}
+.fs-topbar-title{font-weight:800;font-size:.95rem;flex:1;direction:ltr}
+.fs-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400;margin-left:8px}
 .fs-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;transition:all .15s;white-space:nowrap}
 .fs-btn-primary{color:#fff;box-shadow:0 3px 10px rgba(0,0,0,.2)}
 .fs-btn-primary:hover{opacity:.88;transform:translateY(-1px)}
@@ -5536,7 +5536,7 @@ function scToast(msg,type='success'){
 
 /* Stats bar */
 .fs-stats{display:flex;gap:0;background:#fff;border-bottom:1px solid #dde3f0;flex-shrink:0;overflow:auto}
-.fs-stat{display:flex;align-items:center;gap:8px;padding:8px 16px;border-left:1px solid #eef0f5;white-space:nowrap}
+.fs-stat{display:flex;align-items:center;gap:8px;padding:8px 16px;border-right:1px solid #eef0f5;white-space:nowrap}
 .fs-stat-ico{font-size:1.1rem}
 .fs-stat-val{font-weight:800;font-size:.88rem;font-family:'Space Mono',monospace}
 .fs-stat-lbl{font-size:.68rem;color:#64748b}
@@ -5556,7 +5556,7 @@ function scToast(msg,type='success'){
 .fs-table thead tr{position:sticky;top:0;z-index:10}
 .fs-table thead th{
   padding:10px 12px;font-weight:700;font-size:.75rem;
-  white-space:nowrap;text-align:right;
+  white-space:nowrap;text-align:left;
   border-left:1px solid rgba(255,255,255,.15);
   border-bottom:2px solid rgba(0,0,0,.15);
 }
@@ -5565,7 +5565,7 @@ function scToast(msg,type='success'){
 .fs-table tbody tr{cursor:pointer;transition:background .1s;border-bottom:1px solid #f1f5f9}
 .fs-table tbody tr:nth-child(even){background:#f8faff}
 .fs-table tbody tr:hover{background:#dbeafe}
-.fs-table tbody tr.fs-row-active{background:#bfdbfe!important;border-right:4px solid #2563eb}
+.fs-table tbody tr.fs-row-active{background:#bfdbfe!important;border-left:4px solid #2563eb}
 .fs-table tbody td{padding:9px 12px;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;border-left:1px solid #f1f5f9}
 .fs-table tbody td:first-child{text-align:center;color:#94a3b8;font-family:'Space Mono',monospace;font-size:.68rem;width:40px}
 .fs-table tbody td:last-child{text-align:center;width:60px}
@@ -5582,7 +5582,7 @@ function scToast(msg,type='success'){
 .fs-page.edit-mode .fs-table tbody tr{cursor:default}
 .fs-page.edit-mode .fs-table tbody tr:hover{background:transparent}
 .fs-page.edit-mode .fs-table tbody tr:nth-child(even){background:#fafbff}
-.fs-page.edit-mode .fs-table tbody tr.fs-row-active{background:transparent!important;border-right:none}
+.fs-page.edit-mode .fs-table tbody tr.fs-row-active{background:transparent!important;border-left:none}
 .fs-cell-input{
   width:100%;
   border:1px solid transparent;
@@ -6169,7 +6169,7 @@ function empFsToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      VENDORS — Full Screen Sheet + Drawer
 ═══════════════════════════════════════════════ -->
-<div id="vendorPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="vendorPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- VENDORS PAGE -->
 <div class="fs-page" id="vndFsPage">
@@ -6570,7 +6570,7 @@ function vndFsToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      CUSTOMERS — Full Screen Sheet + Drawer
 ═══════════════════════════════════════════════ -->
-<div id="custPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="custPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- CUSTOMERS PAGE -->
 <div class="fs-page" id="custFsPage">
@@ -7018,7 +7018,7 @@ function custFsToast(msg,type='success'){
        • Master sheet (table) showing all cheques
        • Right-side drawer for add/edit/preview
 ═══════════════════════════════════════════════ -->
-<div id="chequePage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:rtl;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
+<div id="chequePage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
 
 <style>
 #chequePage *{box-sizing:border-box}
@@ -7839,7 +7839,7 @@ function chqFsToast(msg, type='success'){
 <!-- ══════════════════════════════════════
      COST CENTER PAGE
 ══════════════════════════════════════ -->
-<div id="ccPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="ccPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- COST CENTER PAGE -->
 <div class="fs-page" id="ccFsPage">
@@ -8274,7 +8274,7 @@ function ccFsToast(msg,type='success'){
 
 
 <!-- ══ PAGE: Opening Balance ══ -->
-<div id="logOutPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="logOutPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 <div class="fs-page">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🚪</span>
@@ -13477,7 +13477,7 @@ window.addEventListener('resize', function(){
     const colspan = cfg.columns.length + 2;
     
     const html = `
-<div id="${pid}" class="fs-page-wrap" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:rtl;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="${pid}" class="fs-page-wrap" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 <div class="fs-page" id="${px}FsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">${cfg.icon}</span>
