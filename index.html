@@ -13946,9 +13946,17 @@ window.addEventListener('resize', function(){
 
   function openPage(pid){
     const cfg = GPM_PAGES[pid]; if(!cfg) return;
-    // First time opening a Supabase-backed page: sync schema FIRST,
-    // then build the page with the real column names.
+    if(typeof closeFlyout === 'function') closeFlyout();
+    if(typeof isMobile === 'function' && isMobile() && typeof gpmMobClose === 'function') gpmMobClose();
+
     if(cfg.sbTable && !_schemaSynced[pid]){
+      // Build page once with placeholder loading row — do NOT render full table yet
+      _buildPage(pid, cfg);
+      _showPage(pid);
+      const tbody = document.querySelector('#' + pid + ' tbody');
+      if(tbody) tbody.innerHTML = '<tr><td colspan="20" style="text-align:center;padding:30px;color:var(--muted)">⏳ جاري تحميل الأعمدة...</td></tr>';
+
+      // After schema arrives, rebuild once with correct column names
       _syncPageSchema(pid).then(() => {
         _buildPage(pid, cfg);
         _showPage(pid);
@@ -13957,22 +13965,15 @@ window.addEventListener('resize', function(){
           _sbPullRecords(pid).then(() => render(pid));
         }
       });
-      // Show a temporary placeholder while loading
-      _buildPage(pid, cfg);
-      _showPage(pid);
-      render(pid);
-      if(typeof closeFlyout === 'function') closeFlyout();
-      if(typeof isMobile === 'function' && isMobile() && typeof gpmMobClose === 'function') gpmMobClose();
       return;
     }
+
     _buildPage(pid, cfg);
     _showPage(pid);
     render(pid);
     if(cfg.sbTable && !_sbLoaded[cfg.prefix]){
       _sbPullRecords(pid).then(() => render(pid));
     }
-    if(typeof closeFlyout === 'function') closeFlyout();
-    if(typeof isMobile === 'function' && isMobile() && typeof gpmMobClose === 'function') gpmMobClose();
   }
 
   function _showPage(pid){
