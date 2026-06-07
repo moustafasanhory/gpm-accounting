@@ -1381,35 +1381,121 @@ window._sbFetchColumns = async function(table){
    - For 'jsonb' schema: stores as { id, data: <record> }
    - For 'flat' schema: normalizes keys and projects onto known columns
    - For 'unknown': tries jsonb first, then flat, then jsonb again */
+/* Returns true if the id looks like a temporary Date.now() value
+   (13-digit timestamp > year 2001 epoch), i.e. NOT a real DB serial. */
+window._sbIsTempId = function(id){
+  if(id == null) return true;
+  const n = Number(id);
+  return Number.isInteger(n) && n > 1000000000000; // > 13 digits = temp
+};
+
 window.sbUpsert = async function(table, record){
-  if(!_sb || !table || !record) return;
+  if(!_sb || !table || !record) return null;
   const schema = await window._sbDetectSchema(table);
+  const isTempId = window._sbIsTempId(record.id);
+
   try {
+    /* ── INSERT (new record with temp id) ── */
+    if(isTempId){
+      const tempId = record.id; // keep to patch localStorage later
+
+      if(schema === 'jsonb'){
+        const dataClone = Object.assign({}, record);
+        delete dataClone.id; // let Supabase generate id
+        const { data, error } = await _sb.from(table).insert({ data: dataClone }).select('id').single();
+        if(error){ console.warn('[sbUpsert][jsonb][insert]', table, error.message); return null; }
+        const realId = data?.id;
+        if(realId != null) window._sbPatchTempId(table, tempId, realId);
+        return realId;
+      }
+
+      if(schema === 'flat'){
+        const normalized = window._sbNormalizeRecord(record);
+        delete normalized.id; // let Supabase generate id
+        const columns = window._sbColumnsCache[table];
+        const projected = window._sbProjectToColumns(normalized, columns);
+        delete projected.id;
+        const { data, error } = await _sb.from(table).insert(projected).select('id').single();
+        if(error){ console.warn('[sbUpsert][flat][insert]', table, error.message); return null; }
+        const realId = data?.id;
+        if(realId != null) window._sbPatchTempId(table, tempId, realId);
+        return realId;
+      }
+
+      // unknown schema — try flat insert first
+      const bare = Object.assign({}, record); delete bare.id;
+      let ins = await _sb.from(table).insert(bare).select('id').single();
+      if(!ins.error){ window._sbSchemaCache[table]='flat'; const rid=ins.data?.id; if(rid!=null) window._sbPatchTempId(table,tempId,rid); return rid; }
+      let ins2 = await _sb.from(table).insert({ data: bare }).select('id').single();
+      if(!ins2.error){ window._sbSchemaCache[table]='jsonb'; const rid=ins2.data?.id; if(rid!=null) window._sbPatchTempId(table,tempId,rid); return rid; }
+      console.warn('[sbUpsert][insert] failed for', table, ins.error?.message);
+      return null;
+    }
+
+    /* ── UPDATE (real existing id) ── */
     if(schema === 'jsonb'){
-      // Strip 'id' from data clone, but keep top-level id
       const dataClone = Object.assign({}, record);
-      const payload = { id: record.id, data: dataClone };
-      const { error } = await _sb.from(table).upsert(payload, { onConflict: 'id' });
-      if(error){ console.warn('[sbUpsert][jsonb]', table, error.message); }
-      return;
+      const { error } = await _sb.from(table).upsert({ id: record.id, data: dataClone }, { onConflict: 'id' });
+      if(error){ console.warn('[sbUpsert][jsonb][update]', table, error.message); }
+      return record.id;
     }
     if(schema === 'flat'){
       const normalized = window._sbNormalizeRecord(record);
       const columns = window._sbColumnsCache[table];
       const projected = window._sbProjectToColumns(normalized, columns);
       const { error } = await _sb.from(table).upsert(projected, { onConflict: 'id' });
-      if(error){ console.warn('[sbUpsert][flat]', table, error.message); }
-      return;
+      if(error){ console.warn('[sbUpsert][flat][update]', table, error.message); }
+      return record.id;
     }
-    // schema === 'unknown' — try jsonb, then flat
+    // unknown
     let p1 = await _sb.from(table).upsert({ id: record.id, data: record }, { onConflict: 'id' });
-    if(!p1.error){ window._sbSchemaCache[table] = 'jsonb'; return; }
+    if(!p1.error){ window._sbSchemaCache[table]='jsonb'; return record.id; }
     let p2 = await _sb.from(table).upsert(window._sbNormalizeRecord(record), { onConflict: 'id' });
-    if(!p2.error){ window._sbSchemaCache[table] = 'flat'; return; }
-    let p3 = await _sb.from(table).upsert(record, { onConflict: 'id' });
-    if(!p3.error){ window._sbSchemaCache[table] = 'flat'; return; }
-    console.warn('[sbUpsert] all attempts failed for', table, p1.error?.message);
-  } catch(e){ console.warn('[sbUpsert]', table, e); }
+    if(!p2.error){ window._sbSchemaCache[table]='flat'; return record.id; }
+    console.warn('[sbUpsert][update] all failed for', table, p1.error?.message);
+    return null;
+  } catch(e){ console.warn('[sbUpsert]', table, e); return null; }
+};
+
+/* After Supabase returns a real auto-increment id for a newly inserted row,
+   scan every localStorage key and every in-memory record array and replace
+   the old temp Date.now() id with the real one. */
+window._sbPatchTempId = function(table, tempId, realId){
+  if(tempId == null || realId == null || String(tempId) === String(realId)) return;
+  const tempStr = String(tempId);
+  const realNum = Number(realId);
+
+  // Patch every localStorage key that looks like a GPM records array
+  for(let i = 0; i < localStorage.length; i++){
+    const key = localStorage.key(i);
+    if(!key || !key.startsWith('gpm_')) continue;
+    try {
+      const arr = JSON.parse(localStorage.getItem(key));
+      if(!Array.isArray(arr)) continue;
+      let dirty = false;
+      arr.forEach(r => {
+        if(String(r.id) === tempStr){ r.id = realNum; dirty = true; }
+      });
+      if(dirty) localStorage.setItem(key, JSON.stringify(arr));
+    } catch(e){}
+  }
+
+  // Patch in-memory special-page arrays
+  const arrays = [
+    window.empRecords, window.vndRecords, window.custRecords,
+    window.ccRecords, window.chqRecords, window.apRecords,
+    window.scRecords, window.logOutRecords
+  ];
+  arrays.forEach(arr => {
+    if(!Array.isArray(arr)) return;
+    arr.forEach(r => { if(String(r.id) === tempStr) r.id = realNum; });
+  });
+
+  // Patch currentId variables
+  const vars = ['empCurrentId','vndCurrentId','custCurrentId','ccCurrentId','chqCurrentId','apCurrentId','scCurrentId','logOutCurId'];
+  vars.forEach(v => { if(String(window[v]) === tempStr) window[v] = realNum; });
+
+  console.log('[sbPatch] temp id', tempId, '→ real id', realId, 'in table', table);
 };
 
 /* Delete a record by id from a Supabase table. */
@@ -1893,7 +1979,7 @@ window.spInlineSaveFactory = function(ctx){
   // ctx = { pageKey, records: () => array, lsKey, sbTable, onAfter? }
   return function(id, field, value){
     const arr = ctx.records();
-    const rec = arr.find(r => r.id === id);
+    const rec = arr.find(r => String(r.id) === String(id));
     if(!rec) return;
     rec[field] = value;
     try { localStorage.setItem(ctx.lsKey, JSON.stringify(arr)); } catch(e){}
@@ -4260,6 +4346,92 @@ function posPrintAndClose(){
   posRenderCart();
 }
 
+/* ══════════════════════════════════════════════════════════
+   UNIVERSAL PDF EXPORT — for special (hand-coded) pages
+   Reads the visible <table> inside the page element and
+   exports it as a clean A4 / A4-landscape PDF.
+══════════════════════════════════════════════════════════ */
+function gpmSpecialExportPDF(pageId){
+  if(typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined'){
+    alert('⚠️ مكتبة jsPDF غير محملة'); return;
+  }
+  const { jsPDF } = window.jspdf || jspdf;
+
+  // Gather title from topbar or page id
+  const pg = document.getElementById(pageId);
+  if(!pg){ alert('الصفحة غير موجودة'); return; }
+
+  const topbarTitle = pg.querySelector('.fs-topbar-title, .ap-topbar-title, .sc-topbar-title');
+  const rawTitle = topbarTitle ? (topbarTitle.firstChild?.textContent || topbarTitle.textContent || pageId) : pageId;
+  const title = rawTitle.trim().replace(/\s+/g,' ').substring(0,60);
+
+  // Find first visible <table>
+  const tbl = pg.querySelector('table');
+  if(!tbl){ alert('لا توجد جداول للتصدير في هذه الصفحة'); return; }
+
+  // Extract headers
+  const headRows = tbl.querySelectorAll('thead tr');
+  const bodyRows = tbl.querySelectorAll('tbody tr');
+
+  const headers = [];
+  if(headRows.length){
+    headRows[0].querySelectorAll('th,td').forEach(th => headers.push(th.textContent.trim()));
+  }
+
+  const rows = [];
+  bodyRows.forEach(tr => {
+    const cells = [];
+    tr.querySelectorAll('td').forEach(td => {
+      // strip action buttons
+      const clone = td.cloneNode(true);
+      clone.querySelectorAll('button,input[type=button],input[type=submit]').forEach(b=>b.remove());
+      // strip inline inputs (use their value instead)
+      clone.querySelectorAll('input').forEach(inp => {
+        inp.replaceWith(document.createTextNode(inp.value || ''));
+      });
+      cells.push(clone.textContent.trim().replace(/\s+/g,' '));
+    });
+    if(cells.some(c=>c)) rows.push(cells);
+  });
+
+  if(!rows.length){ alert('لا توجد بيانات للتصدير'); return; }
+
+  const colCount = Math.max(headers.length, rows[0]?.length || 0);
+  const orientation = colCount > 7 ? 'landscape' : 'portrait';
+  const doc = new jsPDF({ orientation, unit:'pt', format:'a4' });
+  const pw = doc.internal.pageSize.getWidth();
+
+  // Header bar
+  doc.setFillColor(26, 58, 110);
+  doc.rect(0, 0, pw, 48, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text(title, 14, 22);
+  doc.setFontSize(8); doc.setFont('helvetica','normal');
+  doc.text('Golf Porto Marina — GPM Accounting', 14, 36);
+  doc.text(new Date().toLocaleDateString('en-GB'), pw-14, 36, {align:'right'});
+
+  // Table
+  doc.autoTable({
+    startY: 56,
+    head: headers.length ? [headers] : undefined,
+    body: rows,
+    styles:{ fontSize:7.5, cellPadding:3.5, overflow:'linebreak', halign:'left' },
+    headStyles:{ fillColor:[15,37,87], textColor:255, fontStyle:'bold', fontSize:7.5 },
+    alternateRowStyles:{ fillColor:[245,247,253] },
+    margin:{ top:56, right:14, bottom:28, left:14 },
+    didDrawPage(data){
+      const pg2 = doc.internal.getCurrentPageInfo().pageNumber;
+      const tot = doc.internal.getNumberOfPages();
+      doc.setFontSize(7); doc.setTextColor(150);
+      doc.text('Page '+pg2+' / '+tot, pw/2, doc.internal.pageSize.getHeight()-12, {align:'center'});
+    }
+  });
+
+  const fn = pageId.replace('Page','') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
+  doc.save(fn);
+}
+
 // Sync all full-screen pages when sidebar collapses/expands
 function syncPageMargins(){
   const sidebar = document.getElementById('gpmSidebar');
@@ -4567,6 +4739,7 @@ gpmToggle = function(){
       <button class="ap-action-btn ap-btn-new"   onclick="apNew()">➕ New</button>
       <button class="ap-action-btn ap-btn-save"  onclick="apSave()">💾 Save</button>
       <button class="ap-action-btn ap-btn-print" onclick="apPrint()">🖨️ Print</button>
+      <button class="ap-action-btn ap-btn-print" style="background:rgba(185,28,28,.22);border:1.5px solid rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('apPage')">🖨️ PDF</button>
       <button class="ap-action-btn ap-btn-del"   onclick="apDelete()">🗑️ Delete</button>
       <button class="ap-action-btn ap-btn-close" onclick="closeAdvPayment()">✕ Close</button>
     </div>
@@ -4858,7 +5031,7 @@ function apSave(){
   const am=document.getElementById('ap_Amount')?.value;
   if(!vn||!am){apToast('⚠️ Vendor Name and Amount are required','error');return;}
   const rec=apCollect();
-  const idx=apRecords.findIndex(r=>r.id===rec.id);
+  const idx=apRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) apRecords[idx]=rec; else{apCurrentId=rec.id;apRecords.push(rec);}
   localStorage.setItem('gpm_ap_records',JSON.stringify(apRecords));
   apToast('✅ Record saved successfully','success');
@@ -4867,13 +5040,13 @@ function apSave(){
 function apDelete(){
   if(!apCurrentId){apToast('No record selected','error');return;}
   if(!confirm('Delete this record?')) return;
-  apRecords=apRecords.filter(r=>r.id!==apCurrentId);
+  apRecords=apRecords.filter(r=>String(r.id) !== String(apCurrentId));
   localStorage.setItem('gpm_ap_records',JSON.stringify(apRecords));
   apToast('🗑️ Record deleted','success');
   apNew(); apRenderList(); apRenderSummary();
 }
 function apLoadRecord(id){
-  const rec=apRecords.find(r=>r.id===id);
+  const rec=apRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   apCurrentId=id;
   Object.keys(rec).forEach(k=>{
@@ -5091,6 +5264,7 @@ function apToast(msg,type='success'){
       <button class="sc-action-btn sc-btn-save"   onclick="scSave()">💾 حفظ</button>
       <button class="sc-action-btn sc-btn-print"  onclick="scPrint()">🖨️ طباعة</button>
       <button class="sc-action-btn sc-btn-export" onclick="scExportExcel()">📊 Excel</button>
+      <button class="sc-action-btn sc-btn-export" style="background:linear-gradient(180deg,#f87171 0%,#dc2626 60%,#b91c1c 100%);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 5px 0 #7f1d1d,0 6px 9px rgba(127,29,29,.4)" onclick="gpmSpecialExportPDF('scPage')">🖨️ PDF</button>
       <button class="sc-action-btn sc-btn-del"    onclick="scDelete()">🗑️ حذف</button>
       <button class="sc-action-btn sc-btn-close"  onclick="closeServiceContracts()">✕ إغلاق</button>
     </div>
@@ -5488,7 +5662,7 @@ function scSave(){
   const contract=document.getElementById('sc_اجمالى_العقد')?.value;
   if(!company||!contract){ scToast('⚠️ اسم الشركة واجمالى العقد مطلوبان','error'); return; }
   const rec=scCollect();
-  const idx=scRecords.findIndex(r=>r.id===rec.id);
+  const idx=scRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) scRecords[idx]=rec; else{ scCurrentId=rec.id; scRecords.push(rec); }
   localStorage.setItem('gpm_sc_records',JSON.stringify(scRecords));
   scToast('✅ تم حفظ السجل بنجاح','success');
@@ -5499,7 +5673,7 @@ function scSave(){
 function scDelete(){
   if(!scCurrentId){ scToast('لم يتم اختيار سجل','error'); return; }
   if(!confirm('هل تريد حذف هذا السجل؟')) return;
-  scRecords=scRecords.filter(r=>r.id!==scCurrentId);
+  scRecords=scRecords.filter(r=>String(r.id) !== String(scCurrentId));
   localStorage.setItem('gpm_sc_records',JSON.stringify(scRecords));
   scToast('🗑️ تم الحذف','success');
   scNew(); scRenderList(); scRenderSummary();
@@ -5507,7 +5681,7 @@ function scDelete(){
 
 /* ── Load record ── */
 function scLoadRecord(id){
-  const rec=scRecords.find(r=>r.id===id);
+  const rec=scRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   scCurrentId=id;
   Object.keys(rec).forEach(k=>{
@@ -6465,6 +6639,7 @@ function scToast(msg,type='success'){
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#1a3a6e,#2563eb)" onclick="empNewDrawer()">➕ موظف جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="empEditModeBtn" onclick="empToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="empExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('empPage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeEmployees()">✕ إغلاق</button>
   </div>
 
@@ -6568,7 +6743,7 @@ function empFsRender(){
   const q=(document.getElementById('empFsSearch')?.value||'').toLowerCase();
   const dynFields = window._spSchema && window._spSchema['emp'];
   const searchFields = dynFields || ['اسم_الموظف','كود_الموظف','الإدارة','الوظيفة'];
-  const recs=empRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q))).sort((a,b)=>a.id-b.id);
+  const recs=empRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
 
   // Stats
   const salaryKey = dynFields ? (dynFields.find(f => /راتب|salary|net_pay/i.test(f)) || 'الراتب') : 'الراتب';
@@ -6637,7 +6812,7 @@ function empFsRender(){
   if(dynFields){
     tbody.innerHTML = recs.map((r,i) => {
       const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
-      return `<tr class="${r.id===empCurrentId?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
+      return `<tr class="${String(r.id) === String(empCurrentId)?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
           <button class="fs-row-btn fs-row-btn-edit" onclick="empOpenDrawer(${r.id})">✏️</button>
@@ -6648,7 +6823,7 @@ function empFsRender(){
   }
 
   tbody.innerHTML=recs.map((r,i)=>`
-    <tr class="${r.id===empCurrentId?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
+    <tr class="${String(r.id) === String(empCurrentId)?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
       <td>${i+1}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#1a3a6e;font-weight:700">${r['كود_الموظف']||'—'}</td>
       <td style="font-weight:700">${r['اسم_الموظف']||'—'}</td>
@@ -6707,7 +6882,7 @@ function empNewDrawer(){
 /* Drawer: Edit existing */
 function empOpenDrawer(id){
   empCurrentId=id;
-  const rec=empRecords.find(r=>r.id===id);
+  const rec=empRecords.find(r => String(r.id) === String(id));
   document.getElementById('empDrawerTitle').textContent=rec?.['اسم_الموظف']||'تعديل الموظف';
   empBuildForm(rec);
   document.getElementById('empDrawer').classList.add('open');
@@ -6785,10 +6960,17 @@ function empDrawerSave(){
   const code=document.getElementById('ef_كود_الموظف')?.value;
   if(!name||!code){ empFsToast('⚠️ كود الموظف واسم الموظف مطلوبان','error'); return; }
   const rec=empCollectDrawer();
-  const idx=empRecords.findIndex(r=>r.id===rec.id);
-  if(idx>=0) empRecords[idx]=rec; else{ empCurrentId=rec.id; empRecords.push(rec); }
+  const isNew = !empRecords.some(r => String(r.id) === String(rec.id));
+  if(!isNew){ const idx=empRecords.findIndex(r => String(r.id) === String(rec.id)); empRecords[idx]=rec; }
+  else { empCurrentId=rec.id; empRecords.push(rec); }
   localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
-  if(window.sbUpsert) window.sbUpsert('emploee_code', rec);
+  if(window.sbUpsert){
+    window.sbUpsert('emploee_code', rec).then(realId=>{
+      if(realId!=null && String(realId)!==String(rec.id)){
+        empCurrentId=Number(realId);
+      }
+    });
+  }
   empFsToast('✅ تم حفظ بيانات الموظف','success');
   empCloseDrawer();
   empFsRender();
@@ -6796,13 +6978,13 @@ function empDrawerSave(){
 
 function empDrawerDelete(){
   if(!empCurrentId){ empFsToast('لم يتم اختيار موظف','error'); return; }
-  const rec=empRecords.find(r=>r.id===empCurrentId);
+  const rec=empRecords.find(r=>String(r.id) === String(empCurrentId));
   if(!confirm(`حذف "${rec?.['اسم_الموظف']||'هذا الموظف'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('employee', rec) : true;
     if(!ok){ empFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
     const delId=empCurrentId;
-    empRecords=empRecords.filter(r=>r.id!==empCurrentId);
+    empRecords=empRecords.filter(r=>String(r.id) !== String(empCurrentId));
     localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
     if(window.sbDelete) window.sbDelete('emploee_code', delId);
     if(window.MasterLookup) window.MasterLookup.invalidate('employee');
@@ -6814,13 +6996,13 @@ function empDrawerDelete(){
 }
 
 function empQuickDelete(id){
-  const rec=empRecords.find(r=>r.id===id);
+  const rec=empRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   if(!confirm(`حذف "${rec?.['اسم_الموظف']||'هذا الموظف'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('employee', rec) : true;
     if(!ok){ empFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
-    empRecords=empRecords.filter(r=>r.id!==id);
+    empRecords=empRecords.filter(r=>String(r.id) !== String(id));
     localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
     if(window.sbDelete) window.sbDelete('emploee_code', id);
     if(window.MasterLookup) window.MasterLookup.invalidate('employee');
@@ -6893,6 +7075,7 @@ function empFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#0f3460,#1a3a6e)" onclick="vndNewDrawer()">➕ مورد جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="vndEditModeBtn" onclick="vndToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="vndExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('vendorPage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeVendors()">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -6981,7 +7164,7 @@ function vndFsRender(){
   const q=(document.getElementById('vndFsSearch')?.value||'').toLowerCase();
   const dynFields = window._spSchema && window._spSchema['vnd'];
   const searchFields = dynFields || ['اسم_الشركة','كود_المورد','كود_المورد_ساب','اسم_المسئول'];
-  const recs=vndRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q))).sort((a,b)=>a.id-b.id);
+  const recs=vndRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
 
   const totalAtt=Object.values(vndAttachments).reduce((s,a)=>s+(a?.length||0),0);
   document.getElementById('vndStatCount').textContent=vndRecords.length;
@@ -7043,7 +7226,7 @@ function vndFsRender(){
   if(dynFields){
     tbody.innerHTML = recs.map((r,i) => {
       const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
-      return `<tr class="${r.id===vndCurrentId?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
+      return `<tr class="${String(r.id) === String(vndCurrentId)?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
           <button class="fs-row-btn fs-row-btn-edit" onclick="vndOpenDrawer(${r.id})">✏️</button>
@@ -7055,7 +7238,7 @@ function vndFsRender(){
 
   tbody.innerHTML=recs.map((r,i)=>{
     const att=(vndAttachments[r.id]||[]).length;
-    return `<tr class="${r.id===vndCurrentId?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
+    return `<tr class="${String(r.id) === String(vndCurrentId)?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
       <td>${i+1}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#0f3460;font-weight:700">${r['كود_المورد']||'—'}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#2563eb">${r['كود_المورد_ساب']||'—'}</td>
@@ -7113,7 +7296,7 @@ function vndNewDrawer(){
 
 function vndOpenDrawer(id){
   vndCurrentId=id;
-  const rec=vndRecords.find(r=>r.id===id);
+  const rec=vndRecords.find(r => String(r.id) === String(id));
   document.getElementById('vndDrawerTitle').textContent=rec?.['اسم_الشركة']||'تعديل المورد';
   vndBuildForm(rec);
   document.getElementById('vndDrawer').classList.add('open');
@@ -7173,7 +7356,7 @@ function vndHandleFiles(files){
   const atts=vndAttachments[vndCurrentId]||[];
   Array.from(files).slice(0,10-atts.length).forEach(f=>{
     const reader=new FileReader();
-    reader.onload=e=>{ atts.push({name:f.name,size:f.size,data:e.target.result}); vndAttachments[vndCurrentId]=atts; localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments)); vndBuildForm(vndRecords.find(r=>r.id===vndCurrentId)); };
+    reader.onload=e=>{ atts.push({name:f.name,size:f.size,data:e.target.result}); vndAttachments[vndCurrentId]=atts; localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments)); vndBuildForm(vndRecords.find(r=>String(r.id) === String(vndCurrentId))); };
     reader.readAsDataURL(f);
   });
 }
@@ -7183,7 +7366,7 @@ function vndDeleteAtt(idx){
   atts.splice(idx,1);
   vndAttachments[vndCurrentId]=atts;
   localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
-  vndBuildForm(vndRecords.find(r=>r.id===vndCurrentId));
+  vndBuildForm(vndRecords.find(r=>String(r.id) === String(vndCurrentId)));
 }
 
 function vndCollectDrawer(){
@@ -7198,10 +7381,12 @@ function vndDrawerSave(){
   const code=document.getElementById('vf_كود_المورد')?.value;
   if(!name||!code){ vndFsToast('⚠️ كود المورد واسم الشركة مطلوبان','error'); return; }
   const rec=vndCollectDrawer();
-  const idx=vndRecords.findIndex(r=>r.id===rec.id);
+  const idx=vndRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) vndRecords[idx]=rec; else{ vndCurrentId=rec.id; vndRecords.push(rec); }
   localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
-  if(window.sbUpsert) window.sbUpsert('vendors_list', rec);
+  if(window.sbUpsert) window.sbUpsert('vendors_list', rec).then(realId=>{
+    if(realId!=null && String(realId)!==String(rec.id)) vndCurrentId=Number(realId);
+  });
   vndFsToast('✅ تم حفظ بيانات المورد','success');
   vndCloseDrawer();
   vndFsRender();
@@ -7209,13 +7394,13 @@ function vndDrawerSave(){
 
 function vndDrawerDelete(){
   if(!vndCurrentId){ vndFsToast('لم يتم اختيار مورد','error'); return; }
-  const rec=vndRecords.find(r=>r.id===vndCurrentId);
+  const rec=vndRecords.find(r=>String(r.id) === String(vndCurrentId));
   if(!confirm(`حذف "${rec?.['اسم_الشركة']||'هذا المورد'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('vendor', rec) : true;
     if(!ok){ vndFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
     const delId=vndCurrentId;
-    vndRecords=vndRecords.filter(r=>r.id!==vndCurrentId);
+    vndRecords=vndRecords.filter(r=>String(r.id) !== String(vndCurrentId));
     delete vndAttachments[vndCurrentId];
     localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
     localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
@@ -7227,13 +7412,13 @@ function vndDrawerDelete(){
 }
 
 function vndQuickDelete(id){
-  const rec=vndRecords.find(r=>r.id===id);
+  const rec=vndRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   if(!confirm(`حذف "${rec?.['اسم_الشركة']||'هذا المورد'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('vendor', rec) : true;
     if(!ok){ vndFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
-    vndRecords=vndRecords.filter(r=>r.id!==id);
+    vndRecords=vndRecords.filter(r=>String(r.id) !== String(id));
     delete vndAttachments[id];
     localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
     localStorage.setItem('gpm_vnd_attach',JSON.stringify(vndAttachments));
@@ -7294,6 +7479,7 @@ function vndFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#065f46,#059669)" onclick="custNewDrawer()">➕ عميل جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="custEditModeBtn" onclick="custToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="custExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('custPage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeCustomers()">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -7405,7 +7591,7 @@ function custFsRender(){
     const statusKey = dynFields ? (dynFields.find(f => /موقف|status/i.test(f)) || 'الموقف_من_التسليم') : 'الموقف_من_التسليم';
     const mf=custChipVal==='الكل'||r[statusKey]===custChipVal;
     return mq&&mf;
-  }).sort((a,b)=>a.id-b.id);
+  });
 
   const valueKey = dynFields ? (dynFields.find(f => /قيمة_الوحدة|unit_value|value/i.test(f)) || 'قيمة_الوحدة') : 'قيمة_الوحدة';
   const statusKey2 = dynFields ? (dynFields.find(f => /موقف|status/i.test(f)) || 'الموقف_من_التسليم') : 'الموقف_من_التسليم';
@@ -7477,7 +7663,7 @@ function custFsRender(){
   if(dynFields){
     tbody.innerHTML = recs.map((r,i) => {
       const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
-      return `<tr class="${r.id===custCurrentId?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
+      return `<tr class="${String(r.id) === String(custCurrentId)?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
           <button class="fs-row-btn fs-row-btn-edit" onclick="custOpenDrawer(${r.id})">✏️</button>
@@ -7489,7 +7675,7 @@ function custFsRender(){
 
   tbody.innerHTML=recs.map((r,i)=>{
     const sColor=CUST_STATUS_COLOR[r['الموقف_من_التسليم']]||'#94a3b8';
-    return `<tr class="${r.id===custCurrentId?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
+    return `<tr class="${String(r.id) === String(custCurrentId)?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
       <td>${i+1}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#065f46;font-weight:700">${r['رقم_العميل']||'—'}</td>
       <td style="font-weight:700">${r['اسم_العميل']||'—'}</td>
@@ -7549,7 +7735,7 @@ function custNewDrawer(){
 
 function custOpenDrawer(id){
   custCurrentId=id;
-  const rec=custRecords.find(r=>r.id===id);
+  const rec=custRecords.find(r => String(r.id) === String(id));
   document.getElementById('custDrawerTitle').textContent=rec?.['اسم_العميل']||'تعديل العميل';
   custBuildForm(rec);
   document.getElementById('custDrawer').classList.add('open');
@@ -7632,10 +7818,12 @@ function custDrawerSave(){
   const code=document.getElementById('cf_رقم_العميل')?.value;
   if(!name||!code){ custFsToast('⚠️ رقم العميل واسم العميل مطلوبان','error'); return; }
   const rec=custCollectDrawer();
-  const idx=custRecords.findIndex(r=>r.id===rec.id);
+  const idx=custRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) custRecords[idx]=rec; else{ custCurrentId=rec.id; custRecords.push(rec); }
   localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
-  if(window.sbUpsert) window.sbUpsert('customer_list', rec);
+  if(window.sbUpsert) window.sbUpsert('customer_list', rec).then(realId=>{
+    if(realId!=null && String(realId)!==String(rec.id)) custCurrentId=Number(realId);
+  });
   custFsToast('✅ تم حفظ بيانات العميل','success');
   custCloseDrawer();
   custFsRender();
@@ -7643,13 +7831,13 @@ function custDrawerSave(){
 
 function custDrawerDelete(){
   if(!custCurrentId){ custFsToast('لم يتم اختيار عميل','error'); return; }
-  const rec=custRecords.find(r=>r.id===custCurrentId);
+  const rec=custRecords.find(r=>String(r.id) === String(custCurrentId));
   if(!confirm(`حذف "${rec?.['اسم_العميل']||'هذا العميل'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('customer', rec) : true;
     if(!ok){ custFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
     const delId=custCurrentId;
-    custRecords=custRecords.filter(r=>r.id!==custCurrentId);
+    custRecords=custRecords.filter(r=>String(r.id) !== String(custCurrentId));
     localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
     if(window.sbDelete) window.sbDelete('customer_list', delId);
     if(window.MasterLookup) window.MasterLookup.invalidate('customer');
@@ -7659,13 +7847,13 @@ function custDrawerDelete(){
 }
 
 function custQuickDelete(id){
-  const rec=custRecords.find(r=>r.id===id);
+  const rec=custRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   if(!confirm(`حذف "${rec?.['اسم_العميل']||'هذا العميل'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('customer', rec) : true;
     if(!ok){ custFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
-    custRecords=custRecords.filter(r=>r.id!==id);
+    custRecords=custRecords.filter(r=>String(r.id) !== String(id));
     localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
     if(window.sbDelete) window.sbDelete('customer_list', id);
     if(window.MasterLookup) window.MasterLookup.invalidate('customer');
@@ -7888,6 +8076,7 @@ function custFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#7a0000,#b91c1c)" onclick="chqNewDrawer()">➕ شيك جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="chqEditModeBtn" onclick="chqToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="chqExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('chequePage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeChequePage()">✕ إغلاق</button>
   </div>
 
@@ -8265,7 +8454,7 @@ function chqFsRender(){
   if(dynFields){
     tbody.innerHTML = recs.map((r,i) => {
       const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
-      return `<tr class="${r.id===chqCurrentId?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
+      return `<tr class="${String(r.id) === String(chqCurrentId)?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td><div class="fs-row-btns">
           <button class="fs-row-btn fs-row-btn-edit" onclick="event.stopPropagation();chqOpenDrawer(${r.id})">✎</button>
@@ -8281,7 +8470,7 @@ function chqFsRender(){
     const amount = r.amount ? parseFloat(r.amount).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
     const typeLabel = r.type==='modern' ? '🟨 الثاني' : '🟥 الأول';
     return `
-    <tr class="${r.id===chqCurrentId?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
+    <tr class="${String(r.id) === String(chqCurrentId)?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
       <td>${i+1}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.74rem;direction:ltr">${r.date||'—'}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#1a3a6e;font-weight:700;direction:ltr">${r.num||'—'}</td>
@@ -8359,7 +8548,7 @@ function chqNewDrawer(){
 }
 
 function chqOpenDrawer(id){
-  const rec = chqRecords.find(r=>r.id===id);
+  const rec = chqRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   chqCurrentId = id;
   document.getElementById('chqDrawerTitle').textContent = 'تعديل شيك — ' + (rec.payto||'');
@@ -8464,10 +8653,10 @@ function chqDrawerSave(){
     name: document.getElementById('chq_name')?.value||'',
     account: document.getElementById('chq_account')?.value||'',
     branch: document.getElementById('chq_branch')?.value||'',
-    status: chqCurrentId ? (chqRecords.find(r=>r.id===chqCurrentId)?.status||'pending') : 'pending',
+    status: chqCurrentId ? (chqRecords.find(r=>String(r.id) === String(chqCurrentId))?.status||'pending') : 'pending',
     created: new Date().toISOString(),
   };
-  const idx = chqRecords.findIndex(r=>r.id===rec.id);
+  const idx = chqRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) chqRecords[idx]=rec;
   else { chqCurrentId=rec.id; chqRecords.push(rec); }
   localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
@@ -8488,7 +8677,7 @@ function chqDrawerPrint(){
   chqDrawerSave();
   // Mark as printed
   if(chqCurrentId){
-    const idx = chqRecords.findIndex(r=>r.id===chqCurrentId);
+    const idx = chqRecords.findIndex(r=>String(r.id) === String(chqCurrentId));
     if(idx>=0){
       chqRecords[idx].status='printed';
       localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
@@ -8504,7 +8693,7 @@ function chqDrawerPrint(){
 function chqDrawerVoid(){
   if(!chqCurrentId){ chqFsToast('احفظ الشيك أولاً','error'); return; }
   if(!confirm('هل تريد إلغاء هذا الشيك؟')) return;
-  const idx = chqRecords.findIndex(r=>r.id===chqCurrentId);
+  const idx = chqRecords.findIndex(r=>String(r.id) === String(chqCurrentId));
   if(idx>=0){
     chqRecords[idx].status='void';
     localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
@@ -8518,7 +8707,7 @@ function chqDrawerVoid(){
 /* ── Delete row (from sheet) ── */
 function chqDeleteRow(id){
   if(!confirm('هل تريد حذف هذا الشيك نهائياً؟')) return;
-  chqRecords = chqRecords.filter(r=>r.id!==id);
+  chqRecords = chqRecords.filter(r=>String(r.id) !== String(id));
   localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
   if(window.sbDelete) window.sbDelete('print_cheque', id);
   if(chqCurrentId===id){ chqCurrentId=null; chqCloseDrawer(); }
@@ -8577,6 +8766,7 @@ function chqFsToast(msg, type='success'){
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#15803d,#16a34a)" onclick="ccNewDrawer()">➕ مركز جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="ccEditModeBtn" onclick="ccToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="ccExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('ccPage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeCostCenter()">✕ إغلاق</button>
   </div>
 
@@ -8682,7 +8872,7 @@ function ccFsRender(){
   // Use dynamic schema if synced, else use defaults
   const dynFields = window._spSchema && window._spSchema['cc'];
   const searchFields = dynFields || ['Cost_Ctr_Code','Company_Ar','Company_Code','Short_text','Person_Responsible'];
-  const recs = ccRecords.filter(r => !q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q))).sort((a,b)=>a.id-b.id);
+  const recs = ccRecords.filter(r => !q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
 
   // Stats — use first 2 fields if dynamic, else defaults
   const companyKey = dynFields ? (dynFields.find(f => /comp.*code|company_code/i.test(f)) || dynFields[1]) : 'Company_Code';
@@ -8722,7 +8912,7 @@ function ccFsRender(){
           return `<td>${inp(r, f, isDate?'date':'text')}</td>`;
         }).join('');
         return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
-          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete('${r.id}')">🗑️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
         </div></td></tr>`;
       }).join('');
       return;
@@ -8742,7 +8932,7 @@ function ccFsRender(){
         <td>${inp(r,'To','date')}</td>
         <td>${inp(r,'Content_Type')}</td>
         <td><div class="fs-row-btns" style="opacity:1">
-          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete('${r.id}')">🗑️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
         </div></td>
       </tr>`).join('');
     return;
@@ -8754,18 +8944,18 @@ function ccFsRender(){
   if(dynFields){
     tbody.innerHTML = recs.map((r,i) => {
       const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
-      return `<tr class="${String(r.id)===String(ccCurrentId)?'fs-row-active':''}" onclick="ccOpenDrawer('${r.id}')">
+      return `<tr class="${String(r.id) === String(ccCurrentId)?'fs-row-active':''}" onclick="ccOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
-          <button class="fs-row-btn fs-row-btn-edit" onclick="ccOpenDrawer('${r.id}')">✏️</button>
-          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete('${r.id}')">🗑️</button>
+          <button class="fs-row-btn fs-row-btn-edit" onclick="ccOpenDrawer(${r.id})">✏️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
         </div></td></tr>`;
     }).join('');
     return;
   }
 
   tbody.innerHTML=recs.map((r,i)=>`
-    <tr class="${String(r.id)===String(ccCurrentId)?'fs-row-active':''}" onclick="ccOpenDrawer('${r.id}')">
+    <tr class="${String(r.id) === String(ccCurrentId)?'fs-row-active':''}" onclick="ccOpenDrawer(${r.id})">
       <td>${i+1}</td>
       <td style="font-family:'Space Mono',monospace;font-size:.72rem;color:#15803d;font-weight:700">${r['Cost_Ctr_Code']||'—'}</td>
       <td style="font-weight:700">${r['Company_Ar']||'—'}</td>
@@ -8780,8 +8970,8 @@ function ccFsRender(){
       <td>${r['Content_Type']||'—'}</td>
       <td onclick="event.stopPropagation()">
         <div class="fs-row-btns">
-          <button class="fs-row-btn fs-row-btn-edit" onclick="ccOpenDrawer('${r.id}')">✏️</button>
-          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete('${r.id}')">🗑️</button>
+          <button class="fs-row-btn fs-row-btn-edit" onclick="ccOpenDrawer(${r.id})">✏️</button>
+          <button class="fs-row-btn fs-row-btn-del" onclick="ccQuickDelete(${r.id})">🗑️</button>
         </div>
       </td>
     </tr>`).join('');
@@ -8825,10 +9015,8 @@ function ccNewDrawer(){
 
 /* Drawer: Edit existing */
 function ccOpenDrawer(id){
-  // Normalize id to string to handle both numeric (localStorage) and UUID (Supabase) types
-  const sid = String(id);
-  ccCurrentId = sid;
-  const rec = ccRecords.find(r => String(r.id) === sid);
+  ccCurrentId=id;
+  const rec=ccRecords.find(r => String(r.id) === String(id));
   document.getElementById('ccDrawerTitle').textContent=rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'تعديل مركز التكلفة';
   ccBuildForm(rec);
   document.getElementById('ccDrawer').classList.add('open');
@@ -8907,10 +9095,12 @@ function ccDrawerSave(){
   const text=document.getElementById('cf_Short_text')?.value;
   if(!code||!text){ ccFsToast('⚠️ Cost_Ctr_Code و Short_text مطلوبان','error'); return; }
   const rec=ccCollectDrawer();
-  const idx=ccRecords.findIndex(r=>String(r.id)===String(rec.id));
+  const idx=ccRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) ccRecords[idx]=rec; else{ ccCurrentId=rec.id; ccRecords.push(rec); }
   localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
-  if(window.sbUpsert) window.sbUpsert('cost_center', rec);
+  if(window.sbUpsert) window.sbUpsert('cost_center', rec).then(realId=>{
+    if(realId!=null && String(realId)!==String(rec.id)) ccCurrentId=Number(realId);
+  });
   ccFsToast('✅ تم حفظ مركز التكلفة','success');
   ccCloseDrawer();
   ccFsRender();
@@ -8918,13 +9108,13 @@ function ccDrawerSave(){
 
 function ccDrawerDelete(){
   if(!ccCurrentId){ ccFsToast('لم يتم اختيار مركز تكلفة','error'); return; }
-  const rec=ccRecords.find(r=>String(r.id)===String(ccCurrentId));
+  const rec=ccRecords.find(r=>String(r.id) === String(ccCurrentId));
   if(!confirm(`حذف "${rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'هذا المركز'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('cost_center', rec) : true;
     if(!ok){ ccFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
     const delId=ccCurrentId;
-    ccRecords=ccRecords.filter(r=>String(r.id)!==String(ccCurrentId));
+    ccRecords=ccRecords.filter(r=>String(r.id) !== String(ccCurrentId));
     localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
     if(window.sbDelete) window.sbDelete('cost_center', delId);
     if(window.MasterLookup) window.MasterLookup.invalidate('cost_center');
@@ -8936,17 +9126,17 @@ function ccDrawerDelete(){
 }
 
 function ccQuickDelete(id){
-  const rec=ccRecords.find(r=>r.id===id);
+  const rec=ccRecords.find(r => String(r.id) === String(id));
   if(!rec) return;
   if(!confirm(`حذف "${rec?.['Short_text']||rec?.['Cost_Ctr_Code']||'هذا المركز'}"؟`)) return;
   (async () => {
     const ok = window.spCheckRefsBeforeDelete ? await window.spCheckRefsBeforeDelete('cost_center', rec) : true;
     if(!ok){ ccFsToast('🚫 سجل مرتبط — لا يمكن الحذف','error'); return; }
-    ccRecords=ccRecords.filter(r=>r.id!==id);
+    ccRecords=ccRecords.filter(r=>String(r.id) !== String(id));
     localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
     if(window.sbDelete) window.sbDelete('cost_center', id);
     if(window.MasterLookup) window.MasterLookup.invalidate('cost_center');
-    if(String(ccCurrentId)===String(id)){ ccCurrentId=null; ccCloseDrawer(); }
+    if(ccCurrentId===id){ ccCurrentId=null; ccCloseDrawer(); }
     ccFsToast('🗑️ تم الحذف','success');
     ccFsRender();
   })();
@@ -9009,6 +9199,7 @@ function ccFsToast(msg,type='success'){
     <div class="fs-topbar-title">تسجيل الخروج <small>— Log Out</small></div>
     <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#dc2626,#ef4444)" onclick="logOutNewDrawer()">➕ إضافة جديد</button>
     <button class="fs-btn fs-btn-print" onclick="logOutExportXL()">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('logOutPage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeLogOutPage()">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -9084,7 +9275,7 @@ function logOutFsRender(){
   const tbody=document.getElementById('logOutTbody');
   if(!recs.length){ tbody.innerHTML='<tr><td colspan="10" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
   tbody.innerHTML=recs.map((r,i)=>`
-    <tr class="${r.id===logOutCurId?'fs-row-active':''}" onclick="logOutOpenDrawer(${r.id})">
+    <tr class="${String(r.id) === String(logOutCurId)?'fs-row-active':''}" onclick="logOutOpenDrawer(${r.id})">
       <td>${i+1}</td>
       <td style="font-family:Space Mono,monospace;font-size:.72rem;color:#dc2626;font-weight:700">${r["Ref_No"]||"—"}</td>
       <td style="font-family:Space Mono,monospace;font-size:.72rem">${r["Date"]||"—"}</td>
@@ -9104,7 +9295,7 @@ function logOutFsRender(){
 }
 
 function logOutNewDrawer(){ logOutCurId=null; document.getElementById('logOutDrawerTitle').textContent='إضافة جديد'; logOutBuildForm(null); document.getElementById('logOutDrawer').classList.add('open'); document.getElementById('logOutOverlay').classList.add('open'); }
-function logOutOpenDrawer(id){ logOutCurId=id; const rec=logOutRecords.find(r=>r.id===id); document.getElementById('logOutDrawerTitle').textContent=rec?.['Description']||rec?.['Ref_No']||'تعديل السجل'; logOutBuildForm(rec); document.getElementById('logOutDrawer').classList.add('open'); document.getElementById('logOutOverlay').classList.add('open'); logOutFsRender(); }
+function logOutOpenDrawer(id){ logOutCurId=id; const rec=logOutRecords.find(r => String(r.id) === String(id)); document.getElementById('logOutDrawerTitle').textContent=rec?.['Description']||rec?.['Ref_No']||'تعديل السجل'; logOutBuildForm(rec); document.getElementById('logOutDrawer').classList.add('open'); document.getElementById('logOutOverlay').classList.add('open'); logOutFsRender(); }
 function logOutCloseDrawer(){ document.getElementById('logOutDrawer').classList.remove('open'); document.getElementById('logOutOverlay').classList.remove('open'); }
 
 function logOutBuildForm(rec){
@@ -9160,7 +9351,7 @@ function logOutDrawerSave(){
   const _vRef_No=document.getElementById('pf_logOut_Ref_No')?.value; if(!_vRef_No){ logOutFsToast('⚠️ حقل Ref_No مطلوب','error'); return; }
   const _vDescription=document.getElementById('pf_logOut_Description')?.value; if(!_vDescription){ logOutFsToast('⚠️ حقل Description مطلوب','error'); return; }
   const rec=logOutCollectDrawer();
-  const idx=logOutRecords.findIndex(r=>r.id===rec.id);
+  const idx=logOutRecords.findIndex(r => String(r.id) === String(rec.id));
   if(idx>=0) logOutRecords[idx]=rec; else{ logOutCurId=rec.id; logOutRecords.push(rec); }
   localStorage.setItem('gpm_logOut_records',JSON.stringify(logOutRecords));
   logOutFsToast('✅ تم الحفظ بنجاح','success');
@@ -9169,9 +9360,9 @@ function logOutDrawerSave(){
 
 function logOutDrawerDelete(){
   if(!logOutCurId){ logOutFsToast('اختر سجلاً أولاً','error'); return; }
-  const rec=logOutRecords.find(r=>r.id===logOutCurId);
+  const rec=logOutRecords.find(r=>String(r.id) === String(logOutCurId));
   if(!confirm(`حذف هذا السجل؟`)) return;
-  logOutRecords=logOutRecords.filter(r=>r.id!==logOutCurId);
+  logOutRecords=logOutRecords.filter(r=>String(r.id) !== String(logOutCurId));
   localStorage.setItem('gpm_logOut_records',JSON.stringify(logOutRecords));
   logOutFsToast('🗑️ تم الحذف','success');
   logOutCurId=null; logOutCloseDrawer(); logOutFsRender();
@@ -9179,7 +9370,7 @@ function logOutDrawerDelete(){
 
 function logOutQuickDel(id){
   if(!confirm('حذف هذا السجل؟')) return;
-  logOutRecords=logOutRecords.filter(r=>r.id!==id);
+  logOutRecords=logOutRecords.filter(r=>String(r.id) !== String(id));
   localStorage.setItem('gpm_logOut_records',JSON.stringify(logOutRecords));
   if(logOutCurId===id){ logOutCurId=null; logOutCloseDrawer(); }
   logOutFsToast('🗑️ تم الحذف','success'); logOutFsRender();
@@ -14177,13 +14368,12 @@ window.addEventListener('resize', function(){
   }
 
   async function _sbPushRecord(pid, rec){
-    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
-    if(typeof _sb === 'undefined' || !_sb) return;
-    // Delegate to the schema-aware sbUpsert (handles both jsonb and flat schemas
-    // with automatic key normalization for Arabic/English field names).
+    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return null;
+    if(typeof _sb === 'undefined' || !_sb) return null;
     if(window.sbUpsert){
-      await window.sbUpsert(cfg.sbTable, rec);
+      return await window.sbUpsert(cfg.sbTable, rec);
     }
+    return null;
   }
 
   async function _sbDeleteRecord(pid, id){
@@ -14213,6 +14403,7 @@ window.addEventListener('resize', function(){
     <button class="fs-btn fs-btn-primary" style="background:${grad}" onclick="GPM.newDrawer('${pid}')">➕ إضافة جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="${px}EditModeBtn" onclick="GPM.toggleEditMode('${pid}')">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="GPM.exportXL('${pid}')">📊 Excel</button>
+    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="GPM.exportPDF('${pid}')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="GPM.closePage('${pid}')">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -14273,7 +14464,7 @@ window.addEventListener('resize', function(){
     const cfg = GPM_PAGES[pid]; if(!cfg) return;
     const px = cfg.prefix;
     const records = _loadRecords(px, cfg.lsKey);
-    const rec = records.find(r => r.id === id);
+    const rec = records.find(r => String(r.id) === String(id));
     if(!rec) return;
     rec[field] = value;
     _save(px, cfg.lsKey);
@@ -14418,7 +14609,7 @@ window.addEventListener('resize', function(){
         const style = isNumeric ? 'font-family:Space Mono,monospace;direction:ltr;text-align:left' : '';
         return `<td style="${style}">${v}</td>`;
       }).join('');
-      return `<tr class="${r.id===_curId[px]?'fs-row-active':''}" onclick="GPM.openDrawer('${pid}',${r.id})">
+      return `<tr class="${String(r.id) === String(_curId[px])?'fs-row-active':''}" onclick="GPM.openDrawer('${pid}',${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
           <button class="fs-row-btn fs-row-btn-edit" onclick="GPM.openDrawer('${pid}',${r.id})">✏️</button>
@@ -14494,7 +14685,7 @@ window.addEventListener('resize', function(){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
     const records = _loadRecords(px, cfg.lsKey);
-    const rec = records.find(r => r.id === id);
+    const rec = records.find(r => String(r.id) === String(id));
     if(!rec) return;
     _curId[px] = id;
     const titleField = cfg.fields.find(f => /Description|وصف|Name/i.test(f)) || cfg.fields[0];
@@ -14516,29 +14707,39 @@ window.addEventListener('resize', function(){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
     const records = _loadRecords(px, cfg.lsKey);
+    const isNew = !_curId[px];
     const data = { id: _curId[px] || Date.now() };
     cfg.fields.forEach(f => {
       const el = document.getElementById('pf_' + px + '_' + f);
       if(!el) return;
-      // If this field is in a combobox, read the underlying code
       const combo = el.closest && el.closest('.ml-combo');
-      if(combo){
-        data[f] = combo.dataset.code || el.value;
-      } else {
-        data[f] = el.value;
-      }
+      if(combo){ data[f] = combo.dataset.code || el.value; }
+      else { data[f] = el.value; }
     });
     
-    if(_curId[px]){
-      const i = records.findIndex(r => r.id === _curId[px]);
+    if(!isNew){
+      const i = records.findIndex(r => String(r.id) === String(_curId[px]));
       if(i >= 0) records[i] = data;
     } else {
       records.push(data);
       _curId[px] = data.id;
     }
     _save(px, cfg.lsKey);
-    // Push to Supabase (non-blocking)
-    if(cfg.sbTable) _sbPushRecord(pid, data);
+
+    // Push to Supabase — on insert, patch local id with real Supabase id
+    if(cfg.sbTable){
+      _sbPushRecord(pid, data).then(realId => {
+        if(realId != null && String(realId) !== String(data.id)){
+          // Replace temp id with real id in memory and localStorage
+          const recs = _loadRecords(px, cfg.lsKey);
+          const row = recs.find(r => String(r.id) === String(data.id));
+          if(row){ row.id = Number(realId); _save(px, cfg.lsKey); }
+          _curId[px] = Number(realId);
+          render(pid);
+        }
+      });
+    }
+
     _toast(px, '✅ تم الحفظ', 'success');
     render(pid);
     closeDrawer(pid);
@@ -14575,14 +14776,14 @@ window.addEventListener('resize', function(){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
     if(!_curId[px]){ _toast(px, '⚠️ لا يوجد سجل محدد', 'error'); return; }
-    const rec = _loadRecords(px, cfg.lsKey).find(r => r.id === _curId[px]);
+    const rec = _loadRecords(px, cfg.lsKey).find(r => String(r.id) === String(_curId[px]));
     if(!rec){ _toast(px, 'السجل غير موجود', 'error'); return; }
     if(!confirm('هل تريد حذف هذا السجل؟')) return;
     const delId = _curId[px];
     (async () => {
       const ok = await _checkRefsBeforeDelete(pid, rec);
       if(!ok){ _toast(px, '🚫 سجل مرتبط — لا يمكن الحذف', 'error'); return; }
-      _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== delId);
+      _records[px] = _loadRecords(px, cfg.lsKey).filter(r => String(r.id) !== String(delId));
       _save(px, cfg.lsKey);
       if(cfg.sbTable) _sbDeleteRecord(pid, delId);
       _curId[px] = null;
@@ -14600,13 +14801,13 @@ window.addEventListener('resize', function(){
   function quickDel(pid, id){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
-    const rec = _loadRecords(px, cfg.lsKey).find(r => r.id === id);
+    const rec = _loadRecords(px, cfg.lsKey).find(r => String(r.id) === String(id));
     if(!rec){ _toast(px, 'السجل غير موجود', 'error'); return; }
     if(!confirm('هل تريد حذف هذا السجل؟')) return;
     (async () => {
       const ok = await _checkRefsBeforeDelete(pid, rec);
       if(!ok){ _toast(px, '🚫 سجل مرتبط — لا يمكن الحذف', 'error'); return; }
-      _records[px] = _loadRecords(px, cfg.lsKey).filter(r => r.id !== id);
+      _records[px] = _loadRecords(px, cfg.lsKey).filter(r => String(r.id) !== String(id));
       _save(px, cfg.lsKey);
       if(cfg.sbTable) _sbDeleteRecord(pid, id);
       if(_curId[px] === id) _curId[px] = null;
@@ -14619,6 +14820,57 @@ window.addEventListener('resize', function(){
     })();
   }
   
+  // ─── Shared PDF export (all GPM_PAGES) ───────────────────────────
+  function exportPDF(pid){
+    const cfg = GPM_PAGES[pid];
+    const px  = cfg.prefix;
+    const records = _loadRecords(px, cfg.lsKey);
+    if(!records.length){ _toast(px, '⚠️ لا توجد بيانات', 'error'); return; }
+    if(typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined'){
+      _toast(px, '⚠️ مكتبة PDF غير محملة', 'error'); return;
+    }
+    const { jsPDF } = window.jspdf || jspdf;
+    const cols = cfg.columns;
+    const fields = cfg.fields;
+    const rows = records.map((r, i) => {
+      const cells = [String(i+1)];
+      fields.forEach(f => cells.push(String(r[f] || '')));
+      return cells;
+    });
+    const allCols = ['#', ...cols];
+    const doc = new jsPDF({ orientation: rows[0] && allCols.length > 8 ? 'landscape' : 'portrait', unit: 'pt', format: 'a4' });
+    // Header bar
+    doc.setFillColor(26, 58, 110);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), 48, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(cfg.titleEn, 14, 22);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Golf Porto Marina — GPM Accounting', 14, 36);
+    doc.text(new Date().toLocaleDateString('en-GB'), doc.internal.pageSize.getWidth() - 14, 36, {align:'right'});
+    // Table
+    doc.autoTable({
+      startY: 56,
+      head: [allCols],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 4, font: 'helvetica', halign: 'left', overflow: 'linebreak' },
+      headStyles: { fillColor: [15, 37, 87], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      alternateRowStyles: { fillColor: [245, 247, 253] },
+      margin: { top: 56, right: 14, bottom: 30, left: 14 },
+      didDrawPage: function(data){
+        const pg = doc.internal.getCurrentPageInfo().pageNumber;
+        const tot = doc.internal.getNumberOfPages();
+        doc.setFontSize(7); doc.setTextColor(150);
+        doc.text('Page ' + pg + ' / ' + tot, doc.internal.pageSize.getWidth() / 2, doc.internal.pageSize.getHeight() - 12, {align:'center'});
+        doc.text('GPM Accounting — ' + cfg.titleEn, 14, doc.internal.pageSize.getHeight() - 12);
+      }
+    });
+    doc.save(cfg.prefix + '_' + new Date().toISOString().split('T')[0] + '.pdf');
+    _toast(px, '✅ تم تصدير PDF', 'success');
+  }
+
   function exportXL(pid){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
@@ -14727,7 +14979,7 @@ window.addEventListener('resize', function(){
     PAGES: GPM_PAGES,
     openPage, closePage,
     render, newDrawer, openDrawer, closeDrawer,
-    saveDrawer, deleteDrawer, quickDel, exportXL,
+    saveDrawer, deleteDrawer, quickDel, exportXL, exportPDF,
     toggleEditMode,
   };
 
