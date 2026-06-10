@@ -14993,5 +14993,319 @@ window.addEventListener('resize', function(){
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════
+     GPM GLASS UI OVERRIDES
+     1. Sidebar  — frosted glass, light palette preserved
+     2. gpm-gb / gpm-si / gpm-nsi — pill buttons, glass + 3-D
+     3. fs-btn variants — translucent color pills, 3-D shadow
+═══════════════════════════════════════════════════════════ -->
+<style>
+/* ──────────────────────────────────────────────
+   1. SIDEBAR — frosted glass
+   background stays white-ish; blur + border give the glass effect
+────────────────────────────────────────────────*/
+.gpm-sidebar {
+  background: rgba(255,255,255,.55) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+  border-right: 1px solid rgba(180,200,240,.45) !important;
+  box-shadow:
+    4px 0 32px rgba(30,58,138,.10),
+    1px 0 0 rgba(255,255,255,.7) inset !important;
+}
+
+/* Sub containers — slightly more opaque so items read clearly */
+.gpm-sub,
+.gpm-nsub {
+  background: rgba(245,248,255,.6) !important;
+}
+
+/* Flyout popup inherits glass too */
+.gpm-flyout {
+  background: rgba(255,255,255,.72) !important;
+  backdrop-filter: blur(20px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
+  border: 1px solid rgba(180,200,240,.4) !important;
+  box-shadow: 8px 0 36px rgba(30,58,138,.14) !important;
+}
+
+/* ──────────────────────────────────────────────
+   2. MENU BUTTONS — glass pills with 3-D shadow
+   gpm-gb  (level 1)
+   gpm-si  (level 2)
+   gpm-nsi (level 3)
+────────────────────────────────────────────────*/
+
+/* ── Shared pill reset ── */
+.gpm-gb,
+.gpm-si,
+.gpm-nsi {
+  margin: 3px 8px !important;
+  width: calc(100% - 16px) !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(148,180,240,.35) !important;
+  border-bottom: 1px solid rgba(148,180,240,.35) !important;  /* override hairline */
+  background: linear-gradient(170deg,
+    rgba(255,255,255,.82) 0%,
+    rgba(219,234,254,.55) 100%) !important;
+  color: #1e3a6e !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.95) inset,
+    0 -1px 0 rgba(100,130,200,.12) inset,
+    0 4px 0 rgba(147,197,253,.55),
+    0 5px 12px rgba(30,58,138,.12) !important;
+  transition: all .15s cubic-bezier(.4,0,.2,1) !important;
+}
+
+/* ── Hover — lift + deeper shadow ── */
+.gpm-gb:hover,
+.gpm-si:hover,
+.gpm-nsi:hover {
+  background: linear-gradient(170deg,
+    rgba(239,246,255,.95) 0%,
+    rgba(191,219,254,.7) 100%) !important;
+  color: #1d4ed8 !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.95) inset,
+    0 -1px 0 rgba(100,130,200,.15) inset,
+    0 6px 0 rgba(96,165,250,.6),
+    0 7px 16px rgba(30,58,138,.18) !important;
+  transform: translateY(-2px) !important;
+  border-color: rgba(96,165,250,.5) !important;
+}
+
+/* ── Active (open group) ── */
+.gpm-gb.active {
+  background: linear-gradient(170deg,
+    rgba(219,234,254,.9) 0%,
+    rgba(147,197,253,.65) 100%) !important;
+  color: #1a3a6e !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 3px 0 rgba(37,99,235,.45),
+    0 4px 10px rgba(30,58,138,.2) !important;
+  transform: translateY(1px) !important;
+  border-color: rgba(37,99,235,.4) !important;
+}
+
+/* Keep the left-border accent on active */
+.gpm-gb.active::before {
+  border-radius: 10px 0 0 10px !important;
+}
+
+/* Level-2 slight indent — glass tint slightly different */
+.gpm-si {
+  background: linear-gradient(170deg,
+    rgba(255,255,255,.7) 0%,
+    rgba(224,242,254,.45) 100%) !important;
+}
+
+/* Level-3 deeper tint */
+.gpm-nsi {
+  background: linear-gradient(170deg,
+    rgba(248,250,255,.65) 0%,
+    rgba(207,234,253,.4) 100%) !important;
+  margin-right: 16px !important;
+  width: calc(100% - 24px) !important;
+}
+
+/* Section label — glass accent strip */
+.gpm-sl {
+  background: rgba(219,234,254,.6) !important;
+  backdrop-filter: blur(8px) !important;
+  border-radius: 8px !important;
+  margin: 2px 8px !important;
+  width: calc(100% - 16px) !important;
+  border: 1px solid rgba(147,197,253,.4) !important;
+}
+
+/* ──────────────────────────────────────────────
+   3. FS-BTN VARIANTS — translucent 3-D pills
+   Each type gets its own hue with glass finish
+────────────────────────────────────────────────*/
+
+/* Shared base tweak — pill shape */
+.fs-btn {
+  border-radius: 11px !important;
+}
+
+/* PRIMARY — نيلي زجاجي */
+.fs-btn-primary {
+  background: linear-gradient(170deg,
+    rgba(96,165,250,.65) 0%,
+    rgba(37,99,235,.8) 60%,
+    rgba(29,78,216,.9) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(147,197,253,.5) !important;
+  color: #fff !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -1px 0 rgba(0,0,0,.15) inset,
+    0 6px 0 rgba(30,58,138,.7),
+    0 8px 18px rgba(30,58,138,.35) !important;
+}
+.fs-btn-primary:hover {
+  background: linear-gradient(170deg,
+    rgba(147,197,253,.75) 0%,
+    rgba(59,130,246,.88) 60%,
+    rgba(37,99,235,.95) 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.4) inset,
+    0 -1px 0 rgba(0,0,0,.15) inset,
+    0 8px 0 rgba(30,58,138,.75),
+    0 10px 22px rgba(30,58,138,.42) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* LIGHT — رمادي زجاجي */
+.fs-btn-light {
+  background: linear-gradient(170deg,
+    rgba(255,255,255,.8) 0%,
+    rgba(226,232,240,.72) 60%,
+    rgba(203,213,225,.8) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1.5px solid rgba(176,188,212,.6) !important;
+  color: #1e3a5f !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -1px 0 rgba(0,0,0,.07) inset,
+    0 5px 0 rgba(148,163,184,.7),
+    0 7px 14px rgba(0,0,0,.14) !important;
+}
+.fs-btn-light:hover {
+  background: linear-gradient(170deg,
+    rgba(248,250,255,.9) 0%,
+    rgba(221,230,245,.8) 60%,
+    rgba(191,207,230,.85) 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 -1px 0 rgba(0,0,0,.07) inset,
+    0 7px 0 rgba(148,163,184,.75),
+    0 9px 18px rgba(0,0,0,.18) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* DANGER — أحمر زجاجي */
+.fs-btn-danger {
+  background: linear-gradient(170deg,
+    rgba(252,165,165,.7) 0%,
+    rgba(239,68,68,.82) 60%,
+    rgba(220,38,38,.9) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(252,165,165,.45) !important;
+  color: #fff !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -1px 0 rgba(0,0,0,.18) inset,
+    0 5px 0 rgba(153,27,27,.7),
+    0 7px 16px rgba(153,27,27,.3) !important;
+}
+.fs-btn-danger:hover {
+  background: linear-gradient(170deg,
+    rgba(252,165,165,.82) 0%,
+    rgba(248,113,113,.9) 60%,
+    rgba(239,68,68,.96) 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -1px 0 rgba(0,0,0,.18) inset,
+    0 7px 0 rgba(153,27,27,.75),
+    0 9px 20px rgba(153,27,27,.38) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* PRINT (أخضر) */
+.fs-btn-print {
+  background: linear-gradient(170deg,
+    rgba(134,239,172,.65) 0%,
+    rgba(34,197,94,.8) 60%,
+    rgba(22,163,74,.9) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(134,239,172,.45) !important;
+  color: #fff !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -1px 0 rgba(0,0,0,.15) inset,
+    0 5px 0 rgba(22,101,52,.7),
+    0 7px 14px rgba(22,101,52,.28) !important;
+}
+.fs-btn-print:hover {
+  background: linear-gradient(170deg,
+    rgba(167,243,208,.75) 0%,
+    rgba(52,211,153,.88) 60%,
+    rgba(34,197,94,.95) 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 -1px 0 rgba(0,0,0,.15) inset,
+    0 7px 0 rgba(22,101,52,.75),
+    0 9px 18px rgba(22,101,52,.35) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* EDIT MODE — أصفر/برتقالي زجاجي */
+.fs-btn-edit-mode {
+  background: linear-gradient(170deg,
+    rgba(253,224,71,.65) 0%,
+    rgba(234,179,8,.78) 60%,
+    rgba(202,138,4,.88) 100%) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(253,224,71,.45) !important;
+  color: #713f12 !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.45) inset,
+    0 -1px 0 rgba(0,0,0,.12) inset,
+    0 5px 0 rgba(161,98,7,.65),
+    0 7px 14px rgba(161,98,7,.24) !important;
+}
+.fs-btn-edit-mode:hover {
+  background: linear-gradient(170deg,
+    rgba(254,240,138,.75) 0%,
+    rgba(250,204,21,.85) 60%,
+    rgba(234,179,8,.93) 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.45) inset,
+    0 -1px 0 rgba(0,0,0,.12) inset,
+    0 7px 0 rgba(161,98,7,.7),
+    0 9px 18px rgba(161,98,7,.3) !important;
+  transform: translateY(-2px) !important;
+}
+.fs-btn-edit-mode.on {
+  background: linear-gradient(170deg,
+    rgba(251,191,36,.8) 0%,
+    rgba(245,158,11,.9) 60%,
+    rgba(217,119,6,.95) 100%) !important;
+  color: #fff !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,
+    0 3px 0 rgba(146,64,14,.7),
+    0 4px 10px rgba(146,64,14,.3) !important;
+  transform: translateY(1px) !important;
+}
+
+/* TOPBAR context — keep contrast on dark topbar */
+.fs-topbar .fs-btn-light {
+  background: rgba(255,255,255,.22) !important;
+  border-color: rgba(255,255,255,.32) !important;
+  color: #fff !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.3) inset,
+    0 4px 0 rgba(0,0,0,.28),
+    0 5px 10px rgba(0,0,0,.2) !important;
+}
+.fs-topbar .fs-btn-primary {
+  background: rgba(255,255,255,.28) !important;
+  border-color: rgba(255,255,255,.4) !important;
+  color: #fff !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.3) inset,
+    0 4px 0 rgba(0,0,0,.28),
+    0 5px 10px rgba(0,0,0,.2) !important;
+}
+</style>
+
 </body>
 </html>
