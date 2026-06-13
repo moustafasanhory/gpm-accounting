@@ -17,7 +17,7 @@
   --text:#e8e8f0;--muted:#888899;--border:#2a2a40;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Tajawal',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;direction:rtl}
+body{font-family:'Tajawal',sans-serif;background:linear-gradient(135deg,#bde0fe 0%,#c8e6c9 50%,#d1c4e9 100%) fixed;background-attachment:fixed;color:var(--text);min-height:100vh;direction:rtl}
 
 /* HEADER */
 header{background:linear-gradient(135deg,#0f3460,#533483 50%,#e94560);padding:28px 20px 22px;text-align:center;position:relative;overflow:hidden}
@@ -250,25 +250,28 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 
 .calc-overlay{
   display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  background:rgba(37,99,235,.12);backdrop-filter:blur(8px) saturate(160%);
+  -webkit-backdrop-filter:blur(8px) saturate(160%);
   z-index:3000;align-items:center;justify-content:center;
 }
 .calc-overlay.open{display:flex}
 
 .calc-panel{
-  background:linear-gradient(145deg,#0d0d1a,#12121e);
-  border:1px solid rgba(83,52,131,.5);
+  background:rgba(255,255,255,0.65);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  border:1px solid rgba(255,255,255,0.72);
   border-radius:24px;
   padding:24px;
   width:340px;
   box-shadow:
-    0 0 0 1px rgba(83,52,131,.2),
-    0 30px 80px rgba(0,0,0,.7),
-    0 0 60px rgba(83,52,131,.15);
+    0 0 0 1px rgba(255,255,255,0.4),
+    0 20px 60px rgba(0,0,0,0.15),
+    0 0 40px rgba(37,99,235,0.08);
   position:relative;
-  animation:calcIn .25s cubic-bezier(.34,1.56,.64,1);
+  animation:calcIn .3s cubic-bezier(.34,1.3,.64,1);
 }
-@keyframes calcIn{from{transform:scale(.85) translateY(20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+@keyframes calcIn{from{transform:scale(.88) translateY(16px);opacity:0;backdrop-filter:blur(0px)}to{transform:scale(1) translateY(0);opacity:1;backdrop-filter:blur(14px)}}
 
 /* drag handle */
 .calc-drag{
@@ -289,14 +292,14 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 /* brand */
 .calc-brand{
   text-align:center;font-size:.65rem;letter-spacing:2px;
-  color:rgba(255,255,255,.2);text-transform:uppercase;margin-bottom:12px;
+  color:rgba(37,99,235,.5);text-transform:uppercase;margin-bottom:12px;
   margin-top:4px;font-family:'Space Mono',monospace;
 }
 
 /* DISPLAY */
 .calc-display{
-  background:rgba(0,0,0,.4);
-  border:1px solid rgba(83,52,131,.4);
+  background:rgba(15,37,87,0.08);
+  border:1px solid rgba(37,99,235,0.2);
   border-radius:16px;
   padding:16px 20px 12px;
   margin-bottom:18px;
@@ -309,14 +312,14 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 }
 .calc-expr{
   font-family:'Space Mono',monospace;font-size:.72rem;
-  color:rgba(168,216,255,.4);min-height:16px;
+  color:rgba(15,37,87,0.45);min-height:16px;
   text-align:right;direction:ltr;margin-bottom:4px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .calc-result{
   font-family:'Space Mono',monospace;
   font-size:2.4rem;font-weight:700;
-  color:#e8e8f0;text-align:right;direction:ltr;
+  color:#0f2557;text-align:right;direction:ltr;
   line-height:1;
   transition:font-size .15s;
   word-break:break-all;
@@ -329,11 +332,13 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 .calc-keys{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 
 .ckey{
-  background:rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.07);
+  background:rgba(255,255,255,0.55);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  border:1px solid rgba(200,215,240,0.6);
   border-radius:14px;height:60px;
   font-family:'Space Mono',monospace;
-  font-size:1rem;font-weight:700;color:#c8c8d8;
+  font-size:1rem;font-weight:700;color:#1e293b;
   cursor:pointer;
   transition:all .12s;
   position:relative;overflow:hidden;
@@ -423,7 +428,7 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
   height:100vh;z-index:500;
   overflow-y:auto;overflow-x:hidden;
   scrollbar-width:thin;scrollbar-color:#c8cfe0 transparent;
-  transition:width .26s cubic-bezier(.4,0,.2,1);
+  transition:width .26s cubic-bezier(.4,0,.2,1), background .3s ease, backdrop-filter .3s ease;
 }
 .gpm-sidebar::-webkit-scrollbar{width:4px}
 .gpm-sidebar::-webkit-scrollbar-thumb{background:#c8cfe0;border-radius:2px}
@@ -848,7 +853,645 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 .ap-topbar button:hover,.sc-topbar button:hover{background:rgba(255,255,255,.28) !important}
 
 /* All pages: light background */
-[id$="Page"]{background:#f0f2f7 !important}
+[id$="Page"]{background:rgba(241,248,255,0.55) !important}
+
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     GPM GLASS UI — موحّد نهائي
+     خلفية متدرجة ثابتة + زجاج شفاف على كل العناصر
+═══════════════════════════════════════════════════════════ -->
+<style>
+
+/* ══ 0. متغيرات موحّدة ══════════════════════════════════════ */
+:root {
+  /* خلفية التطبيق الكليّة */
+  --gpm-bg-from  : #bde0fe;
+  --gpm-bg-mid   : #c8e6c9;
+  --gpm-bg-to    : #d1c4e9;
+
+  /* زجاج القائمة الجانبية */
+  --sb-glass     : rgba(255,255,255,0.55);
+  --sb-blur      : 18px;
+  --sb-border    : rgba(255,255,255,0.65);
+  --sb-shadow    : 4px 0 28px rgba(0,0,0,0.07);
+  --sb-item-sep  : rgba(200,215,240,0.45);
+  --sb-text      : #1e293b;
+  --sb-text-h    : #0f172a;
+  --sb-accent    : #2563eb;
+
+  /* زجاج الصفحات */
+  --pg-glass     : rgba(255,255,255,0.55);
+  --pg-blur      : 16px;
+  --pg-border    : rgba(255,255,255,0.65);
+  --pg-radius    : 0px;
+
+  /* أزرار زجاجية */
+  --btn-primary-bg  : rgba(37,99,235,0.15);
+  --btn-primary-bd  : rgba(37,99,235,0.35);
+  --btn-primary-c   : #1d4ed8;
+  --btn-primary-h   : rgba(37,99,235,0.28);
+
+  --btn-light-bg    : rgba(255,255,255,0.45);
+  --btn-light-bd    : rgba(255,255,255,0.65);
+  --btn-light-c     : #334155;
+
+  --btn-danger-bg   : rgba(220,38,38,0.15);
+  --btn-danger-bd   : rgba(220,38,38,0.35);
+  --btn-danger-c    : #b91c1c;
+
+  --btn-print-bg    : rgba(22,163,74,0.15);
+  --btn-print-bd    : rgba(22,163,74,0.35);
+  --btn-print-c     : #15803d;
+
+  --btn-export-bg   : rgba(100,116,139,0.15);
+  --btn-export-bd   : rgba(100,116,139,0.30);
+  --btn-export-c    : #475569;
+
+  --btn-edit-bg     : rgba(202,138,4,0.15);
+  --btn-edit-bd     : rgba(202,138,4,0.30);
+  --btn-edit-c      : #92400e;
+
+  --btn-radius      : 10px;
+  --btn-blur        : 8px;
+  --btn-shadow      : 0 2px 8px rgba(0,0,0,0.06);
+  --btn-shadow-h    : 0 6px 18px rgba(0,0,0,0.10);
+}
+
+/* ══ 1. خلفية التطبيق ══════════════════════════════════════ */
+html, body {
+  background: linear-gradient(
+    135deg,
+    var(--gpm-bg-from) 0%,
+    var(--gpm-bg-mid)  50%,
+    var(--gpm-bg-to)   100%
+  ) fixed !important;
+  min-height: 100vh;
+}
+.gpm-page-wrap {
+  background: transparent !important;
+  background-attachment: fixed !important;
+}
+.gpm-main-content { background: transparent !important; }
+
+/* ══ 2. القائمة الجانبية ════════════════════════════════════ */
+.gpm-sidebar {
+  background: var(--sb-glass) !important;
+  backdrop-filter: blur(var(--sb-blur)) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(var(--sb-blur)) saturate(180%) !important;
+  border-right: 1px solid var(--sb-border) !important;
+  box-shadow: var(--sb-shadow) !important;
+}
+.gpm-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(100,140,220,0.3) !important;
+}
+
+/* هيدر السايدبار */
+.gpm-sb-header {
+  background: linear-gradient(135deg,rgba(26,58,110,0.82),rgba(37,99,235,0.80)) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.22) !important;
+}
+
+/* عناصر القائمة */
+.gpm-gb, .gpm-si, .gpm-nsi {
+  background: transparent !important;
+  color: var(--sb-text) !important;
+  border-bottom: 1px solid var(--sb-item-sep) !important;
+  border-radius: 8px !important;
+  margin: 2px 6px !important;
+  width: calc(100% - 12px) !important;
+  transition: background .18s, color .18s, padding-right .18s !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+.gpm-gb:hover, .gpm-si:hover, .gpm-nsi:hover {
+  background: rgba(255,255,255,0.62) !important;
+  color: var(--sb-text-h) !important;
+}
+.gpm-gb.active {
+  background: rgba(255,255,255,0.72) !important;
+  color: var(--sb-accent) !important;
+  font-weight: 700 !important;
+  box-shadow: inset 3px 0 0 var(--sb-accent) !important;
+}
+.gpm-gb.active::before { background: var(--sb-accent) !important; }
+.gpm-gb .gb-arr { color: #64748b !important; }
+.gpm-gb.active .gb-arr { color: var(--sb-accent) !important; transform: rotate(180deg); }
+
+.gpm-sub, .gpm-nsub {
+  background: rgba(255,255,255,0.18) !important;
+  border-bottom: 1px solid var(--sb-item-sep) !important;
+}
+.gpm-sl {
+  background: rgba(255,255,255,0.38) !important;
+  border-top: 1px solid var(--sb-item-sep) !important;
+  border-bottom: 1px solid var(--sb-item-sep) !important;
+  color: #475569 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+.gpm-sl:hover { background: rgba(255,255,255,0.55) !important; }
+.gpm-sdiv, .gpm-gdiv { background: var(--sb-item-sep) !important; }
+
+/* زر القاموس */
+.gpm-dict-sb {
+  background: rgba(37,99,235,0.12) !important;
+  border: 1px solid rgba(37,99,235,0.28) !important;
+  color: #1d4ed8 !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  margin: 6px 8px !important;
+  width: calc(100% - 16px) !important;
+  transition: all .18s !important;
+}
+.gpm-dict-sb:hover {
+  background: rgba(37,99,235,0.22) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(37,99,235,0.18) !important;
+}
+
+/* Flyout */
+.gpm-flyout {
+  background: var(--sb-glass) !important;
+  backdrop-filter: blur(var(--sb-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--sb-blur)) !important;
+  border: 1px solid var(--sb-border) !important;
+}
+
+/* حالة collapsed */
+.gpm-sidebar.collapsed .gpm-gb {
+  margin: 2px 4px !important;
+  width: calc(100% - 8px) !important;
+  border-radius: 8px !important;
+}
+.gpm-sidebar.collapsed .gpm-gb.active {
+  background: rgba(255,255,255,0.72) !important;
+}
+
+/* ══ 3. الصفحات والمحتوى ════════════════════════════════════ */
+[id$="Page"] {
+  background: rgba(241,248,255,0.55) !important;
+  backdrop-filter: blur(var(--pg-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--pg-blur)) !important;
+}
+
+/* topbar الصفحات */
+.fs-topbar,
+.ap-topbar,
+.sc-topbar {
+  background: linear-gradient(135deg,rgba(26,58,110,0.88),rgba(37,99,235,0.85)) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.20) !important;
+  box-shadow: 0 2px 12px rgba(37,99,235,0.18) !important;
+  color: #fff !important;
+}
+.fs-topbar-title, .ap-topbar-title, .sc-topbar-title {
+  color: #fff !important;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
+}
+.fs-topbar-title small, .ap-topbar-title small, .sc-topbar-title small {
+  color: rgba(255,255,255,0.72) !important;
+}
+
+/* stats bar */
+.fs-stats {
+  background: rgba(255,255,255,0.55) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.55) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+}
+
+/* toolbar */
+.fs-toolbar {
+  background: rgba(255,255,255,0.42) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.5) !important;
+}
+
+/* search input */
+.fs-search {
+  background: rgba(255,255,255,0.65) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1.5px solid rgba(255,255,255,0.7) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+}
+.fs-search:focus {
+  border-color: rgba(37,99,235,0.45) !important;
+  background: rgba(255,255,255,0.82) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.10) !important;
+}
+
+/* جداول البيانات */
+.fs-table {
+  background: rgba(255,255,255,0.62) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.6) !important;
+  overflow: hidden;
+}
+.fs-table thead th {
+  background: linear-gradient(135deg,#0f2557,#1a3a8e) !important;
+  color: #e2e8f0 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;
+}
+.fs-table tbody tr:nth-child(odd)  { background: rgba(255,255,255,0.62) !important; }
+.fs-table tbody tr:nth-child(even) { background: rgba(240,246,255,0.60) !important; }
+.fs-table tbody tr:hover {
+  background: rgba(219,234,254,0.80) !important;
+  box-shadow: 0 2px 12px rgba(37,99,235,0.12) !important;
+}
+.fs-table tbody tr.fs-row-active {
+  background: rgba(191,219,254,0.85) !important;
+  border-left: 4px solid var(--sb-accent) !important;
+}
+.fs-table tbody td { color: #1e293b !important; }
+
+/* Drawer */
+.fs-drawer {
+  background: rgba(255,255,255,0.72) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-left: 1px solid rgba(255,255,255,0.65) !important;
+  box-shadow: -6px 0 36px rgba(0,0,0,0.12) !important;
+}
+.fs-drawer-actions {
+  background: rgba(255,255,255,0.55) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-bottom: 1px solid rgba(200,215,240,0.5) !important;
+}
+
+/* ══ 4. أزرار موحّدة — زجاج بدون 3D ════════════════════════ */
+.fs-btn {
+  background: var(--btn-light-bg) !important;
+  backdrop-filter: blur(var(--btn-blur)) !important;
+  -webkit-backdrop-filter: blur(var(--btn-blur)) !important;
+  border: 1px solid var(--btn-light-bd) !important;
+  border-radius: var(--btn-radius) !important;
+  color: var(--btn-light-c) !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+  box-shadow: var(--btn-shadow) !important;
+  transition: all .22s ease !important;
+}
+.fs-btn:hover {
+  background: rgba(255,255,255,0.65) !important;
+  border-color: rgba(255,255,255,0.80) !important;
+  color: #0f172a !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--btn-shadow-h) !important;
+}
+.fs-btn:active { transform: translateY(0) !important; box-shadow: none !important; }
+
+/* داخل الـ topbar — كل أزرار الـ topbar تصبح أبيض شفاف */
+.fs-topbar .fs-btn,
+.ap-topbar .fs-btn,
+.sc-topbar .fs-btn {
+  background: rgba(255,255,255,0.18) !important;
+  border: 1px solid rgba(255,255,255,0.38) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+.fs-topbar .fs-btn:hover,
+.ap-topbar .fs-btn:hover,
+.sc-topbar .fs-btn:hover {
+  background: rgba(255,255,255,0.32) !important;
+  color: #fff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+}
+
+/* Primary */
+.fs-btn-primary {
+  background: var(--btn-primary-bg) !important;
+  border-color: var(--btn-primary-bd) !important;
+  color: var(--btn-primary-c) !important;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.08) !important;
+}
+.fs-btn-primary:hover {
+  background: var(--btn-primary-h) !important;
+  border-color: rgba(37,99,235,0.50) !important;
+  color: #1e3a8a !important;
+  box-shadow: 0 6px 18px rgba(37,99,235,0.15) !important;
+}
+
+/* Danger */
+.fs-btn-danger {
+  background: var(--btn-danger-bg) !important;
+  border-color: var(--btn-danger-bd) !important;
+  color: var(--btn-danger-c) !important;
+}
+.fs-btn-danger:hover {
+  background: rgba(220,38,38,0.26) !important;
+  border-color: rgba(220,38,38,0.52) !important;
+  color: #7f1d1d !important;
+}
+
+/* Print / Excel */
+.fs-btn-print {
+  background: var(--btn-print-bg) !important;
+  border-color: var(--btn-print-bd) !important;
+  color: var(--btn-print-c) !important;
+}
+.fs-btn-print:hover {
+  background: rgba(22,163,74,0.26) !important;
+  border-color: rgba(22,163,74,0.52) !important;
+  color: #14532d !important;
+}
+
+/* Export */
+.fs-btn-export {
+  background: var(--btn-export-bg) !important;
+  border-color: var(--btn-export-bd) !important;
+  color: var(--btn-export-c) !important;
+}
+.fs-btn-export:hover {
+  background: rgba(100,116,139,0.26) !important;
+  color: #334155 !important;
+}
+
+/* Edit mode */
+.fs-btn-edit-mode {
+  background: var(--btn-edit-bg) !important;
+  border-color: var(--btn-edit-bd) !important;
+  color: var(--btn-edit-c) !important;
+}
+.fs-btn-edit-mode:hover {
+  background: rgba(202,138,4,0.26) !important;
+  border-color: rgba(202,138,4,0.50) !important;
+}
+.fs-btn-edit-mode.on {
+  background: rgba(220,38,38,0.18) !important;
+  border-color: rgba(220,38,38,0.40) !important;
+  color: #b91c1c !important;
+}
+
+/* Light */
+.fs-btn-light {
+  background: var(--btn-light-bg) !important;
+  border-color: var(--btn-light-bd) !important;
+  color: var(--btn-light-c) !important;
+}
+.fs-btn-light:hover {
+  background: rgba(255,255,255,0.70) !important;
+  color: #0f172a !important;
+}
+
+/* chips */
+.fs-chip {
+  background: rgba(255,255,255,0.50) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  border: 1px solid rgba(255,255,255,0.65) !important;
+  color: #334155 !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05) !important;
+}
+.fs-chip:hover {
+  background: rgba(255,255,255,0.72) !important;
+  color: #0f172a !important;
+  border-color: rgba(37,99,235,0.30) !important;
+}
+.fs-chip.on {
+  background: rgba(37,99,235,0.18) !important;
+  border-color: rgba(37,99,235,0.42) !important;
+  color: #1d4ed8 !important;
+}
+
+/* ══ 5. صندوق اللوجين ════════════════════════════════════════ */
+#sbOverlay {
+  background: linear-gradient(
+    135deg,
+    rgba(100,149,237,0.92) 0%,
+    rgba(130,188,165,0.92) 50%,
+    rgba(172,152,210,0.92) 100%
+  ) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+.sb-card {
+  background: rgba(255,255,255,0.70) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255,255,255,0.75) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.4),
+    0 30px 80px rgba(0,0,0,0.15) !important;
+}
+.sb-ttl {
+  background: linear-gradient(135deg,#0f3460 0%,#533483 50%,#e94560 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+.sb-sub { color: #475569 !important; }
+.sb-f label { color: #374151 !important; }
+.sb-f input {
+  background: rgba(255,255,255,0.65) !important;
+  border: 1.5px solid rgba(200,215,240,0.8) !important;
+  color: #1e293b !important;
+}
+.sb-f input::placeholder { color: #94a3b8 !important; }
+.sb-f input:focus {
+  border-color: rgba(83,52,131,0.5) !important;
+  background: rgba(255,255,255,0.85) !important;
+}
+.sb-tab { color: #475569 !important; }
+.sb-tab.act {
+  background: linear-gradient(135deg,#533483,#0ea5e9) !important;
+  color: #fff !important;
+}
+
+/* ══ 6. Welcome Screen ══════════════════════════════════════ */
+#gpmWelcome {
+  background: rgba(240,246,255,0.62) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* ══ 7. User bar في السايدبار ════════════════════════════════ */
+#sbUserBar > div {
+  background: rgba(255,255,255,0.55) !important;
+  border: 1px solid rgba(200,215,240,0.6) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05) !important;
+}
+#sbName { color: #1e293b !important; }
+#sbEmailDisplay { color: #64748b !important; }
+
+/* ══ 8. Modal و Progress ════════════════════════════════════ */
+.modal, .prog-box {
+  background: rgba(255,255,255,0.75) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255,255,255,0.7) !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.12) !important;
+}
+
+/* ══ 9. تحسينات Scrollbar ════════════════════════════════════ */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(100,140,220,0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.5); }
+
+/* ══ 10. صفحات AP / SC الخاصة ══════════════════════════════ */
+#apPage, #scPage {
+  background: rgba(241,248,255,0.55) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* ══ 11. Row buttons — نظيفة بدون 3D ════════════════════════ */
+.fs-row-btn-edit {
+  background: rgba(37,99,235,0.15) !important;
+  border: 1px solid rgba(37,99,235,0.30) !important;
+  color: #1d4ed8 !important;
+  box-shadow: none !important;
+}
+.fs-row-btn-edit:hover {
+  background: rgba(37,99,235,0.28) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(37,99,235,0.15) !important;
+}
+.fs-row-btn-del {
+  background: rgba(220,38,38,0.12) !important;
+  border: 1px solid rgba(220,38,38,0.28) !important;
+  color: #b91c1c !important;
+  box-shadow: none !important;
+}
+.fs-row-btn-del:hover {
+  background: rgba(220,38,38,0.24) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 8px rgba(220,38,38,0.15) !important;
+}
+
+/* ══ 12. Drawer form fields ══════════════════════════════════ */
+.fd-section {
+  background: rgba(255,255,255,0.65) !important;
+  border: 1px solid rgba(200,215,240,0.6) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+}
+.fd-section-hdr {
+  background: rgba(240,246,255,0.75) !important;
+  border-bottom: 1px solid rgba(200,215,240,0.5) !important;
+}
+
+
+/* ══ Welcome Screen improvements ══════════════════════════ */
+#gpmWelcome {
+  background: rgba(240,248,255,0.65) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+}
+/* Quick-info cards inside welcome */
+#gpmWelcome [style*="backdrop-filter"] {
+  background: rgba(255,255,255,0.72) !important;
+  border: 1px solid rgba(255,255,255,0.75) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
+}
+
+/* ══ Login screen orbs مخفّفة ══════════════════════════════ */
+.sb-orb { opacity: .08 !important; }
+
+/* ══ Card border-radius على scPage / apPage ════════════════ */
+.sc-section, .ap-section {
+  background: rgba(255,255,255,0.65) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(200,215,240,0.55) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.04) !important;
+}
+
+/* ══ Section headers داخل scPage / apPage ══════════════════ */
+.sc-section-header, .ap-section-header {
+  background: rgba(240,246,255,0.70) !important;
+  border-bottom: 1px solid rgba(200,215,240,0.5) !important;
+}
+
+/* ══ Live Summary Banner ════════════════════════════════════ */
+#scLiveSummary, #apLiveSummary {
+  background: rgba(37,99,235,0.10) !important;
+  border: 1px solid rgba(37,99,235,0.22) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* ══ Input focus glow ════════════════════════════════════════ */
+.fd-field input:focus,
+.fd-field select:focus,
+.sc-field input:focus,
+.sc-field select:focus {
+  background: rgba(255,255,255,0.90) !important;
+  border-color: rgba(37,99,235,0.45) !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12) !important;
+}
+
+/* ══ Drawer header glassmorphism ════════════════════════════ */
+.fs-drawer-header {
+  background: linear-gradient(135deg,rgba(26,58,110,0.88),rgba(37,99,235,0.82)) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.2) !important;
+}
+
+/* ══ Toast نظيف ════════════════════════════════════════════ */
+.fs-toast {
+  background: rgba(30,41,59,0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18) !important;
+}
+
+/* ══ Modal زجاجي ════════════════════════════════════════════ */
+.modal-overlay {
+  background: rgba(37,99,235,0.08) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* ══ كود المستخدم في السايدبار تحسين ════════════════════════ */
+#sbUserBar > div,
+#sbUserBarCollapsed > div {
+  background: rgba(255,255,255,0.60) !important;
+  border: 1px solid rgba(200,215,240,0.65) !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05) !important;
+}
+
+/* ══ scrollbar عالمي محسّن ═══════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: rgba(200,215,240,0.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.28); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.48); }
+
+/* ══ ANIMATION: fade-in عند فتح صفحة ══════════════════════ */
+@keyframes gpmPageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+[id$="Page"][style*="display: block"],
+[id$="Page"][style*="display:block"] {
+  animation: gpmPageIn .28s cubic-bezier(.4,0,.2,1);
+}
+
+
+/* stat cards enhanced */
+.fs-stat {
+  transition: transform .18s, box-shadow .18s !important;
+}
+.fs-stat:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 18px rgba(37,99,235,0.12) !important;
+}
 
 </style>
 </head>
@@ -883,9 +1526,9 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
   .sb-orb{filter:blur(60px);opacity:.1}
 }
 .sb-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,rgba(83,52,131,.8),rgba(14,165,233,.6),transparent)}
-.sb-logo{width:76px;height:76px;margin:0 auto 22px;background:linear-gradient(135deg,#0f3460 0%,#533483 55%,#e94560 100%);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;box-shadow:0 10px 36px rgba(83,52,131,.5);animation:sbPls 3.5s ease-in-out infinite}
+.sb-logo{width:80px;height:80px;margin:0 auto 24px;background:linear-gradient(135deg,#0f3460 0%,#533483 55%,#e94560 100%);border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 12px 40px rgba(83,52,131,.4),0 0 0 3px rgba(255,255,255,.5);animation:sbPls 3.5s ease-in-out infinite}
 @keyframes sbPls{0%,100%{box-shadow:0 10px 36px rgba(83,52,131,.5)}50%{box-shadow:0 10px 50px rgba(14,165,233,.6)}}
-.sb-ttl{text-align:center;font-size:1.8rem;font-weight:900;margin-bottom:4px;background:linear-gradient(135deg,#e8e8f0 0%,#7dd3fc 50%,#c4b5fd 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sb-ttl{text-align:center;font-size:1.9rem;font-weight:900;margin-bottom:6px;letter-spacing:-.3px}
 .sb-sub{text-align:center;color:#6868a0;font-size:.87rem;margin-bottom:28px}
 .sb-tabs{display:flex;gap:0;margin-bottom:22px;background:rgba(255,255,255,.05);border-radius:9px;padding:3px}
 .sb-tab{flex:1;padding:8px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#6868a0;font-family:'Tajawal',sans-serif;font-size:.87rem;font-weight:700;transition:all .2s}
@@ -1137,34 +1780,54 @@ async function sbLogout() {
   document.getElementById('sbMsg').className = 'sb-msg';
 }
 
-/* Init Supabase on load - same pattern as working test page */
+/* Init Supabase on load */
 window.addEventListener('load', async function() {
-  try {
-    if (typeof supabase === 'undefined') {
-      console.error('Supabase SDK not loaded');
-      _sbMsg('Supabase SDK لم يتحمل — تحقق من الإنترنت');
-      return;
-    }
-    _sb = supabase.createClient(_SB_URL, _SB_KEY);
+  _sbWaitForSDK(async function(ok) {
+    if (!ok) { _sbMsg('Supabase SDK لم يتحمل — تحقق من الإنترنت'); return; }
+    if (!_sb) { _sbMsg('خطأ في تهيئة Supabase'); return; }
     console.log('✅ Supabase initialized');
-
-    /* Check existing session */
-    var res = await _sb.auth.getSession();
-    if (res.data && res.data.session && res.data.session.user) {
-      _sbUser = res.data.session.user;
-      _sbShowApp();
+    try {
+      var res = await _sb.auth.getSession();
+      if (res.data && res.data.session && res.data.session.user) {
+        _sbUser = res.data.session.user;
+        _sbShowApp();
+      }
+    } catch(e) {
+      console.error('Supabase session error:', e);
+      _sbMsg('خطأ: ' + e.message);
     }
-  } catch(e) {
-    console.error('Supabase init error:', e);
-    _sbMsg('خطأ: ' + e.message);
-  }
+  });
 });
 
-/* Push data to Supabase */
+/* Push data to Supabase — delegates to sbUpsert for schema detection */
 async function sbPush(table, record) {
   if (!_sb || !_sbUser || !table) return;
-  try { await _sb.from(table).upsert(record, { onConflict: 'id' }); } catch(e) {}
+  if (typeof window.sbUpsert === 'function') {
+    await window.sbUpsert(table, record);
+  } else {
+    try { await _sb.from(table).upsert(record, { onConflict: 'id' }); } catch(e) {}
+  }
 }
+
+/* Shared toast utility */
+window.gpmToast = function(msg, type, elId) {
+  type = type || 'success';
+  var el = elId ? document.getElementById(elId) : document.querySelector('.fs-toast:not([id=""])');
+  if (!el) {
+    // fallback: find any visible toast container
+    var containers = document.querySelectorAll('.fs-toast');
+    containers.forEach(function(c) {
+      c.textContent = msg;
+      c.className = 'fs-toast ' + type + ' show';
+      setTimeout(function() { c.classList.remove('show'); }, 3000);
+    });
+    return;
+  }
+  el.textContent = msg;
+  el.className = 'fs-toast ' + type + ' show';
+  setTimeout(function() { el.classList.remove('show'); }, 3000);
+};
+
 
 /* ════════════════════════════════════════════════════════════
    GLOBAL SUPABASE SYNC HELPERS — for "special" pages
@@ -4380,12 +5043,14 @@ function gpmSpecialExportPDF(pageId){
 
   const rows = [];
   bodyRows.forEach(tr => {
+    // Skip empty/placeholder rows
+    if(tr.querySelector('.fs-empty, .pro-table-empty')) return;
     const cells = [];
     tr.querySelectorAll('td').forEach(td => {
-      // strip action buttons
       const clone = td.cloneNode(true);
-      clone.querySelectorAll('button,input[type=button],input[type=submit]').forEach(b=>b.remove());
-      // strip inline inputs (use their value instead)
+      // strip action buttons
+      clone.querySelectorAll('button,input[type=button],input[type=submit],.fs-row-btns').forEach(b=>b.remove());
+      // use input values instead of input elements
       clone.querySelectorAll('input').forEach(inp => {
         inp.replaceWith(document.createTextNode(inp.value || ''));
       });
@@ -4662,7 +5327,7 @@ gpmToggle = function(){
 <!-- ═══════════════════════════════════════════════
      ADVANCED PAYMENT — Full Screen Page
 ═══════════════════════════════════════════════ -->
-<div id="apPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
+<div id="apPage" style="display:none;position:fixed;inset:0;z-index:800;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
 
 <style>
 #apPage *{box-sizing:border-box}
@@ -5150,7 +5815,7 @@ function apToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      ANALYSIS OF SERVICE CONTRACTS — Full Screen Page
 ═══════════════════════════════════════════════ -->
-<div id="scPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f4fb;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
+<div id="scPage" style="display:none;position:fixed;inset:0;z-index:800;direction:ltr;overflow:hidden;margin-left:52px;font-family:'Tajawal',sans-serif">
 
 <style>
 #scPage *{box-sizing:border-box}
@@ -5858,7 +6523,7 @@ function scToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      EMPLOYEES — Full Screen Sheet + Drawer
 ═══════════════════════════════════════════════ -->
-<div id="empPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="empPage" style="display:none;position:fixed;inset:0;z-index:800;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 <style>
 /* ── Shared Sheet+Drawer styles ── */
 .fs-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
@@ -6627,6 +7292,8 @@ function scToast(msg,type='success'){
 .fs-toast.success{border-right:4px solid #22c55e}
 .fs-toast.error{border-right:4px solid #ef4444}
 .fs-toast.info{border-right:4px solid #3b82f6}
+
+
 </style>
 
 <!-- EMPLOYEES PAGE -->
@@ -6636,7 +7303,7 @@ function scToast(msg,type='success'){
   <div class="fs-topbar">
     <span class="fs-topbar-ico">👤</span>
     <div class="fs-topbar-title">الموظفون <small>Master Data — Employees</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#1a3a6e,#2563eb)" onclick="empNewDrawer()">➕ موظف جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="empNewDrawer()">➕ موظف جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="empEditModeBtn" onclick="empToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="empExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('empPage')">🖨️ PDF</button>
@@ -6660,7 +7327,7 @@ function scToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="empFsTable">
       <thead>
-        <tr id="empFsThead" style="background:linear-gradient(135deg,#1a3a6e,#2563eb)">
+        <tr id="empFsThead" >
           <th style="color:#fff">#</th>
           <th style="color:#fff">كود الموظف</th>
           <th style="color:#fff">اسم الموظف</th>
@@ -6692,7 +7359,7 @@ function scToast(msg,type='success'){
     </div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#1a3a6e,#2563eb)" onclick="empDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="empDrawerSave()">💾 حفظ</button>
     <button class="fs-btn fs-btn-print" onclick="empDrawerPrint()">🖨️ طباعة</button>
     <button class="fs-btn fs-btn-danger" onclick="empDrawerDelete()">🗑️ حذف</button>
     <button class="fs-btn fs-btn-light" onclick="empCloseDrawer()">إلغاء</button>
@@ -7065,14 +7732,14 @@ function empFsToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      VENDORS — Full Screen Sheet + Drawer
 ═══════════════════════════════════════════════ -->
-<div id="vendorPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="vendorPage" style="display:none;position:fixed;inset:0;z-index:800;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- VENDORS PAGE -->
 <div class="fs-page" id="vndFsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🏭</span>
     <div class="fs-topbar-title">الموردون <small>Master Data — Vendors</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#0f3460,#1a3a6e)" onclick="vndNewDrawer()">➕ مورد جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="vndNewDrawer()">➕ مورد جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="vndEditModeBtn" onclick="vndToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="vndExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('vendorPage')">🖨️ PDF</button>
@@ -7089,7 +7756,7 @@ function empFsToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="vndFsTable">
       <thead>
-        <tr id="vndFsThead" style="background:linear-gradient(135deg,#0f3460,#1a3a6e)">
+        <tr id="vndFsThead" >
           <th style="color:#fff">#</th>
           <th style="color:#fff">كود المورد</th>
           <th style="color:#fff">كود SAP</th>
@@ -7118,7 +7785,7 @@ function empFsToast(msg,type='success'){
     <div><h3 id="vndDrawerTitle">مورد جديد</h3><small>Master Data — Vendors</small></div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#0f3460,#1a3a6e)" onclick="vndDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="vndDrawerSave()">💾 حفظ</button>
     <button class="fs-btn fs-btn-print" onclick="vndDrawerPrint()">🖨️ طباعة</button>
     <button class="fs-btn fs-btn-danger" onclick="vndDrawerDelete()">🗑️ حذف</button>
     <button class="fs-btn fs-btn-light" onclick="vndCloseDrawer()">إلغاء</button>
@@ -7469,14 +8136,14 @@ function vndFsToast(msg,type='success'){
 <!-- ═══════════════════════════════════════════════
      CUSTOMERS — Full Screen Sheet + Drawer
 ═══════════════════════════════════════════════ -->
-<div id="custPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="custPage" style="display:none;position:fixed;inset:0;z-index:800;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- CUSTOMERS PAGE -->
 <div class="fs-page" id="custFsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🏘️</span>
     <div class="fs-topbar-title">العملاء <small>Master Data — Customers</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#065f46,#059669)" onclick="custNewDrawer()">➕ عميل جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="custNewDrawer()">➕ عميل جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="custEditModeBtn" onclick="custToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="custExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('custPage')">🖨️ PDF</button>
@@ -7499,7 +8166,7 @@ function vndFsToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="custFsTable">
       <thead>
-        <tr id="custFsThead" style="background:linear-gradient(135deg,#065f46,#059669)">
+        <tr id="custFsThead" >
           <th style="color:#fff">#</th>
           <th style="color:#fff">رقم العميل</th>
           <th style="color:#fff">اسم العميل</th>
@@ -7530,7 +8197,7 @@ function vndFsToast(msg,type='success'){
     <div><h3 id="custDrawerTitle">عميل جديد</h3><small>Master Data — Customers</small></div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#065f46,#059669)" onclick="custDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="custDrawerSave()">💾 حفظ</button>
     <button class="fs-btn fs-btn-print" onclick="custDrawerPrint()">🖨️ طباعة</button>
     <button class="fs-btn fs-btn-danger" onclick="custDrawerDelete()">🗑️ حذف</button>
     <button class="fs-btn fs-btn-light" onclick="custCloseDrawer()">إلغاء</button>
@@ -8073,7 +8740,7 @@ function custFsToast(msg,type='success'){
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🖨️</span>
     <div class="fs-topbar-title">طباعة الشيكات <small>Print Cheque — QNB ALAHLI</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#7a0000,#b91c1c)" onclick="chqNewDrawer()">➕ شيك جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="chqNewDrawer()">➕ شيك جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="chqEditModeBtn" onclick="chqToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="chqExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('chequePage')">🖨️ PDF</button>
@@ -8103,7 +8770,7 @@ function custFsToast(msg,type='success'){
   <div class="fs-body">
     <table class="fs-table" id="chqFsTable">
       <thead>
-        <tr id="chqFsThead" style="background:linear-gradient(135deg,#7a0000,#b91c1c)">
+        <tr id="chqFsThead" >
           <th style="color:#fff">#</th>
           <th style="color:#fff">التاريخ</th>
           <th style="color:#fff">رقم الشيك</th>
@@ -8134,7 +8801,7 @@ function custFsToast(msg,type='success'){
     </div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#7a0000,#b91c1c)" onclick="chqDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="chqDrawerSave()">💾 حفظ</button>
     <button class="fs-btn fs-btn-print" onclick="chqDrawerPrint()">🖨️ طباعة</button>
     <button class="fs-btn fs-btn-danger" onclick="chqDrawerVoid()">🚫 إلغاء الشيك</button>
     <button class="fs-btn fs-btn-light" onclick="chqCloseDrawer()">إلغاء</button>
@@ -8754,7 +9421,7 @@ function chqFsToast(msg, type='success'){
 <!-- ══════════════════════════════════════
      COST CENTER PAGE
 ══════════════════════════════════════ -->
-<div id="ccPage" style="display:none;position:fixed;inset:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="ccPage" style="display:none;position:fixed;inset:0;z-index:800;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 
 <!-- COST CENTER PAGE -->
 <div class="fs-page" id="ccFsPage">
@@ -8763,7 +9430,7 @@ function chqFsToast(msg, type='success'){
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🏗️</span>
     <div class="fs-topbar-title">مراكز التكلفة <small>Master Data — Cost Center</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#15803d,#16a34a)" onclick="ccNewDrawer()">➕ مركز جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="ccNewDrawer()">➕ مركز جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="ccEditModeBtn" onclick="ccToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="ccExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('ccPage')">🖨️ PDF</button>
@@ -8787,7 +9454,7 @@ function chqFsToast(msg, type='success'){
   <div class="fs-body">
     <table class="fs-table" id="ccFsTable">
       <thead>
-        <tr id="ccFsThead" style="background:linear-gradient(135deg,#15803d,#16a34a)">
+        <tr id="ccFsThead" >
           <th style="color:#fff">#</th>
           <th style="color:#fff">Cost_Ctr_Code</th>
           <th style="color:#fff">Company_Ar</th>
@@ -8821,7 +9488,7 @@ function chqFsToast(msg, type='success'){
     </div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#15803d,#16a34a)" onclick="ccDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="ccDrawerSave()">💾 حفظ</button>
     <button class="fs-btn fs-btn-print" onclick="ccDrawerPrint()">🖨️ طباعة</button>
     <button class="fs-btn fs-btn-danger" onclick="ccDrawerDelete()">🗑️ حذف</button>
     <button class="fs-btn fs-btn-light" onclick="ccCloseDrawer()">إلغاء</button>
@@ -9197,7 +9864,7 @@ function ccFsToast(msg,type='success'){
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🚪</span>
     <div class="fs-topbar-title">تسجيل الخروج <small>— Log Out</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#dc2626,#ef4444)" onclick="logOutNewDrawer()">➕ إضافة جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="logOutNewDrawer()">➕ إضافة جديد</button>
     <button class="fs-btn fs-btn-print" onclick="logOutExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('logOutPage')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="closeLogOutPage()">✕ إغلاق</button>
@@ -9240,7 +9907,7 @@ function ccFsToast(msg,type='success'){
     <div><h3 id="logOutDrawerTitle">إضافة جديد</h3><small>Log Out</small></div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:linear-gradient(135deg,#dc2626,#ef4444)" onclick="logOutDrawerSave()">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="logOutDrawerSave()">💾 حفظ</button>
     <button class="fs-btn fs-btn-danger" onclick="logOutDrawerDelete()">🗑️ حذف</button>
     <button class="fs-btn fs-btn-light" onclick="logOutCloseDrawer()">إلغاء</button>
   </div>
@@ -14993,319 +15660,6 @@ window.addEventListener('resize', function(){
 })();
 </script>
 
-<!-- ═══════════════════════════════════════════════════════════
-     GPM GLASS UI OVERRIDES
-     1. Sidebar  — frosted glass, light palette preserved
-     2. gpm-gb / gpm-si / gpm-nsi — pill buttons, glass + 3-D
-     3. fs-btn variants — translucent color pills, 3-D shadow
-═══════════════════════════════════════════════════════════ -->
-<style>
-/* ──────────────────────────────────────────────
-   1. SIDEBAR — frosted glass
-   background stays white-ish; blur + border give the glass effect
-────────────────────────────────────────────────*/
-.gpm-sidebar {
-  background: rgba(255,255,255,.55) !important;
-  backdrop-filter: blur(18px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
-  border-right: 1px solid rgba(180,200,240,.45) !important;
-  box-shadow:
-    4px 0 32px rgba(30,58,138,.10),
-    1px 0 0 rgba(255,255,255,.7) inset !important;
-}
-
-/* Sub containers — slightly more opaque so items read clearly */
-.gpm-sub,
-.gpm-nsub {
-  background: rgba(245,248,255,.6) !important;
-}
-
-/* Flyout popup inherits glass too */
-.gpm-flyout {
-  background: rgba(255,255,255,.72) !important;
-  backdrop-filter: blur(20px) saturate(150%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(150%) !important;
-  border: 1px solid rgba(180,200,240,.4) !important;
-  box-shadow: 8px 0 36px rgba(30,58,138,.14) !important;
-}
-
-/* ──────────────────────────────────────────────
-   2. MENU BUTTONS — glass pills with 3-D shadow
-   gpm-gb  (level 1)
-   gpm-si  (level 2)
-   gpm-nsi (level 3)
-────────────────────────────────────────────────*/
-
-/* ── Shared pill reset ── */
-.gpm-gb,
-.gpm-si,
-.gpm-nsi {
-  margin: 3px 8px !important;
-  width: calc(100% - 16px) !important;
-  border-radius: 10px !important;
-  border: 1px solid rgba(148,180,240,.35) !important;
-  border-bottom: 1px solid rgba(148,180,240,.35) !important;  /* override hairline */
-  background: linear-gradient(170deg,
-    rgba(255,255,255,.82) 0%,
-    rgba(219,234,254,.55) 100%) !important;
-  color: #1e3a6e !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.95) inset,
-    0 -1px 0 rgba(100,130,200,.12) inset,
-    0 4px 0 rgba(147,197,253,.55),
-    0 5px 12px rgba(30,58,138,.12) !important;
-  transition: all .15s cubic-bezier(.4,0,.2,1) !important;
-}
-
-/* ── Hover — lift + deeper shadow ── */
-.gpm-gb:hover,
-.gpm-si:hover,
-.gpm-nsi:hover {
-  background: linear-gradient(170deg,
-    rgba(239,246,255,.95) 0%,
-    rgba(191,219,254,.7) 100%) !important;
-  color: #1d4ed8 !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.95) inset,
-    0 -1px 0 rgba(100,130,200,.15) inset,
-    0 6px 0 rgba(96,165,250,.6),
-    0 7px 16px rgba(30,58,138,.18) !important;
-  transform: translateY(-2px) !important;
-  border-color: rgba(96,165,250,.5) !important;
-}
-
-/* ── Active (open group) ── */
-.gpm-gb.active {
-  background: linear-gradient(170deg,
-    rgba(219,234,254,.9) 0%,
-    rgba(147,197,253,.65) 100%) !important;
-  color: #1a3a6e !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.9) inset,
-    0 3px 0 rgba(37,99,235,.45),
-    0 4px 10px rgba(30,58,138,.2) !important;
-  transform: translateY(1px) !important;
-  border-color: rgba(37,99,235,.4) !important;
-}
-
-/* Keep the left-border accent on active */
-.gpm-gb.active::before {
-  border-radius: 10px 0 0 10px !important;
-}
-
-/* Level-2 slight indent — glass tint slightly different */
-.gpm-si {
-  background: linear-gradient(170deg,
-    rgba(255,255,255,.7) 0%,
-    rgba(224,242,254,.45) 100%) !important;
-}
-
-/* Level-3 deeper tint */
-.gpm-nsi {
-  background: linear-gradient(170deg,
-    rgba(248,250,255,.65) 0%,
-    rgba(207,234,253,.4) 100%) !important;
-  margin-right: 16px !important;
-  width: calc(100% - 24px) !important;
-}
-
-/* Section label — glass accent strip */
-.gpm-sl {
-  background: rgba(219,234,254,.6) !important;
-  backdrop-filter: blur(8px) !important;
-  border-radius: 8px !important;
-  margin: 2px 8px !important;
-  width: calc(100% - 16px) !important;
-  border: 1px solid rgba(147,197,253,.4) !important;
-}
-
-/* ──────────────────────────────────────────────
-   3. FS-BTN VARIANTS — translucent 3-D pills
-   Each type gets its own hue with glass finish
-────────────────────────────────────────────────*/
-
-/* Shared base tweak — pill shape */
-.fs-btn {
-  border-radius: 11px !important;
-}
-
-/* PRIMARY — نيلي زجاجي */
-.fs-btn-primary {
-  background: linear-gradient(170deg,
-    rgba(96,165,250,.65) 0%,
-    rgba(37,99,235,.8) 60%,
-    rgba(29,78,216,.9) 100%) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1px solid rgba(147,197,253,.5) !important;
-  color: #fff !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 -1px 0 rgba(0,0,0,.15) inset,
-    0 6px 0 rgba(30,58,138,.7),
-    0 8px 18px rgba(30,58,138,.35) !important;
-}
-.fs-btn-primary:hover {
-  background: linear-gradient(170deg,
-    rgba(147,197,253,.75) 0%,
-    rgba(59,130,246,.88) 60%,
-    rgba(37,99,235,.95) 100%) !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.4) inset,
-    0 -1px 0 rgba(0,0,0,.15) inset,
-    0 8px 0 rgba(30,58,138,.75),
-    0 10px 22px rgba(30,58,138,.42) !important;
-  transform: translateY(-2px) !important;
-}
-
-/* LIGHT — رمادي زجاجي */
-.fs-btn-light {
-  background: linear-gradient(170deg,
-    rgba(255,255,255,.8) 0%,
-    rgba(226,232,240,.72) 60%,
-    rgba(203,213,225,.8) 100%) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1.5px solid rgba(176,188,212,.6) !important;
-  color: #1e3a5f !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.9) inset,
-    0 -1px 0 rgba(0,0,0,.07) inset,
-    0 5px 0 rgba(148,163,184,.7),
-    0 7px 14px rgba(0,0,0,.14) !important;
-}
-.fs-btn-light:hover {
-  background: linear-gradient(170deg,
-    rgba(248,250,255,.9) 0%,
-    rgba(221,230,245,.8) 60%,
-    rgba(191,207,230,.85) 100%) !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.9) inset,
-    0 -1px 0 rgba(0,0,0,.07) inset,
-    0 7px 0 rgba(148,163,184,.75),
-    0 9px 18px rgba(0,0,0,.18) !important;
-  transform: translateY(-2px) !important;
-}
-
-/* DANGER — أحمر زجاجي */
-.fs-btn-danger {
-  background: linear-gradient(170deg,
-    rgba(252,165,165,.7) 0%,
-    rgba(239,68,68,.82) 60%,
-    rgba(220,38,38,.9) 100%) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1px solid rgba(252,165,165,.45) !important;
-  color: #fff !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 -1px 0 rgba(0,0,0,.18) inset,
-    0 5px 0 rgba(153,27,27,.7),
-    0 7px 16px rgba(153,27,27,.3) !important;
-}
-.fs-btn-danger:hover {
-  background: linear-gradient(170deg,
-    rgba(252,165,165,.82) 0%,
-    rgba(248,113,113,.9) 60%,
-    rgba(239,68,68,.96) 100%) !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 -1px 0 rgba(0,0,0,.18) inset,
-    0 7px 0 rgba(153,27,27,.75),
-    0 9px 20px rgba(153,27,27,.38) !important;
-  transform: translateY(-2px) !important;
-}
-
-/* PRINT (أخضر) */
-.fs-btn-print {
-  background: linear-gradient(170deg,
-    rgba(134,239,172,.65) 0%,
-    rgba(34,197,94,.8) 60%,
-    rgba(22,163,74,.9) 100%) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1px solid rgba(134,239,172,.45) !important;
-  color: #fff !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 -1px 0 rgba(0,0,0,.15) inset,
-    0 5px 0 rgba(22,101,52,.7),
-    0 7px 14px rgba(22,101,52,.28) !important;
-}
-.fs-btn-print:hover {
-  background: linear-gradient(170deg,
-    rgba(167,243,208,.75) 0%,
-    rgba(52,211,153,.88) 60%,
-    rgba(34,197,94,.95) 100%) !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 -1px 0 rgba(0,0,0,.15) inset,
-    0 7px 0 rgba(22,101,52,.75),
-    0 9px 18px rgba(22,101,52,.35) !important;
-  transform: translateY(-2px) !important;
-}
-
-/* EDIT MODE — أصفر/برتقالي زجاجي */
-.fs-btn-edit-mode {
-  background: linear-gradient(170deg,
-    rgba(253,224,71,.65) 0%,
-    rgba(234,179,8,.78) 60%,
-    rgba(202,138,4,.88) 100%) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  border: 1px solid rgba(253,224,71,.45) !important;
-  color: #713f12 !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.45) inset,
-    0 -1px 0 rgba(0,0,0,.12) inset,
-    0 5px 0 rgba(161,98,7,.65),
-    0 7px 14px rgba(161,98,7,.24) !important;
-}
-.fs-btn-edit-mode:hover {
-  background: linear-gradient(170deg,
-    rgba(254,240,138,.75) 0%,
-    rgba(250,204,21,.85) 60%,
-    rgba(234,179,8,.93) 100%) !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.45) inset,
-    0 -1px 0 rgba(0,0,0,.12) inset,
-    0 7px 0 rgba(161,98,7,.7),
-    0 9px 18px rgba(161,98,7,.3) !important;
-  transform: translateY(-2px) !important;
-}
-.fs-btn-edit-mode.on {
-  background: linear-gradient(170deg,
-    rgba(251,191,36,.8) 0%,
-    rgba(245,158,11,.9) 60%,
-    rgba(217,119,6,.95) 100%) !important;
-  color: #fff !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.35) inset,
-    0 3px 0 rgba(146,64,14,.7),
-    0 4px 10px rgba(146,64,14,.3) !important;
-  transform: translateY(1px) !important;
-}
-
-/* TOPBAR context — keep contrast on dark topbar */
-.fs-topbar .fs-btn-light {
-  background: rgba(255,255,255,.22) !important;
-  border-color: rgba(255,255,255,.32) !important;
-  color: #fff !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.3) inset,
-    0 4px 0 rgba(0,0,0,.28),
-    0 5px 10px rgba(0,0,0,.2) !important;
-}
-.fs-topbar .fs-btn-primary {
-  background: rgba(255,255,255,.28) !important;
-  border-color: rgba(255,255,255,.4) !important;
-  color: #fff !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.3) inset,
-    0 4px 0 rgba(0,0,0,.28),
-    0 5px 10px rgba(0,0,0,.2) !important;
-}
-</style>
 
 </body>
 </html>
