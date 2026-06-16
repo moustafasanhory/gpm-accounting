@@ -475,17 +475,19 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 /* ── Collapsed mini-toggle ── */
 .gpm-ctoggle{
   display:none;width:36px;height:36px;border-radius:9px;
-  background:linear-gradient(180deg,#ffffff 0%,#dbeafe 60%,#bfdbfe 100%);
+  background:rgba(255,255,255,.08);
   border:none;
-  color:#1d4ed8;font-size:.85rem;cursor:pointer;
+  color:#1e3a5f;font-size:.85rem;cursor:pointer;
   align-items:center;justify-content:center;
   transition:all .13s cubic-bezier(.4,0,.2,1);
   margin:8px auto;
-  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 4px 0 #1d4ed8,0 5px 8px rgba(29,78,216,.3);
+  box-shadow:none;
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
 }
 .gpm-ctoggle:hover{
-  background:linear-gradient(180deg,#eff6ff 0%,#93c5fd 60%,#60a5fa 100%);
-  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 5px 0 #1e3a8a,0 6px 10px rgba(30,58,138,.35);
+  background:rgba(255,255,255,.18);
+  box-shadow:none;
   transform:translateY(-1px);
 }
 .gpm-ctoggle:active{transform:translateY(3px);box-shadow:none}
@@ -852,8 +854,8 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 }
 .ap-topbar button:hover,.sc-topbar button:hover{background:rgba(255,255,255,.28) !important}
 
-/* All pages: light background */
-[id$="Page"]{background:rgba(241,248,255,0.55) !important}
+/* All pages: transparent — body gradient shows through */
+[id$="Page"]{background:transparent !important}
 
 </style>
 
@@ -866,9 +868,9 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 /* ══ 0. متغيرات موحّدة ══════════════════════════════════════ */
 :root {
   /* خلفية التطبيق الكليّة */
-  --gpm-bg-from  : #bde0fe;
-  --gpm-bg-mid   : #c8e6c9;
-  --gpm-bg-to    : #d1c4e9;
+  --gpm-bg-from  : #d6f0ff;
+  --gpm-bg-mid   : #d8f1eb;
+  --gpm-bg-to    : #e7e4ff;
 
   /* زجاج القائمة الجانبية */
   --sb-glass     : rgba(255,255,255,0.55);
@@ -887,33 +889,33 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
   --pg-radius    : 0px;
 
   /* أزرار زجاجية */
-  --btn-primary-bg  : rgba(37,99,235,0.15);
-  --btn-primary-bd  : rgba(37,99,235,0.35);
+  --btn-primary-bg  : rgba(37,99,235,0.10);
+  --btn-primary-bd  : rgba(37,99,235,0.30);
   --btn-primary-c   : #1d4ed8;
-  --btn-primary-h   : rgba(37,99,235,0.28);
+  --btn-primary-h   : rgba(37,99,235,0.20);
 
-  --btn-light-bg    : rgba(255,255,255,0.45);
-  --btn-light-bd    : rgba(255,255,255,0.65);
+  --btn-light-bg    : rgba(255,255,255,0.16);
+  --btn-light-bd    : rgba(255,255,255,0.45);
   --btn-light-c     : #334155;
 
-  --btn-danger-bg   : rgba(220,38,38,0.15);
-  --btn-danger-bd   : rgba(220,38,38,0.35);
+  --btn-danger-bg   : rgba(220,38,38,0.10);
+  --btn-danger-bd   : rgba(220,38,38,0.30);
   --btn-danger-c    : #b91c1c;
 
-  --btn-print-bg    : rgba(22,163,74,0.15);
-  --btn-print-bd    : rgba(22,163,74,0.35);
+  --btn-print-bg    : rgba(22,163,74,0.10);
+  --btn-print-bd    : rgba(22,163,74,0.30);
   --btn-print-c     : #15803d;
 
-  --btn-export-bg   : rgba(100,116,139,0.15);
-  --btn-export-bd   : rgba(100,116,139,0.30);
+  --btn-export-bg   : rgba(100,116,139,0.10);
+  --btn-export-bd   : rgba(100,116,139,0.25);
   --btn-export-c    : #475569;
 
-  --btn-edit-bg     : rgba(202,138,4,0.15);
-  --btn-edit-bd     : rgba(202,138,4,0.30);
+  --btn-edit-bg     : rgba(202,138,4,0.10);
+  --btn-edit-bd     : rgba(202,138,4,0.25);
   --btn-edit-c      : #92400e;
 
   --btn-radius      : 10px;
-  --btn-blur        : 8px;
+  --btn-blur        : 6px;
   --btn-shadow      : 0 2px 8px rgba(0,0,0,0.06);
   --btn-shadow-h    : 0 6px 18px rgba(0,0,0,0.10);
 }
@@ -922,9 +924,9 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 html, body {
   background: linear-gradient(
     135deg,
-    var(--gpm-bg-from) 0%,
-    var(--gpm-bg-mid)  50%,
-    var(--gpm-bg-to)   100%
+    #d6f0ff 0%,
+    #d8f1eb 50%,
+    #e7e4ff 100%
   ) fixed !important;
   min-height: 100vh;
 }
@@ -954,31 +956,33 @@ html, body {
   border-bottom: 1px solid rgba(255,255,255,0.22) !important;
 }
 
-/* عناصر القائمة */
+/* عناصر القائمة — exact style from erp_modules.html */
 .gpm-gb, .gpm-si, .gpm-nsi {
-  background: transparent !important;
-  color: var(--sb-text) !important;
-  border-bottom: 1px solid var(--sb-item-sep) !important;
-  border-radius: 8px !important;
-  margin: 2px 6px !important;
-  width: calc(100% - 12px) !important;
-  transition: background .18s, color .18s, padding-right .18s !important;
-  box-shadow: none !important;
+  background: linear-gradient(90deg,#79a6e6,#2f69c9) !important;
+  color: #fff !important;
+  border: 2px solid rgba(255,255,255,.35) !important;
+  border-bottom: 2px solid rgba(255,255,255,.35) !important;
+  border-radius: 40px !important;
+  margin: 4px 8px !important;
+  width: calc(100% - 16px) !important;
+  transition: background .18s, color .18s, transform .18s !important;
+  box-shadow: inset 0 0 10px rgba(255,255,255,.2) !important;
   text-shadow: none !important;
 }
 .gpm-gb:hover, .gpm-si:hover, .gpm-nsi:hover {
-  background: rgba(255,255,255,0.62) !important;
-  color: var(--sb-text-h) !important;
+  background: linear-gradient(90deg,#8fb6ee,#3f79d9) !important;
+  color: #fff !important;
+  transform: translateY(-1px) !important;
 }
 .gpm-gb.active {
-  background: rgba(255,255,255,0.72) !important;
-  color: var(--sb-accent) !important;
+  background: linear-gradient(90deg,#79a6e6,#2f69c9) !important;
+  color: #fff !important;
   font-weight: 700 !important;
-  box-shadow: inset 3px 0 0 var(--sb-accent) !important;
+  box-shadow: inset 0 0 10px rgba(255,255,255,.35) !important;
 }
-.gpm-gb.active::before { background: var(--sb-accent) !important; }
-.gpm-gb .gb-arr { color: #64748b !important; }
-.gpm-gb.active .gb-arr { color: var(--sb-accent) !important; transform: rotate(180deg); }
+.gpm-gb.active::before { background: transparent !important; }
+.gpm-gb .gb-arr { color: rgba(255,255,255,.8) !important; }
+.gpm-gb.active .gb-arr { color: #fff !important; transform: rotate(180deg); }
 
 .gpm-sub, .gpm-nsub {
   background: rgba(255,255,255,0.18) !important;
@@ -1042,11 +1046,11 @@ html, body {
 .fs-topbar,
 .ap-topbar,
 .sc-topbar {
-  background: linear-gradient(135deg,rgba(26,58,110,0.88),rgba(37,99,235,0.85)) !important;
+  background: linear-gradient(135deg,rgba(26,58,110,0.35),rgba(37,99,235,0.30)) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border-bottom: 1px solid rgba(255,255,255,0.20) !important;
-  box-shadow: 0 2px 12px rgba(37,99,235,0.18) !important;
+  box-shadow: 0 2px 12px rgba(37,99,235,0.10) !important;
   color: #fff !important;
 }
 .fs-topbar-title, .ap-topbar-title, .sc-topbar-title {
@@ -1152,24 +1156,23 @@ html, body {
 }
 .fs-btn:active { transform: translateY(0) !important; box-shadow: none !important; }
 
-/* داخل الـ topbar — كل أزرار الـ topbar تصبح أبيض شفاف */
+/* داخل الـ topbar — exact style from erp_modules.html */
 .fs-topbar .fs-btn,
 .ap-topbar .fs-btn,
 .sc-topbar .fs-btn {
-  background: rgba(255,255,255,0.18) !important;
-  border: 1px solid rgba(255,255,255,0.38) !important;
+  background: linear-gradient(90deg,#79a6e6,#2f69c9) !important;
+  border: 2px solid rgba(255,255,255,.35) !important;
+  border-radius: 40px !important;
   color: #fff !important;
-  box-shadow: none !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: inset 0 0 10px rgba(255,255,255,.2) !important;
 }
 .fs-topbar .fs-btn:hover,
 .ap-topbar .fs-btn:hover,
 .sc-topbar .fs-btn:hover {
-  background: rgba(255,255,255,0.32) !important;
+  background: linear-gradient(90deg,#8fb6ee,#3f79d9) !important;
   color: #fff !important;
   transform: translateY(-2px) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+  box-shadow: inset 0 0 10px rgba(255,255,255,.35) !important;
 }
 
 /* Primary */
@@ -1375,6 +1378,20 @@ html, body {
 }
 
 /* ══ 12. Drawer form fields ══════════════════════════════════ */
+/* ══ 11b. Global button transparency override ═══════════════ */
+/* أي زر بخلفية لون عادي (rgba/hex/linear-gradient) يتحول لزجاج شفاف خفيف */
+button[style*="background"]:not(.gpm-gb):not(.gpm-si):not(.gpm-nsi):not(.gpm-sl):not(.gpm-dict-sb):not(.sb-tab) {
+  background: rgba(255,255,255,0.10) !important;
+  background-image: none !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  box-shadow: none !important;
+}
+button[style*="background"]:not(.gpm-gb):not(.gpm-si):not(.gpm-nsi):not(.gpm-sl):not(.gpm-dict-sb):not(.sb-tab):hover {
+  background: rgba(255,255,255,0.22) !important;
+}
+
+
 .fd-section {
   background: rgba(255,255,255,0.65) !important;
   border: 1px solid rgba(200,215,240,0.6) !important;
@@ -6930,47 +6947,42 @@ function scToast(msg,type='success'){
    الصفحات الفرعية والقائمة الجانبية بأسلوب shadow ناعم
 ═══════════════════════════════════════════════════════════ */
 
-/* ── Page background ── */
+/* ── Page background — transparent to show body gradient ── */
 [id$="Page"]{
-  background:#f0f2f7 !important;
+  background:transparent !important;
 }
 
 /* ── Top bar: gradient header ── */
 .fs-topbar{
-  background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
+  background:linear-gradient(135deg,rgba(26,58,110,0.35) 0%,rgba(37,99,235,0.30) 100%) !important;
+  backdrop-filter:blur(12px) !important;
+  -webkit-backdrop-filter:blur(12px) !important;
   border-bottom:none !important;
-  box-shadow:0 4px 18px rgba(37,99,235,.22) !important;
+  box-shadow:0 4px 18px rgba(37,99,235,.10) !important;
   padding:12px 20px !important;
 }
 .fs-topbar-ico{color:#fff !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
 .fs-topbar-title{color:#fff !important;font-size:1rem !important;font-weight:800 !important}
 .fs-topbar-title small{color:rgba(255,255,255,.7) !important;font-size:.73rem !important}
 
-/* ── Buttons in topbar ── */
-.fs-topbar .fs-btn-light{
-  background:rgba(255,255,255,.15) !important;
-  border:1.5px solid rgba(255,255,255,.3) !important;
-  color:#fff !important;
-  backdrop-filter:blur(4px);
-}
-.fs-topbar .fs-btn-light:hover{background:rgba(255,255,255,.28) !important}
-.fs-topbar .fs-btn-primary{
-  background:rgba(255,255,255,.22) !important;
-  border:1.5px solid rgba(255,255,255,.4) !important;
-  color:#fff !important;
-  box-shadow:0 2px 8px rgba(0,0,0,.12) !important;
-}
-.fs-topbar .fs-btn-primary:hover{background:rgba(255,255,255,.35) !important}
-.fs-topbar .fs-btn-danger{
-  background:rgba(239,68,68,.18) !important;
-  border:1.5px solid rgba(239,68,68,.4) !important;
-  color:#fca5a5 !important;
-}
-.fs-topbar .fs-btn-danger:hover{background:rgba(239,68,68,.30) !important}
+/* ── Buttons in topbar — exact style from erp_modules.html ── */
+.fs-topbar .fs-btn-light,
+.fs-topbar .fs-btn-primary,
+.fs-topbar .fs-btn-danger,
 .fs-topbar .fs-btn-print{
-  background:rgba(34,197,94,.18) !important;
-  border:1.5px solid rgba(34,197,94,.4) !important;
-  color:#86efac !important;
+  background:linear-gradient(90deg,#79a6e6,#2f69c9) !important;
+  border:2px solid rgba(255,255,255,.35) !important;
+  border-radius:40px !important;
+  color:#fff !important;
+  box-shadow:inset 0 0 10px rgba(255,255,255,.2) !important;
+}
+.fs-topbar .fs-btn-light:hover,
+.fs-topbar .fs-btn-primary:hover,
+.fs-topbar .fs-btn-danger:hover,
+.fs-topbar .fs-btn-print:hover{
+  background:linear-gradient(90deg,#8fb6ee,#3f79d9) !important;
+  color:#fff !important;
+  box-shadow:inset 0 0 10px rgba(255,255,255,.35) !important;
 }
 
 /* ── Stats bar ── */
@@ -7061,7 +7073,7 @@ function scToast(msg,type='success'){
 }
 
 /* ── GPM Pages (from GPM_PAGES system) — also get same treatment ── */
-[id$="Page"] .gpm-fs-page{background:#f0f2f7 !important}
+[id$="Page"] .gpm-fs-page{background:transparent !important}
 
 /* ── Sidebar enhancements — more shadow ── */
 .gpm-sidebar{
@@ -7153,18 +7165,17 @@ function scToast(msg,type='success'){
 .fs-chip:active{transform:translateY(2px) !important;box-shadow:none !important}
 
 /* ══════════════════════════════════════════════
-   3D TOPBAR BUTTONS — on blue gradient bg
+   TOPBAR BUTTONS — flat glass on blue gradient bg
 ══════════════════════════════════════════════ */
 .fs-topbar .fs-btn{
-  box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 4px 0 rgba(0,0,0,.25),0 5px 8px rgba(0,0,0,.2) !important;
-  border:none !important;
-  transition:all .13s cubic-bezier(.4,0,.2,1) !important;
+  box-shadow:none !important;
+  transition:all .2s ease !important;
 }
 .fs-topbar .fs-btn:hover{
-  box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 6px 0 rgba(0,0,0,.28),0 7px 12px rgba(0,0,0,.25) !important;
+  box-shadow:0 4px 12px rgba(0,0,0,.10) !important;
   transform:translateY(-2px) !important;
 }
-.fs-topbar .fs-btn:active{transform:translateY(3px) !important;box-shadow:none !important}
+.fs-topbar .fs-btn:active{transform:translateY(0) !important;box-shadow:none !important}
 
 /* ── User bar collapsed/expanded visibility ── */
 .gpm-sidebar.collapsed #sbUserBar{display:none !important}
@@ -10457,7 +10468,7 @@ function logOutFsToast(msg,type='success'){
     btn.type = 'button';
     btn.setAttribute('aria-label','فتح القائمة');
     btn.innerHTML = '☰';
-    btn.style.cssText = 'display:none;position:fixed;top:10px;left:10px;width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#1a3a6e,#2563eb);color:#fff;border:none;font-size:1.3rem;font-weight:700;cursor:pointer;z-index:998;box-shadow:0 4px 14px rgba(37,99,235,.35);align-items:center;justify-content:center';
+    btn.style.cssText = 'display:none;position:fixed;top:10px;left:10px;width:42px;height:42px;border-radius:10px;background:transparent;color:#fff;border:none;font-size:1.3rem;font-weight:700;cursor:pointer;z-index:998;box-shadow:none;align-items:center;justify-content:center;text-shadow:0 1px 3px rgba(0,0,0,.25)';
     btn.addEventListener('click', () => {
       if(typeof gpmMobOpen === 'function') gpmMobOpen();
     });
@@ -15062,15 +15073,15 @@ window.addEventListener('resize', function(){
     const colspan = cfg.columns.length + 2;
     
     const html = `
-<div id="${pid}" class="fs-page-wrap" style="display:none;position:fixed;inset:0;z-index:800;background:#f0f2f7;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
+<div id="${pid}" class="fs-page-wrap" style="display:none;position:fixed;inset:0;z-index:800;background:transparent;direction:ltr;font-family:'Tajawal',sans-serif;margin-left:52px">
 <div class="fs-page" id="${px}FsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">${cfg.icon}</span>
     <div class="fs-topbar-title">${cfg.titleAr} <small>— ${cfg.titleEn}</small></div>
-    <button class="fs-btn fs-btn-primary" style="background:${grad}" onclick="GPM.newDrawer('${pid}')">➕ إضافة جديد</button>
+    <button class="fs-btn fs-btn-primary" onclick="GPM.newDrawer('${pid}')">➕ إضافة جديد</button>
     <button class="fs-btn fs-btn-edit-mode" id="${px}EditModeBtn" onclick="GPM.toggleEditMode('${pid}')">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="GPM.exportXL('${pid}')">📊 Excel</button>
-    <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="GPM.exportPDF('${pid}')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" onclick="GPM.exportPDF('${pid}')">🖨️ PDF</button>
     <button class="fs-btn fs-btn-light" onclick="GPM.closePage('${pid}')">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -15095,7 +15106,7 @@ window.addEventListener('resize', function(){
     <div><h3 id="${px}DrawerTitle">إضافة جديد</h3><small>${cfg.titleEn}</small></div>
   </div>
   <div class="fs-drawer-actions">
-    <button class="fs-btn fs-btn-primary" style="background:${grad}" onclick="GPM.saveDrawer('${pid}')">💾 حفظ</button>
+    <button class="fs-btn fs-btn-primary" onclick="GPM.saveDrawer('${pid}')">💾 حفظ</button>
     <button class="fs-btn fs-btn-danger" onclick="GPM.deleteDrawer('${pid}')">🗑️ حذف</button>
     <button class="fs-btn fs-btn-light" onclick="GPM.closeDrawer('${pid}')">إلغاء</button>
   </div>
