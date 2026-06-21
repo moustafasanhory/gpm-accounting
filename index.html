@@ -841,7 +841,7 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 .ap-topbar,
 .sc-topbar{
   background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
-  border-bottom:1px solid rgba(255,255,255,0.20) !important;
+  border-bottom:none !important;
   box-shadow:0 4px 18px rgba(37,99,235,.22) !important;
   color:#fff !important;
 }
@@ -1046,11 +1046,11 @@ html, body {
 .fs-topbar,
 .ap-topbar,
 .sc-topbar {
-  background: linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  background: linear-gradient(135deg,rgba(26,58,110,0.35),rgba(37,99,235,0.30)) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   border-bottom: 1px solid rgba(255,255,255,0.20) !important;
-  box-shadow: 0 2px 12px rgba(37,99,235,0.22) !important;
+  box-shadow: 0 2px 12px rgba(37,99,235,0.10) !important;
   color: #fff !important;
 }
 .fs-topbar-title, .ap-topbar-title, .sc-topbar-title {
@@ -1515,6 +1515,256 @@ button[style*="background"]:not(.gpm-gb):not(.gpm-si):not(.gpm-nsi):not(.gpm-sl)
 <body>
 <!-- GPM Supabase Auth -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+<!-- GPM Turso Archive Layer -->
+<script src="https://cdn.jsdelivr.net/npm/@libsql/client@0.14.0/lib-esm/index.js" type="module" id="tursoModuleScript"></script>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   TURSO ARCHIVE LAYER — قاعدة البيانات التاريخية
+   DB: libsql://gpm-archive-moustafasanhory.aws-eu-west-1.turso.io
+══════════════════════════════════════════════════════════════ */
+
+var _TURSO_URL   = 'libsql://gpm-archive-moustafasanhory.aws-eu-west-1.turso.io';
+var _TURSO_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODE5NTU0NTcsImlkIjoiMDE5ZWU0ZDEtYjAwMS03ZmY3LThiNjktZjVhMzZhYmFmMDFjIiwicmlkIjoiMjRhMjAwODYtZWY0OC00Yjc1LWIwMGItMWJkMGJlZDllNzZjIn0.Tyt1qWtNfhjTcdrzxyWhrfIduP1duaIe-eOkXdjYBMpir3HdXhgDA9AJh-SPUh2NFg6ar9rhptu3fIs-ntEOBA';
+
+/* ── Turso client (lazy init) ── */
+var _tursoClient = null;
+var _tursoReady  = false;
+var _tursoError  = null;
+
+/* التهيئة عبر fetch مباشر (HTTP API) — يعمل بدون ESM */
+window._tursoInit = function() {
+  if (_tursoReady) return Promise.resolve(true);
+  _tursoReady = true;
+  return Promise.resolve(true);
+};
+
+/* ── تنفيذ SQL على Turso عبر HTTP API ── */
+window._tursoExec = async function(sql, args) {
+  args = args || [];
+  try {
+    var body = {
+      requests: [
+        {
+          type: 'execute',
+          stmt: {
+            sql: sql,
+            args: args.map(function(v) {
+              if (v === null || v === undefined) return { type: 'null' };
+              if (typeof v === 'number') return { type: 'integer', value: String(v) };
+              return { type: 'text', value: String(v) };
+            })
+          }
+        },
+        { type: 'close' }
+      ]
+    };
+    var resp = await fetch(_TURSO_URL.replace('libsql://', 'https://') + '/v2/pipeline', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + _TURSO_TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      var errText = await resp.text();
+      throw new Error('Turso HTTP ' + resp.status + ': ' + errText);
+    }
+    var data = await resp.json();
+    if (data.results && data.results[0] && data.results[0].type === 'error') {
+      throw new Error(data.results[0].error.message);
+    }
+    var result = data.results[0].response.result;
+    var cols = result.cols.map(function(c) { return c.name; });
+    var rows = result.rows.map(function(row) {
+      var obj = {};
+      cols.forEach(function(col, i) {
+        var cell = row[i];
+        obj[col] = (cell && cell.type !== 'null') ? cell.value : null;
+      });
+      return obj;
+    });
+    return { rows: rows, cols: cols, rowsAffected: result.affected_row_count || 0 };
+  } catch(e) {
+    console.error('[Turso] Error:', e);
+    throw e;
+  }
+};
+
+/* ── SELECT helper (مثل Supabase select) ── */
+window._tursoSelect = async function(table, opts) {
+  opts = opts || {};
+  var cols    = opts.columns  || '*';
+  var where   = [];
+  var args    = [];
+  var orderBy = opts.orderBy  || null;
+  var limit   = opts.limit    || null;
+  var offset  = opts.offset   || 0;
+
+  /* فلاتر */
+  if (opts.filters) {
+    opts.filters.forEach(function(f) {
+      /* f = { col, op, val }  op: eq / gte / lte / like / neq */
+      var op = f.op === 'eq'   ? '='
+             : f.op === 'neq'  ? '!='
+             : f.op === 'gte'  ? '>='
+             : f.op === 'lte'  ? '<='
+             : f.op === 'like' ? 'LIKE'
+             : '=';
+      where.push('"' + f.col + '" ' + op + ' ?');
+      args.push(f.val);
+    });
+  }
+
+  var sql = 'SELECT ' + cols + ' FROM "' + table + '"';
+  if (where.length)  sql += ' WHERE ' + where.join(' AND ');
+  if (orderBy)       sql += ' ORDER BY "' + orderBy.col + '" ' + (orderBy.dir || 'ASC');
+  if (limit)         sql += ' LIMIT ' + limit + ' OFFSET ' + offset;
+
+  return await window._tursoExec(sql, args);
+};
+
+/* ── INSERT helper ── */
+window._tursoInsert = async function(table, record) {
+  var keys = Object.keys(record);
+  var cols = keys.map(function(k) { return '"' + k + '"'; }).join(', ');
+  var placeholders = keys.map(function() { return '?'; }).join(', ');
+  var vals = keys.map(function(k) { return record[k]; });
+  var sql  = 'INSERT INTO "' + table + '" (' + cols + ') VALUES (' + placeholders + ')';
+  return await window._tursoExec(sql, vals);
+};
+
+/* ── UPDATE helper ── */
+window._tursoUpdate = async function(table, record, whereCol, whereVal) {
+  var keys = Object.keys(record).filter(function(k) { return k !== whereCol; });
+  var sets = keys.map(function(k) { return '"' + k + '" = ?'; }).join(', ');
+  var vals = keys.map(function(k) { return record[k]; });
+  vals.push(whereVal);
+  var sql = 'UPDATE "' + table + '" SET ' + sets + ' WHERE "' + whereCol + '" = ?';
+  return await window._tursoExec(sql, vals);
+};
+
+/* ── DELETE helper ── */
+window._tursoDelete = async function(table, whereCol, whereVal) {
+  var sql = 'DELETE FROM "' + table + '" WHERE "' + whereCol + '" = ?';
+  return await window._tursoExec(sql, [whereVal]);
+};
+
+/* ── COUNT helper ── */
+window._tursoCount = async function(table, filters) {
+  var where = [];
+  var args  = [];
+  if (filters) {
+    filters.forEach(function(f) {
+      where.push('"' + f.col + '" = ?');
+      args.push(f.val);
+    });
+  }
+  var sql = 'SELECT COUNT(*) as cnt FROM "' + table + '"';
+  if (where.length) sql += ' WHERE ' + where.join(' AND ');
+  var res = await window._tursoExec(sql, args);
+  return parseInt(res.rows[0].cnt || 0, 10);
+};
+
+/* ── CREATE TABLE helper ── */
+window._tursoCreateTable = async function(table, fields) {
+  /* fields = ['Col1 TEXT', 'Col2 INTEGER', ...] */
+  var cols = ['id INTEGER PRIMARY KEY AUTOINCREMENT'].concat(fields);
+  var sql  = 'CREATE TABLE IF NOT EXISTS "' + table + '" (' + cols.join(', ') + ')';
+  return await window._tursoExec(sql, []);
+};
+
+/* ── Test connection ── */
+window._tursoTest = async function() {
+  try {
+    var res = await window._tursoExec("SELECT 1 AS ok", []);
+    console.log('[Turso] ✅ Connected — Archive DB ready');
+    return true;
+  } catch(e) {
+    console.error('[Turso] ❌ Connection failed:', e);
+    return false;
+  }
+};
+
+/* ══════════════════════════════════════════════════════
+   SMART DATA ROUTER
+   بيحدد تلقائياً من أين يجيب البيانات
+   حسب السنة أو حسب الجدول
+══════════════════════════════════════════════════════ */
+var _ARCHIVE_YEAR_CUTOFF = 2024; /* بيانات أقل من 2024 تروح لـ Turso */
+var _ARCHIVE_TABLES = {};        /* جداول محددة على Turso: { 'table_name': true } */
+
+/* تسجيل جدول كـ archive */
+window.gpmSetArchiveTable = function(tableName) {
+  _ARCHIVE_TABLES[tableName] = true;
+};
+
+/* هل الجدول ده archive؟ */
+window.gpmIsArchive = function(tableName) {
+  return !!_ARCHIVE_TABLES[tableName];
+};
+
+/* Smart SELECT — يختار Supabase أو Turso تلقائياً */
+window.gpmSmartSelect = async function(table, opts) {
+  if (window.gpmIsArchive(table)) {
+    /* Turso */
+    return await window._tursoSelect(table, opts);
+  } else {
+    /* Supabase */
+    if (!_sb && !_sbInit()) throw new Error('Supabase not ready');
+    var q = _sb.from(table).select(opts.columns || '*');
+    if (opts.filters) {
+      opts.filters.forEach(function(f) {
+        if (f.op === 'eq')   q = q.eq(f.col, f.val);
+        if (f.op === 'gte')  q = q.gte(f.col, f.val);
+        if (f.op === 'lte')  q = q.lte(f.col, f.val);
+        if (f.op === 'like') q = q.ilike(f.col, f.val);
+        if (f.op === 'neq')  q = q.neq(f.col, f.val);
+      });
+    }
+    if (opts.orderBy) q = q.order(opts.orderBy.col, { ascending: opts.orderBy.dir !== 'DESC' });
+    if (opts.limit)   q = q.range(opts.offset || 0, (opts.offset || 0) + opts.limit - 1);
+    var { data, error } = await q;
+    if (error) throw error;
+    return { rows: data || [], cols: data && data[0] ? Object.keys(data[0]) : [] };
+  }
+};
+
+/* ══════════════════════════════════════════════════════
+   ARCHIVE UI HELPER
+   يضيف زرار "📦 أرشيف" في أي topbar
+══════════════════════════════════════════════════════ */
+window.gpmAddArchiveBtn = function(topbarId, table, onData) {
+  var bar = document.getElementById(topbarId);
+  if (!bar || document.getElementById('archiveBtn_' + topbarId)) return;
+  var btn = document.createElement('button');
+  btn.id        = 'archiveBtn_' + topbarId;
+  btn.className = 'fs-btn';
+  btn.innerHTML = '📦 أرشيف';
+  btn.title     = 'عرض البيانات التاريخية من Turso';
+  btn.style.cssText = 'background:linear-gradient(90deg,#7c3aed,#4f46e5);color:#fff;border:1.5px solid rgba(255,255,255,.3);border-radius:20px;padding:6px 14px;font-size:.8rem;cursor:pointer;';
+  btn.onclick = async function() {
+    btn.disabled  = true;
+    btn.innerHTML = '⏳ جاري التحميل...';
+    try {
+      var res = await window._tursoSelect(table, { limit: 500 });
+      onData(res.rows);
+      btn.innerHTML = '📦 أرشيف (' + res.rows.length + ')';
+    } catch(e) {
+      btn.innerHTML = '❌ خطأ';
+      console.error('[Archive]', e);
+      alert('خطأ في الاتصال بقاعدة الأرشيف:\n' + e.message);
+    }
+    btn.disabled = false;
+  };
+  bar.appendChild(btn);
+};
+
+/* اختبار الاتصال عند تحميل الصفحة */
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() { window._tursoTest(); }, 2000);
+});
+</script>
 <style>
 #sbOverlay{position:fixed;inset:0;z-index:99999;background:#04040c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;transition:opacity .4s,transform .4s;overflow-x:hidden;overflow-y:auto;box-sizing:border-box}
 #sbOverlay *{box-sizing:border-box}
@@ -5349,7 +5599,7 @@ gpmToggle = function(){
 <style>
 #apPage *{box-sizing:border-box}
 .ap-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.ap-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:linear-gradient(135deg,#1a3a6e,#2563eb);border-bottom:1px solid rgba(255,255,255,.2);flex-shrink:0;box-shadow:0 2px 8px rgba(37,99,235,.22)}
+.ap-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:2px solid #d0d8f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
 .ap-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1;display:flex;align-items:center;gap:10px}
 .ap-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400}
 .ap-topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -5839,7 +6089,7 @@ function apToast(msg,type='success'){
 .sc-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
 /* Top bar */
-.sc-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:linear-gradient(135deg,#1a3a6e,#2563eb);border-bottom:1px solid rgba(255,255,255,.2);flex-shrink:0;box-shadow:0 2px 8px rgba(37,99,235,.22);direction:ltr}
+.sc-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:2px solid #d0d8f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06);direction:ltr}
 .sc-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1;display:flex;align-items:center;gap:10px}
 .sc-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400}
 .sc-topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
@@ -6546,7 +6796,7 @@ function scToast(msg,type='success'){
 .fs-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
 /* Top bar */
-.fs-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:linear-gradient(135deg,#1a3a6e,#2563eb);border-bottom:1px solid rgba(255,255,255,.2);flex-shrink:0;box-shadow:0 2px 8px rgba(37,99,235,.22);direction:ltr}
+.fs-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:#fff;border-bottom:2px solid #dde3f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06);direction:ltr}
 .fs-topbar-ico{font-size:1.3rem}
 .fs-topbar-title{font-weight:800;font-size:.95rem;flex:1;direction:ltr}
 .fs-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400;margin-left:8px}
@@ -6954,11 +7204,11 @@ function scToast(msg,type='success'){
 
 /* ── Top bar: gradient header ── */
 .fs-topbar{
-  background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
-  backdrop-filter:none !important;
-  -webkit-backdrop-filter:none !important;
-  border-bottom:1px solid rgba(255,255,255,0.20) !important;
-  box-shadow:0 4px 18px rgba(37,99,235,.22) !important;
+  background:linear-gradient(135deg,rgba(26,58,110,0.35) 0%,rgba(37,99,235,0.30) 100%) !important;
+  backdrop-filter:blur(12px) !important;
+  -webkit-backdrop-filter:blur(12px) !important;
+  border-bottom:none !important;
+  box-shadow:0 4px 18px rgba(37,99,235,.10) !important;
   padding:12px 20px !important;
 }
 .fs-topbar-ico{color:#fff !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
