@@ -839,20 +839,21 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
    يشمل ap-topbar, sc-topbar, pos-topbar وغيرها
 ═══════════════════════════════════════════════════ */
 .ap-topbar,
-.sc-topbar{
+.sc-topbar,
+.pos-topbar{
   background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
   border-bottom:none !important;
   box-shadow:0 4px 18px rgba(37,99,235,.22) !important;
   color:#fff !important;
 }
-.ap-topbar-title,.sc-topbar-title{color:#fff !important}
-.ap-topbar-title small,.sc-topbar-title small{color:rgba(255,255,255,.7) !important}
-.ap-topbar button,.sc-topbar button{
+.ap-topbar-title,.sc-topbar-title,.pos-topbar-title{color:#fff !important;text-shadow:0 1px 4px rgba(0,0,0,.2) !important}
+.ap-topbar-title small,.sc-topbar-title small,.pos-topbar-title small{color:rgba(255,255,255,.7) !important}
+.ap-topbar button,.sc-topbar button,.pos-topbar button{
   background:rgba(255,255,255,.15) !important;
   border:1.5px solid rgba(255,255,255,.3) !important;
   color:#fff !important;
 }
-.ap-topbar button:hover,.sc-topbar button:hover{background:rgba(255,255,255,.28) !important}
+.ap-topbar button:hover,.sc-topbar button:hover,.pos-topbar button:hover{background:rgba(255,255,255,.28) !important}
 
 /* All pages: transparent — body gradient shows through */
 [id$="Page"]{background:transparent !important}
@@ -1042,15 +1043,15 @@ html, body {
   -webkit-backdrop-filter: blur(var(--pg-blur)) !important;
 }
 
-/* topbar الصفحات */
+/* topbar الصفحات — نفس لون Golf Porto Marina */
 .fs-topbar,
 .ap-topbar,
 .sc-topbar {
-  background: linear-gradient(135deg,rgba(26,58,110,0.35),rgba(37,99,235,0.30)) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.20) !important;
-  box-shadow: 0 2px 12px rgba(37,99,235,0.10) !important;
+  background: linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 1px solid rgba(255,255,255,0.18) !important;
+  box-shadow: 0 3px 14px rgba(26,58,110,0.35) !important;
   color: #fff !important;
 }
 .fs-topbar-title, .ap-topbar-title, .sc-topbar-title {
@@ -4718,11 +4719,11 @@ function gpmSlToggle(el){
 .pos-topbar{
   display:flex;align-items:center;gap:12px;
   padding:10px 16px;
-  background:#fff;border-bottom:1px solid #dde3f0;
-  flex-shrink:0;
+  background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%);border-bottom:none;
+  flex-shrink:0;box-shadow:0 3px 14px rgba(26,58,110,.35);
 }
-.pos-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1}
-.pos-topbar-title small{font-size:.7rem;color:#64748b;font-weight:400;margin-right:8px}
+.pos-topbar-title{font-size:1rem;font-weight:800;color:#fff;flex:1;text-shadow:0 1px 4px rgba(0,0,0,.2)}
+.pos-topbar-title small{font-size:.7rem;color:rgba(255,255,255,.72);font-weight:400;margin-right:8px}
 .pos-close-btn{
   display:flex;align-items:center;gap:6px;
   padding:8px 14px;border-radius:8px;border:none;cursor:pointer;
@@ -5277,6 +5278,83 @@ function posPrintAndClose(){
 }
 
 /* ══════════════════════════════════════════════════════════
+   UNIVERSAL EXCEL IMPORT — shared helper for all Upload buttons
+   Supports .xlsx/.xls (via SheetJS) and .csv (plain text)
+   Usage: gpmReadXLFile(file, expectedHeaders, callback(rows, err))
+   - rows: array of plain objects keyed by expectedHeaders (or first-row headers)
+   - err: string or null
+══════════════════════════════════════════════════════════ */
+function gpmReadXLFile(file, expectedHeaders, callback){
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  // ── CSV path ──────────────────────────────────────────
+  if(ext === 'csv'){
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const text = e.target.result.replace(/^\uFEFF/, ''); // strip BOM
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if(!lines.length){ callback([], null); return; }
+        const fileHeaders = lines[0].split('\t').map(h=>h.trim());
+        const rows = [];
+        for(let i=1; i<lines.length; i++){
+          const vals = lines[i].split('\t');
+          if(vals.every(v=>!v.trim())) continue;
+          const row = {};
+          fileHeaders.forEach((h,j) => {
+            // try matching to expected headers (exact or strip spaces)
+            const matched = expectedHeaders.find(eh => eh===h || eh.replace(/_/g,' ')===h || h.replace(/ /g,'_')===eh);
+            row[matched || h] = vals[j] !== undefined ? vals[j].trim() : '';
+          });
+          rows.push(row);
+        }
+        callback(rows, null);
+      } catch(err){ callback([], err.message); }
+    };
+    reader.onerror = () => callback([], 'فشل قراءة الملف');
+    reader.readAsText(file, 'UTF-8');
+    return;
+  }
+
+  // ── XLSX / XLS path (requires SheetJS) ───────────────
+  if(typeof XLSX === 'undefined'){
+    callback([], 'مكتبة SheetJS (XLSX) غير محملة — جرب ملف CSV بدلاً من Excel');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'binary', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      // get raw array of arrays
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if(aoa.length < 2){ callback([], null); return; }
+      const fileHeaders = aoa[0].map(h => String(h||'').trim());
+      const rows = [];
+      for(let i=1; i<aoa.length; i++){
+        const vals = aoa[i];
+        if(vals.every(v => v==='' || v===null || v===undefined)) continue;
+        const row = {};
+        fileHeaders.forEach((h,j) => {
+          const val = vals[j] !== undefined ? String(vals[j]).trim() : '';
+          // match to expectedHeaders
+          const matched = expectedHeaders.find(eh =>
+            eh===h || eh.replace(/_/g,' ')===h || h.replace(/ /g,'_')===eh ||
+            // also match Arabic numeric column headers (e.g. '#' -> skip)
+            eh.toLowerCase() === h.toLowerCase()
+          );
+          row[matched || h] = val;
+        });
+        rows.push(row);
+      }
+      callback(rows, null);
+    } catch(err){ callback([], err.message); }
+  };
+  reader.onerror = () => callback([], 'فشل قراءة الملف');
+  reader.readAsBinaryString(file);
+}
+
+/* ══════════════════════════════════════════════════════════
    UNIVERSAL PDF EXPORT — for special (hand-coded) pages
    Reads the visible <table> inside the page element and
    exports it as a clean A4 / A4-landscape PDF.
@@ -5599,9 +5677,9 @@ gpmToggle = function(){
 <style>
 #apPage *{box-sizing:border-box}
 .ap-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
-.ap-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:2px solid #d0d8f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.ap-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1;display:flex;align-items:center;gap:10px}
-.ap-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400}
+.ap-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%);border-bottom:none;flex-shrink:0;box-shadow:0 3px 14px rgba(26,58,110,.35)}
+.ap-topbar-title{font-size:1rem;font-weight:800;color:#fff;flex:1;display:flex;align-items:center;gap:10px;text-shadow:0 1px 4px rgba(0,0,0,.2)}
+.ap-topbar-title small{font-size:.72rem;color:rgba(255,255,255,.72);font-weight:400}
 .ap-topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
 .ap-action-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;transition:all .13s cubic-bezier(.4,0,.2,1);white-space:nowrap;position:relative}
 .ap-action-btn:active{transform:translateY(3px)!important;box-shadow:none!important}
@@ -6089,9 +6167,9 @@ function apToast(msg,type='success'){
 .sc-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
 /* Top bar */
-.sc-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:#fff;border-bottom:2px solid #d0d8f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06);direction:ltr}
-.sc-topbar-title{font-size:1rem;font-weight:800;color:#1a3a6e;flex:1;display:flex;align-items:center;gap:10px}
-.sc-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400}
+.sc-topbar{display:flex;align-items:center;gap:12px;padding:10px 20px;background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%);border-bottom:none;flex-shrink:0;box-shadow:0 3px 14px rgba(26,58,110,.35);direction:ltr}
+.sc-topbar-title{font-size:1rem;font-weight:800;color:#fff;flex:1;display:flex;align-items:center;gap:10px;text-shadow:0 1px 4px rgba(0,0,0,.2)}
+.sc-topbar-title small{font-size:.72rem;color:rgba(255,255,255,.72);font-weight:400}
 .sc-topbar-actions{display:flex;gap:8px;flex-wrap:wrap}
 .sc-action-btn{display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:9px;border:none;cursor:pointer;font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;transition:all .13s cubic-bezier(.4,0,.2,1);white-space:nowrap;position:relative}
 .sc-action-btn:active{transform:translateY(3px)!important;box-shadow:none!important}
@@ -6197,6 +6275,8 @@ function apToast(msg,type='success'){
       <button class="sc-action-btn sc-btn-print"  onclick="scPrint()">🖨️ طباعة</button>
       <button class="sc-action-btn sc-btn-export" onclick="scExportExcel()">📊 Excel</button>
       <button class="sc-action-btn sc-btn-export" style="background:linear-gradient(180deg,#f87171 0%,#dc2626 60%,#b91c1c 100%);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 5px 0 #7f1d1d,0 6px 9px rgba(127,29,29,.4)" onclick="gpmSpecialExportPDF('scPage')">🖨️ PDF</button>
+      <button class="sc-action-btn sc-btn-export" style="background:linear-gradient(180deg,#f59e0b 0%,#d97706 60%,#b45309 100%);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 5px 0 #78350f,0 6px 9px rgba(120,53,15,.4)" onclick="document.getElementById('scUploadInput').click()">📥 Upload</button>
+      <input type="file" id="scUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="scImportXL(this)">
       <button class="sc-action-btn sc-btn-del"    onclick="scDelete()">🗑️ حذف</button>
       <button class="sc-action-btn sc-btn-close"  onclick="closeServiceContracts()">✕ إغلاق</button>
     </div>
@@ -6776,6 +6856,26 @@ function scExportExcel(){
   scToast('📊 تم تصدير الملف بنجاح','success');
 }
 
+/* ── Import Excel ── */
+function scImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['السنة','الشهر','الفترة_من','الفترة_الى','ايام_الشهر','اسم_الشركة','الخدمة','رقم_الفاتورة','اجمالى_العقد','عدد_الافراد','عدد_الاشراف','حضور_الافراد','حضور_الاشراف','سعر_الفرد','سعر_المشرف','غياب_افراد','غياب_مشرف','اجمالى_الغياب','صافى_العقد','خصم_نسبة_تقييم','قيمة_خصم_التقييم','خصم_مخالفات','خصم_قبل_الضريبة','القيمة_المضافة','اجمالى_قيمة_العقد','ضرائب_خصم_و_اضافة','نسبة_خصم_التامينات','قيمة_خصم_التامينات','خصومات_اخرى','خصومات_سكن','صافى_المبلغ'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ scToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ scToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      if(!r['اسم_الشركة'] && !r['رقم_الفاتورة']){ skipped++; return; }
+      const rec={...r, id: Date.now()+Math.random()};
+      scRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_sc_records',JSON.stringify(scRecords));
+    scRenderList(); scRenderSummary();
+    scToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
+}
+
 /* ── Toast ── */
 function scToast(msg,type='success'){
   const t=document.getElementById('scToast');
@@ -6796,7 +6896,7 @@ function scToast(msg,type='success'){
 .fs-page{display:flex;flex-direction:column;height:100vh;overflow:hidden}
 
 /* Top bar */
-.fs-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:#fff;border-bottom:2px solid #dde3f0;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.06);direction:ltr}
+.fs-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%);border-bottom:none;flex-shrink:0;box-shadow:0 3px 14px rgba(26,58,110,.35);direction:ltr}
 .fs-topbar-ico{font-size:1.3rem}
 .fs-topbar-title{font-weight:800;font-size:.95rem;flex:1;direction:ltr}
 .fs-topbar-title small{font-size:.72rem;color:#64748b;font-weight:400;margin-left:8px}
@@ -7204,11 +7304,11 @@ function scToast(msg,type='success'){
 
 /* ── Top bar: gradient header ── */
 .fs-topbar{
-  background:linear-gradient(135deg,rgba(26,58,110,0.35) 0%,rgba(37,99,235,0.30) 100%) !important;
-  backdrop-filter:blur(12px) !important;
-  -webkit-backdrop-filter:blur(12px) !important;
+  background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%) !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
   border-bottom:none !important;
-  box-shadow:0 4px 18px rgba(37,99,235,.10) !important;
+  box-shadow:0 4px 18px rgba(26,58,110,.30) !important;
   padding:12px 20px !important;
 }
 .fs-topbar-ico{color:#fff !important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
@@ -7568,6 +7668,8 @@ function scToast(msg,type='success'){
     <button class="fs-btn fs-btn-edit-mode" id="empEditModeBtn" onclick="empToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="empExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('empPage')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('empUploadInput').click()">📥 Upload</button>
+    <input type="file" id="empUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="empImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeEmployees()">✕ إغلاق</button>
   </div>
 
@@ -7949,6 +8051,25 @@ function empExportXL(){
   empFsToast('📊 تم التصدير','success');
 }
 
+function empImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك','رقم_البطاقة','الرقم_التأميني','العنوان'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ empFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ empFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      if(!r['اسم_الموظف'] && !r['كود_الموظف']){ skipped++; return; }
+      const rec={...r, id: Date.now()+Math.random()};
+      empRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
+    empFsRender();
+    empFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
+}
+
 function empDrawerPrint(){
   const rec=empCollectDrawer();
   const w=window.open('','_blank','width=800,height=700');
@@ -8004,6 +8125,8 @@ function empFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-edit-mode" id="vndEditModeBtn" onclick="vndToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="vndExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('vendorPage')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('vndUploadInput').click()">📥 Upload</button>
+    <input type="file" id="vndUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="vndImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeVendors()">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -8366,6 +8489,25 @@ function vndExportXL(){
   vndFsToast('📊 تم التصدير','success');
 }
 
+function vndImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ vndFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ vndFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      if(!r['اسم_الشركة'] && !r['كود_المورد']){ skipped++; return; }
+      const rec={...r, id: Date.now()+Math.random()};
+      vndRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
+    vndFsRender();
+    vndFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
+}
+
 function vndDrawerPrint(){
   const rec=vndCollectDrawer();
   const w=window.open('','_blank','width=800,height=600');
@@ -8408,6 +8550,8 @@ function vndFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-edit-mode" id="custEditModeBtn" onclick="custToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="custExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('custPage')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('custUploadInput').click()">📥 Upload</button>
+    <input type="file" id="custUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="custImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeCustomers()">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -8799,6 +8943,25 @@ function custExportXL(){
   custFsToast('📊 تم التصدير','success');
 }
 
+function custImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ custFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ custFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      if(!r['اسم_العميل'] && !r['رقم_العميل']){ skipped++; return; }
+      const rec={...r, id: Date.now()+Math.random()};
+      custRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
+    custFsRender();
+    custFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
+}
+
 function custDrawerPrint(){
   const rec=custCollectDrawer();
   const name=rec['اسم_العميل']||'—';
@@ -8854,7 +9017,7 @@ function custFsToast(msg,type='success'){
 #chequePage *{box-sizing:border-box}
 
 /* Top bar accent (red) for print cheque */
-#chequePage .fs-topbar{border-bottom:2px solid #fecaca}
+#chequePage .fs-topbar{border-bottom:none}
 #chequePage .fs-topbar-ico{color:#7a0000}
 #chequePage .fs-topbar-title{color:#7a0000}
 
@@ -8918,19 +9081,19 @@ function custFsToast(msg,type='success'){
 #chequePage .chq-modern-inner-border{position:absolute;inset:4px;border:1px solid rgba(200,150,12,.3);border-radius:2px;pointer-events:none}
 
 /* Shared cheque parts */
-#chequePage .ck-topbar{background:linear-gradient(90deg,#8b0000 0%,#a00000 40%,#8b0000 100%);padding:2px 0}
+#chequePage .ck-topbar{background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%);padding:2px 0;box-shadow:0 3px 14px rgba(26,58,110,.35)}
 #chequePage .ck-top{display:flex;align-items:flex-start;justify-content:space-between;padding:10px 14px 6px}
 #chequePage .ck-logo-wrap{display:flex;align-items:center;gap:6px}
-#chequePage .ck-logo-symbol{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:5px;background:#8b0000}
+#chequePage .ck-logo-symbol{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:5px;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3)}
 #chequePage .ck-logo-symbol svg{width:22px;height:22px;fill:white}
 #chequePage .ck-logo-text{display:flex;flex-direction:column;line-height:1.1}
-#chequePage .ck-logo-qnb{font-weight:800;font-size:.92rem;color:#8b0000;letter-spacing:1px}
-#chequePage .ck-logo-sub{font-size:.5rem;color:#555;letter-spacing:.3px;font-weight:400}
-#chequePage .ck-logo-ar{font-size:.5rem;color:#555;font-family:'Cairo',sans-serif}
+#chequePage .ck-logo-qnb{font-weight:800;font-size:.92rem;color:#fff;letter-spacing:1px}
+#chequePage .ck-logo-sub{font-size:.5rem;color:rgba(255,255,255,.75);letter-spacing:.3px;font-weight:400}
+#chequePage .ck-logo-ar{font-size:.5rem;color:rgba(255,255,255,.75);font-family:'Cairo',sans-serif}
 #chequePage .ck-bank-center{text-align:center}
-#chequePage .ck-label-cheque{font-size:.62rem;color:#444;letter-spacing:2.5px;text-transform:uppercase}
-#chequePage .ck-bank-name-en{font-size:.5rem;color:#444;margin-top:1px}
-#chequePage .ck-bank-name-ar{font-size:.55rem;color:#333;font-family:'Cairo',sans-serif;direction:rtl}
+#chequePage .ck-label-cheque{font-size:.62rem;color:rgba(255,255,255,.85);letter-spacing:2.5px;text-transform:uppercase}
+#chequePage .ck-bank-name-en{font-size:.5rem;color:rgba(255,255,255,.8);margin-top:1px}
+#chequePage .ck-bank-name-ar{font-size:.55rem;color:rgba(255,255,255,.85);font-family:'Cairo',sans-serif;direction:rtl}
 #chequePage .ck-date-area{text-align:left;direction:ltr}
 #chequePage .ck-date-label{font-size:.5rem;color:#555;letter-spacing:1px;display:flex;justify-content:space-between;gap:30px}
 #chequePage .ck-date-label span{color:#333}
@@ -9005,6 +9168,8 @@ function custFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-edit-mode" id="chqEditModeBtn" onclick="chqToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="chqExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('chequePage')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('chqUploadInput').click()">📥 Upload</button>
+    <input type="file" id="chqUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="chqImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeChequePage()">✕ إغلاق</button>
   </div>
 
@@ -9669,6 +9834,32 @@ function chqExportXL(){
 }
 
 /* ── Toast ── */
+function chqImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['date','num','payto','amount','words','name','account','branch','type','status'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ chqFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ chqFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    // also handle Arabic header names from export
+    const colMap={'التاريخ':'date','رقم الشيك':'num','المستفيد':'payto','المبلغ بالأرقام':'amount','المبلغ بالكلمات':'words','اسم الحساب':'name','رقم الحساب':'account','رقم الفرع':'branch','النموذج':'type','الحالة':'status'};
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      const rec={id: Date.now()+Math.random(), status:'pending'};
+      // map Arabic or English keys
+      Object.keys(r).forEach(k=>{
+        const mapped=colMap[k]||k;
+        rec[mapped]=r[k];
+      });
+      if(!rec['payto'] && !rec['num']){ skipped++; return; }
+      chqRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_cheques',JSON.stringify(chqRecords));
+    chqRender && chqRender();
+    chqFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
+}
+
 function chqFsToast(msg, type='success'){
   const t = document.getElementById('chqFsToast');
   if(!t) return;
@@ -9695,6 +9886,8 @@ function chqFsToast(msg, type='success'){
     <button class="fs-btn fs-btn-edit-mode" id="ccEditModeBtn" onclick="ccToggleEditMode()">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="ccExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('ccPage')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('ccUploadInput').click()">📥 Upload</button>
+    <input type="file" id="ccUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="ccImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeCostCenter()">✕ إغلاق</button>
   </div>
 
@@ -10111,6 +10304,25 @@ function ccDrawerPrint(){
   w.document.close(); w.print();
 }
 
+function ccImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ ccFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ ccFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      if(!r['Cost_Ctr_Code'] && !r['Short_text']){ skipped++; return; }
+      const rec={...r, id: Date.now()+Math.random()};
+      ccRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
+    ccFsRender();
+    ccFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
+}
+
 function ccFsToast(msg,type='success'){
   const t=document.getElementById('ccFsToast');
   t.textContent=msg; t.className='fs-toast '+type+' show';
@@ -10128,6 +10340,8 @@ function ccFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-primary" onclick="logOutNewDrawer()">➕ إضافة جديد</button>
     <button class="fs-btn fs-btn-print" onclick="logOutExportXL()">📊 Excel</button>
     <button class="fs-btn fs-btn-print" style="background:rgba(185,28,28,.22);border-color:rgba(239,68,68,.45);color:#fca5a5" onclick="gpmSpecialExportPDF('logOutPage')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('logOutUploadInput').click()">📥 Upload</button>
+    <input type="file" id="logOutUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="logOutImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeLogOutPage()">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -10311,6 +10525,25 @@ function logOutExportXL(){
   const blob=new Blob(['\uFEFF'+headers.join('\t')+'\n'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='logOut_'+new Date().toISOString().slice(0,10)+'.xls';a.click();
   logOutFsToast('📊 تم التصدير','success');
+}
+
+function logOutImportXL(input){
+  const file=input.files[0]; if(!file) return;
+  const headers=['Ref_No','Date','Description','Cost_Center','Amount','Tax','Total','Status','Notes'];
+  gpmReadXLFile(file, headers, (rows, err)=>{
+    if(err){ logOutFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
+    if(!rows.length){ logOutFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
+    let added=0, skipped=0;
+    rows.forEach(r=>{
+      if(!r['Ref_No'] && !r['Description']){ skipped++; return; }
+      const rec={...r, id: Date.now()+Math.random()};
+      logOutRecords.push(rec); added++;
+    });
+    localStorage.setItem('gpm_logOut_records',JSON.stringify(logOutRecords));
+    logOutFsRender();
+    logOutFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    input.value='';
+  });
 }
 
 function logOutFsToast(msg,type='success'){
@@ -15332,6 +15565,8 @@ window.addEventListener('resize', function(){
     <button class="fs-btn fs-btn-edit-mode" id="${px}EditModeBtn" onclick="GPM.toggleEditMode('${pid}')">✏️ تعديل</button>
     <button class="fs-btn fs-btn-print" onclick="GPM.exportXL('${pid}')">📊 Excel</button>
     <button class="fs-btn fs-btn-print" onclick="GPM.exportPDF('${pid}')">🖨️ PDF</button>
+    <button class="fs-btn fs-btn-print" style="background:linear-gradient(135deg,#b45309,#d97706);border-color:#92400e;color:#fff" onclick="document.getElementById('${px}UploadInput').click()">📥 Upload</button>
+    <input type="file" id="${px}UploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="GPM.importXL('${pid}', this)">
     <button class="fs-btn fs-btn-light" onclick="GPM.closePage('${pid}')">✕ إغلاق</button>
   </div>
   <div class="fs-stats">
@@ -15816,6 +16051,34 @@ window.addEventListener('resize', function(){
     XLSX.writeFile(wb, cfg.prefix + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
     _toast(px, '✅ تم التصدير', 'success');
   }
+
+  function importXL(pid, input){
+    const cfg = GPM_PAGES[pid];
+    const px = cfg.prefix;
+    const file = input.files[0]; if(!file) return;
+    const fields = cfg.fields;
+    gpmReadXLFile(file, fields, (rows, err)=>{
+      if(err){ _toast(px, '❌ خطأ في قراءة الملف: '+err, 'error'); input.value=''; return; }
+      if(!rows.length){ _toast(px, '⚠️ لم يتم العثور على بيانات', 'error'); input.value=''; return; }
+      const records = _loadRecords(px, cfg.lsKey);
+      let added=0, skipped=0;
+      rows.forEach(r=>{
+        // skip truly empty rows
+        const hasData = fields.some(f => r[f] && String(r[f]).trim());
+        if(!hasData){ skipped++; return; }
+        const rec = {id: Date.now()+Math.random()};
+        fields.forEach(f => { if(r[f] !== undefined) rec[f] = r[f]; });
+        records.push(rec); added++;
+      });
+      try { localStorage.setItem(cfg.lsKey, JSON.stringify(records)); } catch(e){}
+      // reload from storage and re-render
+      const stored = _loadRecords(px, cfg.lsKey);
+      window['_gpmRecords_'+px] = stored;
+      render(pid);
+      _toast(px, `✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+      input.value='';
+    });
+  }
   
   function _toast(px, msg, type){
     const t = document.getElementById(px + 'Toast');
@@ -15908,7 +16171,7 @@ window.addEventListener('resize', function(){
     openPage, closePage,
     render, newDrawer, openDrawer, closeDrawer,
     saveDrawer, deleteDrawer, quickDel, exportXL, exportPDF,
-    toggleEditMode,
+    toggleEditMode, importXL,
   };
 
   // ─── Backwards-compat: create open<Xxx>Page() and close<Xxx>Page() globals ───
