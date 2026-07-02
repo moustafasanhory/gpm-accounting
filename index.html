@@ -16823,34 +16823,102 @@ const GPM_PAGES = {
     });
   }
 
-  function importXL(pid, input){
+  async function importXL(pid, input){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
     const file = input.files[0]; if(!file) return;
+
+    // تأكد من sync الـ schema أولاً لمعرفة أسماء الأعمدة الحقيقية في Supabase
+    if(cfg.sbTable && !_schemaSynced[pid]){
+      _toast(px, '⏳ جاري تحديد أعمدة قاعدة البيانات...', 'info');
+      await _syncPageSchema(pid);
+    }
+
     const fields = cfg.fields;
-    gpmReadXLFile(file, fields, (rows, err)=>{
+    gpmReadXLFile(file, fields, async (rows, err)=>{
       if(err){ _toast(px, '❌ خطأ في قراءة الملف: '+err, 'error'); input.value=''; return; }
       if(!rows.length){ _toast(px, '⚠️ لم يتم العثور على بيانات', 'error'); input.value=''; return; }
+
+      // قراءة headers من أول صف لتحديد أسماء الأعمدة الفعلية في الملف
+      const fileFields = Object.keys(rows[0] || {});
       const records = _loadRecords(px, cfg.lsKey);
-      let added=0, skipped=0;
-      rows.forEach(r=>{
-        // skip truly empty rows
-        const hasData = fields.some(f => r[f] && String(r[f]).trim());
-        if(!hasData){ skipped++; return; }
-        const rec = {id: Date.now()+Math.random()};
-        fields.forEach(f => { if(r[f] !== undefined) rec[f] = r[f]; });
-        records.push(rec); added++;
-      });
+      let added=0, skipped=0, sbFailed=0;
+
+      for(const r of rows){
+        // تخطي الصفوف الفارغة
+        const hasData = fileFields.some(f => r[f] && String(r[f]).trim());
+        if(!hasData){ skipped++; continue; }
+
+        const rec = {id: Date.now()+Math.floor(Math.random()*1000)};
+        fileFields.forEach(f => { if(r[f] !== undefined) rec[f] = r[f]; });
+        records.push(rec);
+        added++;
+
+        // رفع كل سجل لـ Supabase مباشرة
+        if(cfg.sbTable && window.sbUpsert){
+          try {
+            const realId = await window.sbUpsert(cfg.sbTable, rec);
+            if(realId != null && String(realId) !== String(rec.id)){
+              rec.id = realId;
+            }
+          } catch(e){ sbFailed++; }
+        }
+      }
+
       try { localStorage.setItem(cfg.lsKey, JSON.stringify(records)); } catch(e){}
-      // reload from storage and re-render
       const stored = _loadRecords(px, cfg.lsKey);
       window['_gpmRecords_'+px] = stored;
       render(pid);
-      _toast(px, `✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+      const sbMsg = cfg.sbTable ? (sbFailed ? ` — ⚠️ ${sbFailed} فشل في Supabase` : ' — ✅ Supabase') : '';
+      _toast(px, `✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
       input.value='';
     });
   }
   
+  /* رفع كل البيانات المحلية لـ Supabase — يُستخدم عند وجود بيانات في localStorage غير مرفوعة */
+  window.GPM_syncToSupabase = async function(pid){
+    const cfg = GPM_PAGES[pid];
+    if(!cfg || !cfg.sbTable || !window.sbUpsert){
+      alert('sbUpsert أو sbTable غير متاح');
+      return;
+    }
+    const px = cfg.prefix;
+    if(!_schemaSynced[pid]) await _syncPageSchema(pid);
+    const records = _loadRecords(px, cfg.lsKey);
+    if(!records.length){ alert('لا توجد بيانات محلية للرفع'); return; }
+
+    // رسالة تأكيد
+    const confirm_msg = `سيتم رفع ${records.length} سجل لجدول "${cfg.sbTable}". متابعة؟`;
+    if(!window.confirm(confirm_msg)) return;
+
+    // عرض تقدم في toast لو موجود، وإلا نستخدم alert
+    const showMsg = (msg) => {
+      const t = document.getElementById(px + 'Toast');
+      if(t){ t.textContent=msg; t.className='fs-toast info show'; }
+      else { console.log(msg); }
+    };
+    const showResult = (msg, type) => {
+      const t = document.getElementById(px + 'Toast');
+      if(t){ t.textContent=msg; t.className='fs-toast '+(type||'success')+' show'; setTimeout(()=>t.classList.remove('show'),5000); }
+      alert(msg);
+    };
+
+    showMsg(`⏳ جاري رفع ${records.length} سجل...`);
+    let ok=0, fail=0;
+    const BATCH = 10; // رفع 10 سجلات في آن واحد
+    for(let i=0; i<records.length; i+=BATCH){
+      const batch = records.slice(i, i+BATCH);
+      await Promise.all(batch.map(async rec => {
+        try {
+          const r = await window.sbUpsert(cfg.sbTable, rec);
+          if(r != null) ok++; else fail++;
+        } catch(e){ fail++; }
+      }));
+      showMsg(`⏳ جاري الرفع... ${ok+fail} / ${records.length}`);
+    }
+    showResult(`✅ رُفع ${ok} سجل بنجاح${fail?' — ❌ فشل '+fail+' سجل':''}`, fail?'error':'success');
+  };
+
   function _toast(px, msg, type){
     const t = document.getElementById(px + 'Toast');
     if(!t) return;
