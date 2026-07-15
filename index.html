@@ -774,11 +774,13 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
      above the pages (z=800), so no z-index fix needed for pages. */
   .gpm-sidebar.mob-open ~ * [id$="Page"]{pointer-events:auto}
 
-  /* Tables and wide content inside pages should scroll horizontally instead of overflowing */
+  /* Tables and wide content inside pages should scroll horizontally instead of overflowing.
+     ملاحظة: لا نضع display:block أو overflow-x على الـ <table> نفسها، لأن ده
+     بيعمل سياق تمرير منافس يكسر sticky header (بيسحب مرجع الالتصاق بعيداً عن
+     .fs-body اللي هو حاوية التمرير الحقيقية). .fs-body عندها overflow:auto
+     بالفعل وبتكفي للتمرير الأفقي والرأسي معاً من غير ما تكسر التثبيت. */
   [id$="Page"] table{
     max-width:100%;
-    display:block;
-    overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
 }
@@ -814,10 +816,30 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 ══════════════════════ */
 @media(max-width:480px){
   .gpm-sidebar.mob-open{width:260px}
+
+  /* شريط الأزرار العلوي — تصغير الأزرار لأنها كانت تاخد مساحة كبيرة من الشاشة */
   [id$="Page"] [class*="topbar"] button,
   [id$="Page"] [class*="header"] button{
-    font-size:.75rem!important;
-    padding:6px 10px!important;
+    font-size:.66rem!important;
+    padding:4px 8px!important;
+    gap:3px!important;
+    border-radius:7px!important;
+  }
+  [id$="Page"] [class*="topbar"],
+  [id$="Page"] [class*="header"]{
+    padding:8px 10px!important;
+    gap:6px!important;
+    row-gap:6px!important;
+  }
+  [id$="Page"] .fs-topbar-ico, [id$="Page"] .ap-topbar-ico, [id$="Page"] .sc-topbar-ico{
+    font-size:.95rem!important;
+  }
+  [id$="Page"] .fs-topbar-title, [id$="Page"] .ap-topbar-title, [id$="Page"] .sc-topbar-title{
+    font-size:.78rem!important;
+  }
+  /* العنوان الفرعي الإنجليزي يُخفى على الموبايل لتوفير المساحة (العنوان العربي كافٍ) */
+  [id$="Page"] .fs-topbar-title small, [id$="Page"] .ap-topbar-title small, [id$="Page"] .sc-topbar-title small{
+    display:none!important;
   }
 }
 
@@ -1088,7 +1110,6 @@ html, body {
   border-radius: 12px !important;
   box-shadow: 0 4px 20px rgba(0,0,0,0.06) !important;
   border: 1px solid rgba(255,255,255,0.6) !important;
-  overflow: hidden;
 }
 .fs-table thead th {
   background: linear-gradient(135deg,#0f2557,#1a3a8e) !important;
@@ -2109,8 +2130,22 @@ window._sbSpecialLoaded = window._sbSpecialLoaded || {};
 window.sbPullAll = async function(table, expectedKeys){
   if(!_sb || !table) return [];
   try {
-    const { data, error } = await _sb.from(table).select('*').order('id', { ascending: true });
-    if(error){ console.warn('[sbPullAll]', table, error.message); return []; }
+    // Supabase/PostgREST تحدّ كل طلب بحد أقصى 1000 صف افتراضياً، فلو الجدول
+    // فيه أكتر من كده لازم نجيب البيانات على دفعات (range) لحد ما نجيب الكل
+    const PAGE_SIZE = 1000;
+    let allRows = [];
+    let from = 0;
+    while(true){
+      const { data, error } = await _sb.from(table).select('*')
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if(error){ console.warn('[sbPullAll]', table, error.message); break; }
+      if(!Array.isArray(data) || !data.length) break;
+      allRows = allRows.concat(data);
+      if(data.length < PAGE_SIZE) break; // آخر دفعة
+      from += PAGE_SIZE;
+    }
+    const data = allRows;
     if(!Array.isArray(data)) return [];
     // Cache columns for later upserts
     if(data.length > 0){
@@ -2213,6 +2248,36 @@ window._sbFieldMap = {
   // العملاء (customer_list)
   'رقم_العميل': 'customer_code',
   'اسم_العميل': 'customer_name',
+  // مراكز التكلفة — PascalCase → lowercase (Supabase)
+  'Cost_Ctr_Code': 'cost_ctr_code',
+  'Company_Ar': 'company_ar',
+  'Company_Code': 'company_code',
+  'CCtC': 'cctc',
+  'Person_Responsible': 'person_responsible',
+  'User_Resp': 'user_resp',
+  'Short_text': 'short_text',
+  'Language': 'language',
+  'Valid_From': 'valid_from',
+  'To': 'to',
+  'Content_Type': 'content_type',
+  // مراكز التكلفة — أسماء عربية (من التصدير) → أعمدة Supabase
+  'كود مركز التكلفة': 'cost_ctr_code',
+  'اسم الشركة': 'company_ar',
+  'كود الشركة': 'company_code',
+  'المسئول': 'person_responsible',
+  'User Resp': 'user_resp',
+  'النص المختصر': 'short_text',
+  'اللغة': 'language',
+  'صالح من': 'valid_from',
+  'إلى': 'to',
+  'نوع المحتوى': 'content_type',
+  // دليل الحسابات — أسماء الملف → أعمدة Supabase
+  'Account_No': 'gl_account',
+  'Account_Name_EN': 'account_name_en',
+  'Account_Name_AR': 'account_name_ar',
+  'Account_Type': 'd_c',
+  'Account_Group': 'account_group',
+  'Status': 'status',
 };
 
 /* Build a record with normalized keys for flat-schema fallback. */
@@ -5329,13 +5394,6 @@ function posPrintAndClose(){
 }
 
 /* ══════════════════════════════════════════════════════════
-   UNIVERSAL EXCEL IMPORT — shared helper for all Upload buttons
-   Supports .xlsx/.xls (via SheetJS) and .csv (plain text)
-   Usage: gpmReadXLFile(file, expectedHeaders, callback(rows, err))
-   - rows: array of plain objects keyed by expectedHeaders (or first-row headers)
-   - err: string or null
-══════════════════════════════════════════════════════════ */
-/* ══════════════════════════════════════════════════════════
    UNIVERSAL WORD EXPORT — client-side HTML→.doc
    Usage: gpmExportWord({ title, titleEn, headers, rows, filename, toast })
    - headers : array of column label strings
@@ -5390,8 +5448,59 @@ function gpmExportWord({ title='تصدير', titleEn='Export', headers=[], rows=
   if(toast) toast('📝 تم التصدير إلى Word', 'success');
 }
 
-function gpmReadXLFile(file, expectedHeaders, callback){
+/* ══════════════════════════════════════════════════════════
+   UNIVERSAL EXCEL IMPORT — shared helper for all Upload buttons
+   Supports .xlsx/.xls (via SheetJS) and .csv (plain text)
+   Usage: gpmReadXLFile(file, columnMap, callback(rows, err))
+
+   columnMap accepts THREE forms:
+     • []  or omitted            → keep file headers exactly as-is
+     • ['اسم_الموظف', ...]        → legacy: array of expected internal
+                                     keys, matched loosely against the
+                                     file's header row
+     • [{label:'اسم الموظف', key:'اسم_الموظف'}, ...]  → preferred form.
+         "label" = the exact column header text as written by the
+         page's own *ExportXL button. "key" = the internal field
+         name the app uses to store/display the value. Since Upload
+         is meant to re-read the very file produced by Excel export,
+         building columnMap from the SAME array used for export
+         guarantees a perfect round-trip regardless of Arabic/English
+         wording differences.
+
+   Matching is normalized (Arabic alef/ta-marbuta/ya variants,
+   underscores/spaces/dashes, case) so minor formatting differences
+   between the export label and the file header still resolve.
+
+   - rows: array of plain objects keyed by the matched column (or the
+     raw file header when no match is found)
+   - err: string or null
+══════════════════════════════════════════════════════════ */
+function _gpmNormalizeHeader(s){
+  return String(s||'')
+    .replace(/[\u064B-\u065F\u0670]/g,'')      // strip Arabic diacritics
+    .replace(/[أإآٱ]/g,'ا')
+    .replace(/ة/g,'ه')
+    .replace(/[ىﻯ]/g,'ي')
+    .replace(/[_\-\/]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .toLowerCase();
+}
+
+function gpmReadXLFile(file, columnMap, callback){
   const ext = file.name.split('.').pop().toLowerCase();
+
+  // Build a normalized lookup table: normalized(header text) → target key
+  const lookup = {};
+  (columnMap||[]).forEach(item => {
+    if(typeof item === 'string'){
+      lookup[_gpmNormalizeHeader(item)] = item;
+    } else if(item && item.label){
+      lookup[_gpmNormalizeHeader(item.label)] = item.key || item.label;
+      if(item.key) lookup[_gpmNormalizeHeader(item.key)] = item.key;
+    }
+  });
+  const resolveKey = h => lookup[_gpmNormalizeHeader(h)] || h;
 
   // ── CSV path ──────────────────────────────────────────
   if(ext === 'csv'){
@@ -5399,18 +5508,17 @@ function gpmReadXLFile(file, expectedHeaders, callback){
     reader.onload = e => {
       try {
         const text = e.target.result.replace(/^\uFEFF/, ''); // strip BOM
+        const delim = (text.split(/\r?\n/)[0]||'').includes('\t') ? '\t' : (text.split(/\r?\n/)[0]||'').includes(',') ? ',' : '\t';
         const lines = text.split(/\r?\n/).filter(l => l.trim());
         if(!lines.length){ callback([], null); return; }
-        const fileHeaders = lines[0].split('\t').map(h=>h.trim());
+        const fileHeaders = lines[0].split(delim).map(h=>h.trim());
         const rows = [];
         for(let i=1; i<lines.length; i++){
-          const vals = lines[i].split('\t');
+          const vals = lines[i].split(delim);
           if(vals.every(v=>!v.trim())) continue;
           const row = {};
           fileHeaders.forEach((h,j) => {
-            // try matching to expected headers (exact or strip spaces)
-            const matched = expectedHeaders.find(eh => eh===h || eh.replace(/_/g,' ')===h || h.replace(/ /g,'_')===eh);
-            row[matched || h] = vals[j] !== undefined ? vals[j].trim() : '';
+            row[resolveKey(h)] = vals[j] !== undefined ? vals[j].trim() : '';
           });
           rows.push(row);
         }
@@ -5443,13 +5551,7 @@ function gpmReadXLFile(file, expectedHeaders, callback){
         const row = {};
         fileHeaders.forEach((h,j) => {
           const val = vals[j] !== undefined ? String(vals[j]).trim() : '';
-          // match to expectedHeaders
-          const matched = expectedHeaders.find(eh =>
-            eh===h || eh.replace(/_/g,' ')===h || h.replace(/ /g,'_')===eh ||
-            // also match Arabic numeric column headers (e.g. '#' -> skip)
-            eh.toLowerCase() === h.toLowerCase()
-          );
-          row[matched || h] = val;
+          row[resolveKey(h)] = val;
         });
         rows.push(row);
       }
@@ -6953,16 +7055,20 @@ function scPrint(){
 }
 
 /* ── Excel Export ── */
+/* مصدر واحد لقائمة الأعمدة يستخدمه زر Excel وزر Upload معاً */
+function scExportHeaders(){
+  return ['السنة','الشهر','الفترة_من','الفترة_الى','ايام_الشهر','اسم_الشركة','الخدمة','رقم_الفاتورة','اجمالى_العقد','عدد_الافراد','عدد_الاشراف','حضور_الافراد','حضور_الاشراف','سعر_الفرد','سعر_المشرف','غياب_افراد','غياب_مشرف','اجمالى_الغياب','صافى_العقد','خصم_نسبة_تقييم','قيمة_خصم_التقييم','خصم_مخالفات','خصم_قبل_الضريبة','القيمة_المضافة','اجمالى_قيمة_العقد','ضرائب_خصم_و_اضافة','نسبة_خصم_التامينات','قيمة_خصم_التامينات','خصومات_اخرى','خصومات_سكن','صافى_المبلغ'];
+}
+
 function scExportExcel(){
   if(!scRecords.length){ scToast('لا توجد سجلات للتصدير','error'); return; }
-  const headers=['السنة','الشهر','الفترة_من','الفترة_الى','ايام_الشهر','اسم_الشركة','الخدمة','رقم_الفاتورة','اجمالى_العقد','عدد_الافراد','عدد_الاشراف','حضور_الافراد','حضور_الاشراف','سعر_الفرد','سعر_المشرف','غياب_افراد','غياب_مشرف','اجمالى_الغياب','صافى_العقد','خصم_نسبة_تقييم','قيمة_خصم_التقييم','خصم_مخالفات','خصم_قبل_الضريبة','القيمة_المضافة','اجمالى_قيمة_العقد','ضرائب_خصم_و_اضافة','نسبة_خصم_التامينات','قيمة_خصم_التامينات','خصومات_اخرى','خصومات_سكن','صافى_المبلغ'];
-  const rows=scRecords.map(r=>headers.map(h=>r[h]||'').join('\t'));
-  const tsv=headers.join('\t')+'\n'+rows.join('\n');
-  const blob=new Blob(['\uFEFF'+tsv],{type:'text/tab-separated-values;charset=utf-8'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='service_contracts_'+new Date().toISOString().slice(0,10)+'.xls';
-  a.click();
+  if(typeof XLSX === 'undefined'){ scToast('❌ مكتبة Excel غير محملة','error'); return; }
+  const headers = scExportHeaders();
+  const aoa = [headers, ...scRecords.map(r => headers.map(h => r[h] ?? ''))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'عقود الخدمة');
+  XLSX.writeFile(wb, 'service_contracts_'+new Date().toISOString().slice(0,10)+'.xlsx');
   scToast('📊 تم تصدير الملف بنجاح','success');
 }
 
@@ -6977,7 +7083,7 @@ function scExportWord(){
 
 function scImportXL(input){
   const file=input.files[0]; if(!file) return;
-  const headers=['السنة','الشهر','الفترة_من','الفترة_الى','ايام_الشهر','اسم_الشركة','الخدمة','رقم_الفاتورة','اجمالى_العقد','عدد_الافراد','عدد_الاشراف','حضور_الافراد','حضور_الاشراف','سعر_الفرد','سعر_المشرف','غياب_افراد','غياب_مشرف','اجمالى_الغياب','صافى_العقد','خصم_نسبة_تقييم','قيمة_خصم_التقييم','خصم_مخالفات','خصم_قبل_الضريبة','القيمة_المضافة','اجمالى_قيمة_العقد','ضرائب_خصم_و_اضافة','نسبة_خصم_التامينات','قيمة_خصم_التامينات','خصومات_اخرى','خصومات_سكن','صافى_المبلغ'];
+  const headers = scExportHeaders();
   gpmReadXLFile(file, headers, (rows, err)=>{
     if(err){ scToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ scToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
@@ -7011,7 +7117,7 @@ function scToast(msg,type='success'){
 <div id="empPage" style="display:none;position:fixed;top:52px;left:52px;right:0;bottom:0;z-index:800;direction:ltr;font-family:'Tajawal',sans-serif">
 <style>
 /* ── Shared Sheet+Drawer styles ── */
-.fs-page{display:flex;flex-direction:column;height:calc(100vh - 52px);overflow:hidden}
+.fs-page{display:flex;flex-direction:column;height:calc(100vh - 52px);overflow:hidden;min-height:0}
 
 /* Top bar */
 .fs-topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:linear-gradient(135deg,#1a3a6e 0%,#2563eb 100%);border-bottom:none;flex-shrink:0;box-shadow:0 3px 14px rgba(26,58,110,.35);direction:ltr}
@@ -7156,7 +7262,35 @@ function scToast(msg,type='success'){
 /* ══════════════════════════════════════════════
    3D TABLE — جداول البيانات بتأثير ثلاثي الأبعاد
 ══════════════════════════════════════════════ */
-.fs-body{flex:1;overflow:auto;padding:0}
+.fs-body{flex:1;overflow:auto;padding:0;min-height:0}
+/* ═══ Sticky Table Header ═══
+   يشتغل لأن fs-body هو الـ scroll container (overflow:auto + flex:1)
+   والـ sticky يحسب top بالنسبة لأقرب scroll ancestor */
+.fs-body thead th {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 9;
+}
+
+.fs-table{width:100%;border-collapse:collapse}
+/* ══ Sticky thead — يثبت عند الـ scroll داخل fs-body ══ */
+.fs-body { overflow: auto; }
+.fs-body .fs-table thead,
+.fs-body > table thead,
+.fs-body > div > table thead {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.fs-body .fs-table thead th,
+.fs-body > table thead th,
+.fs-body > div > table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
 /* ══════════════════════════════════════════
    PAGINATION BAR — شريط التنقل بين الصفحات
 ══════════════════════════════════════════ */
@@ -7209,6 +7343,16 @@ function scToast(msg,type='success'){
   color:rgba(255,255,255,.75);font-size:.74rem;
   font-family:'Tajawal',sans-serif;white-space:nowrap;
 }
+.fs-pg-summary{
+  display:flex;align-items:center;gap:10px;
+  color:#fff;font-size:.78rem;font-weight:700;
+  font-family:'Tajawal',sans-serif;white-space:nowrap;
+  padding:0 10px;margin:0 4px;
+  border-right:1px solid rgba(255,255,255,.25);
+  border-left:1px solid rgba(255,255,255,.25);
+}
+.fs-pg-summary b{ color:#fff;font-weight:800 }
+.fs-pg-summary .fs-pg-sum-item{ display:flex;align-items:center;gap:4px }
 
 .fs-table{
   width:100%;
@@ -7221,7 +7365,6 @@ function scToast(msg,type='success'){
    تقنية: outline + clip-path للفصل الحقيقي
 ══════════════════════════════════════════════ */
 .fs-table thead tr{
-  position:sticky;top:0;z-index:10;
   background:#f0f2f7;
 }
 
@@ -7551,14 +7694,15 @@ function scToast(msg,type='success'){
 .fs-table{
   background:#fff;
   border-radius:14px;
-  overflow:hidden;
   box-shadow:0 4px 20px rgba(0,0,0,.09);
 }
+/* ملاحظة: overflow:hidden اتشالت من هنا لأنها كانت بتكسر sticky header
+   (بتعمل clipping context يمنع position:sticky من الالتصاق الصحيح بأعلى
+   منطقة التمرير .fs-body). الزوايا الدائرية بتتحقق من خلايا الرأس نفسها. */
 /* Wrap table in a shadow card */
 .fs-body > .fs-table,
 .fs-body > div > .fs-table{
   border-radius:14px !important;
-  overflow:hidden !important;
   box-shadow:0 4px 20px rgba(0,0,0,.09) !important;
 }
 /* thead — gradient like topbar */
@@ -7845,17 +7989,9 @@ function scToast(msg,type='success'){
     <button class="fs-btn fs-btn-light" onclick="closeEmployees()">✕ إغلاق</button>
   </div>
 
-  <!-- Stats -->
-  <div class="fs-stats" id="empStats">
-    <div class="fs-stat"><span class="fs-stat-ico">👥</span><div><div class="fs-stat-val" id="empStatCount">0</div><div class="fs-stat-lbl">موظف</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">💰</span><div><div class="fs-stat-val" id="empStatSalary">—</div><div class="fs-stat-lbl">إجمالي الرواتب EGP</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">🏢</span><div><div class="fs-stat-val" id="empStatDepts">—</div><div class="fs-stat-lbl">إدارات</div></div></div>
-  </div>
-
-  <!-- Toolbar -->
+  <!-- Toolbar (يضم البحث فقط الآن — الإجماليات دُمجت مع شريط الصفحات بالأسفل) -->
   <div class="fs-toolbar">
     <input class="fs-search" id="empFsSearch" type="text" placeholder="🔍 بحث بالاسم أو الكود أو الإدارة..." oninput="empFsRender()">
-    <span class="fs-count" id="empFsCount">0 موظف</span>
   </div>
 
   <!-- Sheet -->
@@ -7943,23 +8079,40 @@ function closeEmployees(){
 }
 
 /* Render full table */
+/* empVal: يجيب قيمة الحقل بغض النظر عن كون السجل مخزون بالمفاتيح
+   العربية القديمة أو أسماء أعمدة Supabase الإنجليزية الحالية */
+const _empKeyMap = {
+  'كود_الموظف':'employee_code','اسم_الموظف':'employee_name','الإدارة':'department',
+  'القسم':'section','الوظيفة':'job_title','الراتب':'salary',
+  'تاريخ_التعين':'hiring_date','تاريخ_الميلاد':'date_of_birth','رقم_الهاتف':'phone_number',
+  'رقم_البطاقة':'national_id','الرقم_التأميني':'insurance_number',
+  'رقم_حساب_البنك':'bank_account_number','العنوان':'address',
+};
+const _empKeyMapRev = Object.fromEntries(Object.entries(_empKeyMap).map(([a,e])=>[e,a]));
+function empVal(r, key){
+  if(!r) return '';
+  if(r[key] != null && r[key] !== '') return r[key];
+  const alt = _empKeyMap[key] || _empKeyMapRev[key];
+  return (alt && r[alt] != null && r[alt] !== '') ? r[alt] : '';
+}
+
 function empFsRender(){
   const q=(document.getElementById('empFsSearch')?.value||'').toLowerCase();
   const dynFields = window._spSchema && window._spSchema['emp'];
   const searchFields = dynFields || ['اسم_الموظف','كود_الموظف','الإدارة','الوظيفة'];
-  const recs=empRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
+  const recs=empRecords.filter(r=>!q || searchFields.some(f => empVal(r,f).toString().toLowerCase().includes(q)));
   GPMPager.init('emp', recs.length, empFsRender);
   const pagedRecs = GPMPager.slice('emp', recs);
 
-  // Stats
+  // Stats — تُدمج الآن داخل شريط الترقيم بالأسفل بدل صندوق منفصل بالأعلى
   const salaryKey = dynFields ? (dynFields.find(f => /راتب|salary|net_pay/i.test(f)) || 'الراتب') : 'الراتب';
   const deptKey = dynFields ? (dynFields.find(f => /إدارة|دائرة|dept|department/i.test(f)) || 'الإدارة') : 'الإدارة';
-  const totalSal=empRecords.reduce((s,r)=>s+parseFloat(r[salaryKey]||0),0);
-  const depts=new Set(empRecords.map(r=>r[deptKey]).filter(Boolean)).size;
-  document.getElementById('empStatCount').textContent=empRecords.length;
-  document.getElementById('empStatSalary').textContent=totalSal?totalSal.toLocaleString('en',{maximumFractionDigits:0}):'—';
-  document.getElementById('empStatDepts').textContent=depts||'—';
-  document.getElementById('empFsCount').textContent=recs.length+' موظف';
+  const totalSal=empRecords.reduce((s,r)=>s+parseFloat(empVal(r,salaryKey)||0),0);
+  const depts=new Set(empRecords.map(r=>empVal(r,deptKey)).filter(Boolean)).size;
+  GPMPager.setSummary('emp', `
+    <span class="fs-pg-sum-item">💰 <b>${totalSal?totalSal.toLocaleString('en',{maximumFractionDigits:0}):'—'}</b> EGP</span>
+    <span class="fs-pg-sum-item">🏢 <b>${depts||'—'}</b> إدارات</span>
+  `);
 
   const tbody=document.getElementById('empFsTbody');
   const colspan = dynFields ? (dynFields.length + 2) : 11;
@@ -7993,7 +8146,7 @@ function empFsRender(){
       }).join('');
       return;
     }
-    tbody.innerHTML = recs.map((r,i) => `
+    tbody.innerHTML = pagedRecs.map((r,i) => `
       <tr>
         <td>${i+1}</td>
         <td>${inp(r,'كود_الموظف')}</td>
@@ -8016,8 +8169,8 @@ function empFsRender(){
 
   // Read-only — dynamic
   if(dynFields){
-    tbody.innerHTML = recs.map((r,i) => {
-      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+    tbody.innerHTML = pagedRecs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${empVal(r,f) || '—'}</td>`).join('');
       return `<tr class="${String(r.id) === String(empCurrentId)?'fs-row-active':''}" onclick="empOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
@@ -8252,38 +8405,82 @@ function empQuickDelete(id){
   })();
 }
 
+/* مصدر واحد للأعمدة يستخدمه كل من زر Excel وزر Upload لضمان توافق الرفع مع التصدير */
+function empExportCols(){
+  // label = نفس اسم عمود Supabase بالظبط (English) — لضمان تطابق تام بين
+  // التصدير والرفع ومنع أي خطأ مطابقة أسماء مستقبلاً
+  return [
+    {label:'employee_code',        ar:'كود_الموظف',      en:'employee_code'},
+    {label:'employee_name',        ar:'اسم_الموظف',      en:'employee_name'},
+    {label:'department',           ar:'الإدارة',          en:'department'},
+    {label:'section',              ar:'القسم',            en:'section'},
+    {label:'job_title',            ar:'الوظيفة',          en:'job_title'},
+    {label:'salary',               ar:'الراتب',           en:'salary'},
+    {label:'hiring_date',          ar:'تاريخ_التعين',    en:'hiring_date'},
+    {label:'date_of_birth',        ar:'تاريخ_الميلاد',   en:'date_of_birth'},
+    {label:'phone_number',         ar:'رقم_الهاتف',      en:'phone_number'},
+    {label:'national_id',          ar:'رقم_البطاقة',     en:'national_id'},
+    {label:'insurance_number',     ar:'الرقم_التأميني',  en:'insurance_number'},
+    {label:'bank_account_number',  ar:'رقم_حساب_البنك',  en:'bank_account_number'},
+    {label:'address',              ar:'العنوان',          en:'address'},
+  ];
+}
+
 function empExportXL(){
   if(!empRecords.length){ empFsToast('لا توجد بيانات','error'); return; }
-  const headers=['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك','رقم_البطاقة','الرقم_التأميني','العنوان'];
-  const rows=empRecords.map(r=>headers.map(h=>r[h]||'').join('\t'));
-  const blob=new Blob(['\uFEFF'+headers.join('\t')+'\n'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='employees_'+new Date().toISOString().slice(0,10)+'.xls';a.click();
+  if(typeof XLSX === 'undefined'){ empFsToast('❌ مكتبة Excel غير محملة','error'); return; }
+  const exportCols = empExportCols();
+  const san = v => String(v||'').replace(/[\r\n\t]+/g,' ').trim();
+  const getVal = (r, col) => san(r[col.ar] || r[col.en] || '');
+  const aoa = [
+    exportCols.map(c=>c.label),
+    ...empRecords.map(r => exportCols.map(c => getVal(r,c)))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = exportCols.map((_,i)=>({wch: [14,24,18,14,18,12,16,16,16,16,16,20,24][i]||15}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'الموظفون');
+  XLSX.writeFile(wb, 'employees_'+new Date().toISOString().slice(0,10)+'.xlsx');
   empFsToast('📊 تم التصدير','success');
 }
 
 function empExportWord(){
   if(!empRecords.length){ empFsToast('لا توجد بيانات','error'); return; }
-  const headers=['كود الموظف','اسم الموظف','الإدارة','القسم','الوظيفة','تاريخ التعيين','رقم الهاتف','الراتب','رقم الحساب','رقم البطاقة','الرقم التأميني','العنوان'];
-  const keys  =['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك','رقم_البطاقة','الرقم_التأميني','العنوان'];
-  const rows  = empRecords.map((r,i)=>[i+1,...keys.map(k=>r[k]||'—')]);
+  const exportCols = empExportCols();
+  const headers = exportCols.map(c=>c.label);
+  const rows = empRecords.map((r,i)=>[i+1,...exportCols.map(c=>r[c.en]||r[c.ar]||'—')]);
   gpmExportWord({ title:'سجل الموظفين', titleEn:'Employee Records', headers, rows, filename:'employees', toast:empFsToast });
 }
 
 function empImportXL(input){
   const file=input.files[0]; if(!file) return;
-  const headers=['كود_الموظف','اسم_الموظف','الإدارة','القسم','الوظيفة','تاريخ_التعين','رقم_الهاتف','الراتب','رقم_حساب_البنك','رقم_البطاقة','الرقم_التأميني','العنوان'];
-  gpmReadXLFile(file, headers, (rows, err)=>{
+  // نفس أعمدة زر Excel، لكن المفتاح النهائي = اسم عمود Supabase الفعلي (lowercase)
+  // مباشرة — عشان تتوافق فوراً مع المخطط الديناميكي dynFields المستخدم فى العرض
+  // (لو خزّنا بأسماء عربية هتظهر الصفوف فارغة لحد ما يتم عمل refresh كامل للموقع)
+  const columnMap = empExportCols().map(c => ({label:c.label, key:c.en}));
+  gpmReadXLFile(file, columnMap, async (rows, err)=>{
     if(err){ empFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ empFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
-    let added=0, skipped=0;
-    rows.forEach(r=>{
-      if(!r['اسم_الموظف'] && !r['كود_الموظف'] && !r['emp_name'] && !r['emp_code']){ skipped++; return; }
-      const rec={...r, id: Date.now()+Math.random()};
+    let added=0, skipped=0, sbOk=0, sbFailed=0;
+    empFsToast('⏳ جاري الاستيراد...', 'info');
+    for(const r of rows){
+      if(!r['employee_name'] && !r['employee_code']){ skipped++; continue; }
+      if(r['salary'] !== undefined && r['salary'] !== '') r['salary'] = parseFloat(r['salary']) || null;
+      const rec={...r, id: Date.now()+Math.floor(Math.random()*1000)};
       empRecords.push(rec); added++;
-    });
+      // حفظ فوري فى Supabase — rec أصلاً بنفس أسماء أعمدة الجدول، لا يحتاج تحويل إضافي
+      if(window.sbUpsert){
+        try{
+          const realId = await window.sbUpsert('emploee_code', rec);
+          if(realId != null){ sbOk++; if(String(realId)!==String(rec.id)) rec.id = realId; }
+          else sbFailed++;
+        }catch(e){ sbFailed++; console.warn('empImportXL sbUpsert failed:', e); }
+      }
+    }
     localStorage.setItem('gpm_emp_records',JSON.stringify(empRecords));
     empFsRender();
-    empFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    const sbMsg = window.sbUpsert ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`) : '';
+    empFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
     input.value='';
   });
 }
@@ -8349,13 +8546,8 @@ function empFsToast(msg,type='success'){
     <input type="file" id="vndUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="vndImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeVendors()">✕ إغلاق</button>
   </div>
-  <div class="fs-stats">
-    <div class="fs-stat"><span class="fs-stat-ico">🏭</span><div><div class="fs-stat-val" id="vndStatCount">0</div><div class="fs-stat-lbl">مورد</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">📎</span><div><div class="fs-stat-val" id="vndStatAtt">0</div><div class="fs-stat-lbl">مرفق</div></div></div>
-  </div>
   <div class="fs-toolbar">
     <input class="fs-search" id="vndFsSearch" type="text" placeholder="🔍 بحث بالاسم أو الكود أو SAP..." oninput="vndFsRender()">
-    <span class="fs-count" id="vndFsCount">0 مورد</span>
   </div>
   <div class="fs-body">
     <table class="fs-table" id="vndFsTable">
@@ -8433,22 +8625,25 @@ function openVendors(){
 }
 function closeVendors(){ document.getElementById('vendorPage').style.display='none'; vndCloseDrawer(); }
 
-/* vndVal: يجيب قيمة الحقل سواء كان مخزون بالاسم العربي أو الإنجليزي */
-function vndVal(r, arKey){
+/* vndVal: يجيب قيمة الحقل بغض النظر عن كون السجل مخزون بالمفاتيح
+   العربية القديمة أو أسماء أعمدة Supabase الإنجليزية الحالية — مهم عشان
+   السجلات القديمة المخزّنة محلياً قبل توحيد الأسماء تفضل تظهر/تتبحث صح */
+const _vndKeyMap = {
+  'كود_المورد':            'vendor_code',
+  'كود_المورد_ساب':        'vendor_sap_code',
+  'اسم_الشركة':            'vendor_name',
+  'اسم_المسئول':           'personal_name',
+  'العنوان':               'vendor_adress',
+  'التليفون':              'telefone',
+  'رقم_التسجيل_الضريبي':  'vat_tax_number',
+  'رقم_السجل_التجاري':    'commercial_registration_number',
+};
+const _vndKeyMapRev = Object.fromEntries(Object.entries(_vndKeyMap).map(([a,e])=>[e,a]));
+function vndVal(r, key){
   if(!r) return '';
-  if(r[arKey] != null && r[arKey] !== '') return r[arKey];
-  const map = {
-    'كود_المورد':            'vendor_code',
-    'كود_المورد_ساب':        'vendor_sap_code',
-    'اسم_الشركة':            'vendor_name',
-    'اسم_المسئول':           'personal_name',
-    'العنوان':               'vendor_adress',
-    'التليفون':              'telefone',
-    'رقم_التسجيل_الضريبي':  'vat_tax_number',
-    'رقم_السجل_التجاري':    'commercial_registration_number',
-  };
-  const enKey = map[arKey];
-  if(enKey && r[enKey] != null && r[enKey] !== '') return r[enKey];
+  if(r[key] != null && r[key] !== '') return r[key];
+  const alt = _vndKeyMap[key] || _vndKeyMapRev[key];
+  if(alt && r[alt] != null && r[alt] !== '') return r[alt];
   return '';
 }
 
@@ -8456,14 +8651,12 @@ function vndFsRender(){
   const q=(document.getElementById('vndFsSearch')?.value||'').toLowerCase();
   const dynFields = window._spSchema && window._spSchema['vnd'];
   const searchFields = dynFields || ['اسم_الشركة','كود_المورد','كود_المورد_ساب','اسم_المسئول'];
-  const recs=vndRecords.filter(r=>!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
+  const recs=vndRecords.filter(r=>!q || searchFields.some(f => vndVal(r,f).toString().toLowerCase().includes(q)));
   GPMPager.init('vnd', recs.length, vndFsRender);
   const pagedRecs = GPMPager.slice('vnd', recs);
 
   const totalAtt=Object.values(vndAttachments).reduce((s,a)=>s+(a?.length||0),0);
-  document.getElementById('vndStatCount').textContent=vndRecords.length;
-  document.getElementById('vndStatAtt').textContent=totalAtt;
-  document.getElementById('vndFsCount').textContent=recs.length+' مورد';
+  GPMPager.setSummary('vnd', `<span class="fs-pg-sum-item">📎 <b>${totalAtt}</b> مرفق</span>`);
 
   const tbody=document.getElementById('vndFsTbody');
   const colspan = dynFields ? (dynFields.length + 2) : 11;
@@ -8485,7 +8678,7 @@ function vndFsRender(){
 
     const inp = (rec, f) => window.spCellInput('vnd', rec, f, { onChangeFn: 'window.vndInlineSave' });
     if(dynFields){
-      tbody.innerHTML = recs.map((r,i) => {
+      tbody.innerHTML = pagedRecs.map((r,i) => {
         const cells = dynFields.map(f => `<td>${inp(r, f)}</td>`).join('');
         return `<tr><td>${i+1}</td>${cells}<td><div class="fs-row-btns" style="opacity:1">
           <button class="fs-row-btn fs-row-btn-del" onclick="vndQuickDelete(${r.id})">🗑️</button>
@@ -8518,8 +8711,8 @@ function vndFsRender(){
 
   // Read-only mode
   if(dynFields){
-    tbody.innerHTML = recs.map((r,i) => {
-      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+    tbody.innerHTML = pagedRecs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${vndVal(r,f) || '—'}</td>`).join('');
       return `<tr class="${String(r.id) === String(vndCurrentId)?'fs-row-active':''}" onclick="vndOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
@@ -8767,38 +8960,83 @@ function vndQuickDelete(id){
   })();
 }
 
+/* مصدر واحد للأعمدة يستخدمه كل من زر Excel وزر Upload لضمان توافق الرفع مع التصدير */
+function vndExportCols(){
+  // label = نفس اسم عمود Supabase بالظبط (English) — لضمان تطابق تام بين
+  // التصدير والرفع ومنع أي خطأ مطابقة أسماء مستقبلاً
+  return [
+    {label:'vendor_code',                     ar:'كود_المورد',               en:'vendor_code'},
+    {label:'vendor_sap_code',                 ar:'كود_المورد_ساب',           en:'vendor_sap_code'},
+    {label:'vendor_name',                     ar:'اسم_الشركة',               en:'vendor_name'},
+    {label:'personal_name',                   ar:'اسم_المسئول',              en:'personal_name'},
+    {label:'telefone',                        ar:'التليفون',                  en:'telefone'},
+    {label:'commercial_registration_number',  ar:'رقم_السجل_التجاري',        en:'commercial_registration_number'},
+    {label:'vat_tax_number',                  ar:'رقم_التسجيل_الضريبي',     en:'vat_tax_number'},
+    {label:'vendor_adress',                   ar:'العنوان',                   en:'vendor_adress'},
+  ];
+}
+
 function vndExportXL(){
   if(!vndRecords.length){ vndFsToast('لا توجد بيانات','error'); return; }
-  const headers=['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'];
-  const rows=vndRecords.map(r=>headers.map(h=>r[h]||'').join('\t'));
-  const blob=new Blob(['\uFEFF'+headers.join('\t')+'\n'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='vendors_'+new Date().toISOString().slice(0,10)+'.xls';a.click();
+  if(typeof XLSX === 'undefined'){ vndFsToast('❌ مكتبة Excel غير محملة','error'); return; }
+  const exportCols = vndExportCols();
+  const san = v => String(v||'').replace(/[\r\n\t]+/g,' ').trim();
+  const getVal = (r, col) => san(r[col.ar] || r[col.en] || '');
+  // بناء الـ AOA (Array of Arrays) لـ SheetJS — كل عمود في خلية مستقلة
+  const aoa = [
+    exportCols.map(c => c.label), // header row
+    ...vndRecords.map(r => exportCols.map(c => getVal(r, c)))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  // ضبط عرض الأعمدة
+  ws['!cols'] = [
+    {wch:14},{wch:16},{wch:36},{wch:24},{wch:16},{wch:24},{wch:24},{wch:30}
+  ];
+  // تجميد أول صف (header)
+  ws['!freeze'] = {xSplit:0, ySplit:1};
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'الموردون');
+  XLSX.writeFile(wb, 'vendors_'+new Date().toISOString().slice(0,10)+'.xlsx');
   vndFsToast('📊 تم التصدير','success');
 }
 
 function vndExportWord(){
   if(!vndRecords.length){ vndFsToast('لا توجد بيانات','error'); return; }
-  const headers=['كود المورد','كود SAP','اسم الشركة','اسم المسئول','التليفون','السجل التجاري','التسجيل الضريبي','العنوان'];
-  const keys  =['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'];
-  const rows  = vndRecords.map((r,i)=>[i+1,...keys.map(k=>r[k]||'—')]);
+  const exportCols = vndExportCols();
+  const headers = exportCols.map(c=>c.label);
+  const _san = v => String(v||'').replace(/[\r\n\t]+/g,' ').trim() || '—';
+  const rows = vndRecords.map((r,i)=>[i+1,...exportCols.map(c=>_san(r[c.en]||r[c.ar]))]);
   gpmExportWord({ title:'سجل الموردين', titleEn:'Vendor Records', headers, rows, filename:'vendors', toast:vndFsToast });
 }
 
 function vndImportXL(input){
   const file=input.files[0]; if(!file) return;
-  const headers=['كود_المورد','كود_المورد_ساب','اسم_الشركة','اسم_المسئول','التليفون','رقم_السجل_التجاري','رقم_التسجيل_الضريبي','العنوان'];
-  gpmReadXLFile(file, headers, (rows, err)=>{
+  // نفس أعمدة زر Excel، لكن المفتاح النهائي = اسم عمود Supabase الفعلي (lowercase)
+  // مباشرة — عشان تتوافق فوراً مع المخطط الديناميكي dynFields المستخدم فى العرض
+  // (لو خزّنا بأسماء عربية هتظهر الصفوف فارغة لحد ما يتم عمل refresh كامل للموقع)
+  const columnMap = vndExportCols().map(c => ({label:c.label, key:c.en}));
+  gpmReadXLFile(file, columnMap, async (rows, err)=>{
     if(err){ vndFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ vndFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
-    let added=0, skipped=0;
-    rows.forEach(r=>{
-      if(!r['اسم_الشركة'] && !r['كود_المورد']){ skipped++; return; }
-      const rec={...r, id: Date.now()+Math.random()};
+    let added=0, skipped=0, sbOk=0, sbFailed=0;
+    vndFsToast('⏳ جاري الاستيراد...', 'info');
+    for(const r of rows){
+      if(!r['vendor_name'] && !r['vendor_code']){ skipped++; continue; }
+      const rec={...r, id: Date.now()+Math.floor(Math.random()*1000)};
       vndRecords.push(rec); added++;
-    });
+      // حفظ فوري فى Supabase — rec أصلاً بنفس أسماء أعمدة الجدول، لا يحتاج تحويل إضافي
+      if(window.sbUpsert){
+        try{
+          const realId = await window.sbUpsert('vendors_list', rec);
+          if(realId != null){ sbOk++; if(String(realId)!==String(rec.id)) rec.id = realId; }
+          else sbFailed++;
+        }catch(e){ sbFailed++; console.warn('vndImportXL sbUpsert failed:', e); }
+      }
+    }
     localStorage.setItem('gpm_vnd_records',JSON.stringify(vndRecords));
     vndFsRender();
-    vndFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    const sbMsg = window.sbUpsert ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`) : '';
+    vndFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
     input.value='';
   });
 }
@@ -8806,10 +9044,10 @@ function vndImportXL(input){
 function vndDrawerPrint(){
   const rec=vndCollectDrawer();
   const w=window.open('','_blank','width=800,height=600');
-  const name=rec['اسم_الشركة']||'—';
+  const name=rec['vendor_name']||rec['اسم_الشركة']||'—';
   w.document.write(`<html><head><title>بيانات المورد — ${name}</title>
     <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#0f3460,#1a3a6e);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 4px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#0f3460;margin:14px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0f6ff;color:#0f3460;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
-    <div class="header"><h1>${name}</h1><p>كود: ${rec['كود_المورد']||'—'} | SAP: ${rec['كود_المورد_ساب']||'—'}</p></div>
+    <div class="header"><h1>${name}</h1><p>كود: ${rec['vendor_code']||rec['كود_المورد']||'—'} | SAP: ${rec['vendor_sap_code']||rec['كود_المورد_ساب']||'—'}</p></div>
     <h2>🏭 بيانات المورد</h2>
     <div class="grid">
       <div class="row"><label>اسم الشركة</label><span>${rec['اسم_الشركة']||'—'}</span></div>
@@ -8851,19 +9089,12 @@ function vndFsToast(msg,type='success'){
     <input type="file" id="custUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="custImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeCustomers()">✕ إغلاق</button>
   </div>
-  <div class="fs-stats">
-    <div class="fs-stat"><span class="fs-stat-ico">🏘️</span><div><div class="fs-stat-val" id="custStatCount">0</div><div class="fs-stat-lbl">عميل</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">💰</span><div><div class="fs-stat-val" id="custStatVal">—</div><div class="fs-stat-lbl">إجمالي قيمة الوحدات EGP</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">✅</span><div><div class="fs-stat-val" id="custStatDone">0</div><div class="fs-stat-lbl">تم التسليم</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">🔴</span><div><div class="fs-stat-val" id="custStatLate">0</div><div class="fs-stat-lbl">متأخر</div></div></div>
-  </div>
   <div class="fs-toolbar">
     <input class="fs-search" id="custFsSearch" type="text" placeholder="🔍 بحث بالاسم أو الرقم أو المشروع أو الوحدة..." oninput="custFsRender()">
     <button class="fs-chip on" id="custChipAll"    onclick="custSetChip('الكل',this)">الكل</button>
     <button class="fs-chip"     id="custChipDone"   onclick="custSetChip('تم التسليم',this)">تم التسليم</button>
     <button class="fs-chip"     id="custChipProg"   onclick="custSetChip('قيد التنفيذ',this)">قيد التنفيذ</button>
     <button class="fs-chip"     id="custChipLate"   onclick="custSetChip('متأخر',this)">متأخر</button>
-    <span class="fs-count" id="custFsCount">0 عميل</span>
   </div>
   <div class="fs-body">
     <table class="fs-table" id="custFsTable">
@@ -8953,29 +9184,45 @@ function custSetChip(val,btn){
   custFsRender();
 }
 
+/* custVal: يجيب قيمة الحقل بغض النظر عن كون السجل مخزون بالمفاتيح
+   العربية القديمة أو أسماء أعمدة Supabase الإنجليزية الحالية */
+const _custKeyMap = {
+  'رقم_العميل':'customer_number','اسم_العميل':'customer_name','رقم_العقد':'contract_no',
+  'اسم_المشروع':'project_name','اسم_المنطقة':'zone_name','رقم_الوحدة':'unit_number',
+  'مساحة_الوحدة':'unit_area','قيمة_الوحدة':'unit_price','قيمة_الصيانة':'maintenance_deposit',
+  'الموقف_من_التسليم':'delivery_status','تاريخ_التسليم':'delivery_date',
+};
+const _custKeyMapRev = Object.fromEntries(Object.entries(_custKeyMap).map(([a,e])=>[e,a]));
+function custVal(r, key){
+  if(!r) return '';
+  if(r[key] != null && r[key] !== '') return r[key];
+  const alt = _custKeyMap[key] || _custKeyMapRev[key];
+  return (alt && r[alt] != null && r[alt] !== '') ? r[alt] : '';
+}
+
 function custFsRender(){
   const q=(document.getElementById('custFsSearch')?.value||'').toLowerCase();
   const dynFields = window._spSchema && window._spSchema['cust'];
   const searchFields = dynFields || ['اسم_العميل','رقم_العميل','اسم_المشروع','رقم_الوحدة','رقم_العقد'];
   let recs=custRecords.filter(r=>{
-    const mq=!q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q));
+    const mq=!q || searchFields.some(f => custVal(r,f).toString().toLowerCase().includes(q));
     const statusKey = dynFields ? (dynFields.find(f => /موقف|status/i.test(f)) || 'الموقف_من_التسليم') : 'الموقف_من_التسليم';
-    const mf=custChipVal==='الكل'||r[statusKey]===custChipVal;
+    const mf=custChipVal==='الكل'||custVal(r,statusKey)===custChipVal;
     return mq&&mf;
   });
 
   const valueKey = dynFields ? (dynFields.find(f => /قيمة_الوحدة|unit_value|value/i.test(f)) || 'قيمة_الوحدة') : 'قيمة_الوحدة';
   const statusKey2 = dynFields ? (dynFields.find(f => /موقف|status/i.test(f)) || 'الموقف_من_التسليم') : 'الموقف_من_التسليم';
-  const totalVal=custRecords.reduce((s,r)=>s+parseFloat(r[valueKey]||0),0);
-  const done=custRecords.filter(r=>r[statusKey2]==='تم التسليم').length;
-  const late=custRecords.filter(r=>r[statusKey2]==='متأخر').length;
+  const totalVal=custRecords.reduce((s,r)=>s+parseFloat(custVal(r,valueKey)||0),0);
+  const done=custRecords.filter(r=>custVal(r,statusKey2)==='تم التسليم').length;
+  const late=custRecords.filter(r=>custVal(r,statusKey2)==='متأخر').length;
   GPMPager.init('cust', recs.length, custFsRender);
   const pagedRecs = GPMPager.slice('cust', recs);
-  document.getElementById('custStatCount').textContent=custRecords.length;
-  document.getElementById('custStatVal').textContent=totalVal?totalVal.toLocaleString('en',{maximumFractionDigits:0}):'—';
-  document.getElementById('custStatDone').textContent=done;
-  document.getElementById('custStatLate').textContent=late;
-  document.getElementById('custFsCount').textContent=recs.length+' عميل';
+  GPMPager.setSummary('cust', `
+    <span class="fs-pg-sum-item">💰 <b>${totalVal?totalVal.toLocaleString('en',{maximumFractionDigits:0}):'—'}</b> EGP</span>
+    <span class="fs-pg-sum-item">✅ <b>${done}</b> تم التسليم</span>
+    <span class="fs-pg-sum-item">🔴 <b>${late}</b> متأخر</span>
+  `);
 
   const tbody=document.getElementById('custFsTbody');
   const colspan = dynFields ? (dynFields.length + 2) : 13;
@@ -8997,7 +9244,7 @@ function custFsRender(){
 
     const inp = (rec, f, type) => window.spCellInput('cust', rec, f, { type: type||'text', onChangeFn: 'window.custInlineSave' });
     if(dynFields){
-      tbody.innerHTML = recs.map((r,i) => {
+      tbody.innerHTML = pagedRecs.map((r,i) => {
         const cells = dynFields.map(f => {
           const isDate = /date|تاريخ/i.test(f);
           const isNum = /قيمة|مساحة|amount|price|value|qty|stock/i.test(f);
@@ -9009,7 +9256,7 @@ function custFsRender(){
       }).join('');
       return;
     }
-    tbody.innerHTML = recs.map((r,i) => `
+    tbody.innerHTML = pagedRecs.map((r,i) => `
       <tr>
         <td>${i+1}</td>
         <td>${inp(r,'رقم_العميل')}</td>
@@ -9034,8 +9281,8 @@ function custFsRender(){
 
   // Read-only — dynamic
   if(dynFields){
-    tbody.innerHTML = recs.map((r,i) => {
-      const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
+    tbody.innerHTML = pagedRecs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${custVal(r,f) || '—'}</td>`).join('');
       return `<tr class="${String(r.id) === String(custCurrentId)?'fs-row-active':''}" onclick="custOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
@@ -9046,7 +9293,7 @@ function custFsRender(){
     return;
   }
 
-  tbody.innerHTML=recs.map((r,i)=>{
+  tbody.innerHTML=pagedRecs.map((r,i)=>{
     const ev=(ar,en)=>r[ar]||r[en]||'—';
     const _dsRaw=r['الموقف_من_التسليم']||r['delivery_status_text']||(r['delivery_status']===true?'تم التسليم':r['delivery_status']===false?'لم يتم التسليم بعد':'')||'';
     const _ds=_dsRaw;
@@ -9288,38 +9535,85 @@ function custQuickDelete(id){
   })();
 }
 
+/* مصدر واحد للأعمدة يستخدمه كل من زر Excel وزر Upload لضمان توافق الرفع مع التصدير */
+function custExportCols(){
+  // label = نفس اسم عمود Supabase بالظبط (English) — لضمان تطابق تام بين
+  // التصدير والرفع ومنع أي خطأ مطابقة أسماء مستقبلاً
+  return [
+    {label:'customer_number',      ar:'رقم_العميل',         en:'customer_number'},
+    {label:'customer_name',        ar:'اسم_العميل',         en:'customer_name'},
+    {label:'contract_no',          ar:'رقم_العقد',          en:'contract_no'},
+    {label:'project_name',         ar:'اسم_المشروع',        en:'project_name'},
+    {label:'zone_name',            ar:'اسم_المنطقة',        en:'zone_name'},
+    {label:'unit_number',          ar:'رقم_الوحدة',         en:'unit_number'},
+    {label:'unit_area',            ar:'مساحة_الوحدة',       en:'unit_area'},
+    {label:'unit_price',           ar:'قيمة_الوحدة',        en:'unit_price'},
+    {label:'maintenance_deposit',  ar:'قيمة_الصيانة',       en:'maintenance_deposit'},
+    {label:'delivery_status',      ar:'الموقف_من_التسليم',  en:'delivery_status'},
+    {label:'delivery_date',        ar:'تاريخ_التسليم',      en:'delivery_date'},
+  ];
+}
+
 function custExportXL(){
   if(!custRecords.length){ custFsToast('لا توجد بيانات','error'); return; }
-  const headers=['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'];
-  const rows=custRecords.map(r=>headers.map(h=>r[h]||'').join('\t'));
-  const blob=new Blob(['\uFEFF'+headers.join('\t')+'\n'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='customers_'+new Date().toISOString().slice(0,10)+'.xls';a.click();
+  if(typeof XLSX === 'undefined'){ custFsToast('❌ مكتبة Excel غير محملة','error'); return; }
+  const exportCols = custExportCols();
+  const san = v => String(v||'').replace(/[\r\n\t]+/g,' ').trim();
+  const getVal = (r, col) => san(r[col.ar] || r[col.en] || '');
+  const aoa = [
+    exportCols.map(c=>c.label),
+    ...custRecords.map(r => exportCols.map(c => getVal(r,c)))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [14,24,14,24,18,14,10,14,14,16,14].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'العملاء');
+  XLSX.writeFile(wb, 'customers_'+new Date().toISOString().slice(0,10)+'.xlsx');
   custFsToast('📊 تم التصدير','success');
 }
 
 function custExportWord(){
   if(!custRecords.length){ custFsToast('لا توجد بيانات','error'); return; }
-  const headers=['رقم العميل','اسم العميل','رقم العقد','اسم المشروع','المنطقة','رقم الوحدة','المساحة','قيمة الوحدة','قيمة الصيانة','موقف التسليم','تاريخ التسليم'];
-  const keys  =['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'];
-  const rows  = custRecords.map((r,i)=>[i+1,...keys.map(k=>r[k]||'—')]);
+  const exportCols = custExportCols();
+  const headers = exportCols.map(c=>c.label);
+  const rows = custRecords.map((r,i)=>[i+1,...exportCols.map(c=>r[c.en]||r[c.ar]||'—')]);
   gpmExportWord({ title:'سجل العملاء', titleEn:'Customer Records', headers, rows, filename:'customers', toast:custFsToast });
 }
 
 function custImportXL(input){
   const file=input.files[0]; if(!file) return;
-  const headers=['رقم_العميل','اسم_العميل','رقم_العقد','اسم_المشروع','اسم_المنطقة','رقم_الوحدة','مساحة_الوحدة','قيمة_الوحدة','قيمة_الصيانة','الموقف_من_التسليم','تاريخ_التسليم'];
-  gpmReadXLFile(file, headers, (rows, err)=>{
+  // نفس أعمدة زر Excel، لكن المفتاح النهائي = اسم عمود Supabase الفعلي (lowercase)
+  // مباشرة — عشان تتوافق فوراً مع المخطط الديناميكي dynFields المستخدم فى العرض
+  // (لو خزّنا بأسماء عربية هتظهر الصفوف فارغة لحد ما يتم عمل refresh كامل للموقع)
+  const columnMap = custExportCols().map(c => ({label:c.label, key:c.en}));
+  gpmReadXLFile(file, columnMap, async (rows, err)=>{
     if(err){ custFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ custFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
-    let added=0, skipped=0;
-    rows.forEach(r=>{
-      if(!r['اسم_العميل'] && !r['رقم_العميل'] && !r['customer_name'] && !r['customer_number']){ skipped++; return; }
-      const rec={...r, id: Date.now()+Math.random()};
+    let added=0, skipped=0, sbOk=0, sbFailed=0;
+    custFsToast('⏳ جاري الاستيراد...', 'info');
+    for(const r of rows){
+      if(!r['customer_name'] && !r['customer_number']){ skipped++; continue; }
+      ['unit_area','unit_price','maintenance_deposit'].forEach(k=>{
+        if(r[k] !== undefined && r[k] !== '') r[k] = parseFloat(r[k]) || null;
+      });
+      if(r['delivery_status'] !== undefined){
+        r['delivery_status'] = (r['delivery_status'] === 'تم التسليم' || r['delivery_status'] === 'true' || r['delivery_status'] === true);
+      }
+      const rec={...r, id: Date.now()+Math.floor(Math.random()*1000)};
       custRecords.push(rec); added++;
-    });
+      // حفظ فوري فى Supabase — rec أصلاً بنفس أسماء أعمدة الجدول، لا يحتاج تحويل إضافي
+      if(window.sbUpsert){
+        try{
+          const realId = await window.sbUpsert('customer_list', rec);
+          if(realId != null){ sbOk++; if(String(realId)!==String(rec.id)) rec.id = realId; }
+          else sbFailed++;
+        }catch(e){ sbFailed++; console.warn('custImportXL sbUpsert failed:', e); }
+      }
+    }
     localStorage.setItem('gpm_cust_records',JSON.stringify(custRecords));
     custFsRender();
-    custFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    const sbMsg = window.sbUpsert ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`) : '';
+    custFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
     input.value='';
   });
 }
@@ -9537,23 +9831,13 @@ function custFsToast(msg,type='success'){
     <button class="fs-btn fs-btn-light" onclick="closeChequePage()">✕ إغلاق</button>
   </div>
 
-  <!-- Stats -->
-  <div class="fs-stats" id="chqStats">
-    <div class="fs-stat"><span class="fs-stat-ico">📋</span><div><div class="fs-stat-val" id="chqStatTotal">0</div><div class="fs-stat-lbl">إجمالي الشيكات</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">⏳</span><div><div class="fs-stat-val" id="chqStatPend" style="color:#d97706">0</div><div class="fs-stat-lbl">قيد الطباعة</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">✅</span><div><div class="fs-stat-val" id="chqStatDone" style="color:#059669">0</div><div class="fs-stat-lbl">مطبوعة</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">🚫</span><div><div class="fs-stat-val" id="chqStatVoid" style="color:#6b7280">0</div><div class="fs-stat-lbl">ملغاة</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">💰</span><div><div class="fs-stat-val" id="chqStatAmount" style="color:#7a0000">—</div><div class="fs-stat-lbl">إجمالي المبالغ EGP</div></div></div>
-  </div>
-
-  <!-- Toolbar -->
+  <!-- Toolbar (يضم البحث والفلاتر — الإجماليات دُمجت مع شريط الصفحات بالأسفل) -->
   <div class="fs-toolbar">
     <input class="fs-search" id="chqFsSearch" type="text" placeholder="🔍 بحث بالمستفيد أو رقم الشيك أو المبلغ أو التاريخ..." oninput="chqFsRender()">
     <button class="fs-chip" id="chqChipAll" onclick="chqFilterStatus('',this)">الكل</button>
     <button class="fs-chip" id="chqChipPend" onclick="chqFilterStatus('pending',this)">قيد الطباعة</button>
     <button class="fs-chip" id="chqChipDone" onclick="chqFilterStatus('printed',this)">مطبوعة</button>
     <button class="fs-chip" id="chqChipVoid" onclick="chqFilterStatus('void',this)">ملغاة</button>
-    <span class="fs-count" id="chqFsCount">0 شيك</span>
   </div>
 
   <!-- Sheet -->
@@ -9842,14 +10126,15 @@ function chqFsRender(){
   const totalAmount = chqRecords
     .filter(c=>c.status!=='void')
     .reduce((s,c)=>s+parseFloat(c[amtKey]||0),0);
-  document.getElementById('chqStatTotal').textContent  = total;
-  document.getElementById('chqStatPend').textContent   = pend;
-  document.getElementById('chqStatDone').textContent   = done;
-  document.getElementById('chqStatVoid').textContent   = voidC;
-  document.getElementById('chqStatAmount').textContent = totalAmount ? totalAmount.toLocaleString('en',{maximumFractionDigits:2}) : '—';
-  document.getElementById('chqFsCount').textContent    = recs.length + ' شيك';
   GPMPager.init('chq', recs.length, chqFsRender);
   const pagedRecs = GPMPager.slice('chq', recs);
+  GPMPager.setSummary('chq', `
+    <span class="fs-pg-sum-item">📋 <b>${total}</b> إجمالي</span>
+    <span class="fs-pg-sum-item" style="color:#fde68a">⏳ <b>${pend}</b></span>
+    <span class="fs-pg-sum-item" style="color:#86efac">✅ <b>${done}</b></span>
+    <span class="fs-pg-sum-item" style="color:#d1d5db">🚫 <b>${voidC}</b></span>
+    <span class="fs-pg-sum-item">💰 <b>${totalAmount ? totalAmount.toLocaleString('en',{maximumFractionDigits:2}) : '—'}</b> EGP</span>
+  `);
 
   const tbody = document.getElementById('chqFsTbody');
   const colspan = dynFields ? (dynFields.length + 2) : 10;
@@ -9874,7 +10159,7 @@ function chqFsRender(){
 
     const inp = (rec, f, type) => window.spCellInput('chq', rec, f, { type: type||'text', onChangeFn: 'window.chqInlineSave' });
     if(dynFields){
-      tbody.innerHTML = recs.map((r,i) => {
+      tbody.innerHTML = pagedRecs.map((r,i) => {
         const cells = dynFields.map(f => {
           const isDate = /date|تاريخ/i.test(f);
           const isNum = /amount|مبلغ/i.test(f);
@@ -9887,7 +10172,7 @@ function chqFsRender(){
       return;
     }
     const statusMapEdit = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
-    tbody.innerHTML = recs.map((r,i) => {
+    tbody.innerHTML = pagedRecs.map((r,i) => {
       const status = r.status||'pending';
       return `<tr>
         <td>${i+1}</td>
@@ -9911,7 +10196,7 @@ function chqFsRender(){
 
   // Read-only — dynamic
   if(dynFields){
-    tbody.innerHTML = recs.map((r,i) => {
+    tbody.innerHTML = pagedRecs.map((r,i) => {
       const cells = dynFields.map(f => `<td>${r[f] || '—'}</td>`).join('');
       return `<tr class="${String(r.id) === String(chqCurrentId)?'fs-row-active':''}" onclick="chqOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
@@ -10179,18 +10464,19 @@ function chqExportXL(){
   if(!chqRecords.length){ chqFsToast('لا توجد بيانات للتصدير','error'); return; }
   if(typeof XLSX === 'undefined'){ chqFsToast('مكتبة Excel لم تتحمل','error'); return; }
   const statusMap = {pending:'قيد الطباعة', printed:'مطبوع', void:'ملغي'};
+  // اسم العمود = نفس الاسم الداخلي المستخدم فى الرفع وSupabase بالضبط
   const data = chqRecords.map((r,i)=>({
     '#': i+1,
-    'التاريخ': r.date||'',
-    'رقم الشيك': r.num||'',
-    'المستفيد': r.payto||'',
-    'المبلغ بالأرقام': r.amount||'',
-    'المبلغ بالكلمات': r.words||'',
-    'اسم الحساب': r.name||'',
-    'رقم الحساب': r.account||'',
-    'رقم الفرع': r.branch||'',
-    'النموذج': r.type==='modern' ? 'الثاني' : 'الأول',
-    'الحالة': statusMap[r.status||'pending'],
+    'date': r.date||'',
+    'num': r.num||'',
+    'payto': r.payto||'',
+    'amount': r.amount||'',
+    'words': r.words||'',
+    'name': r.name||'',
+    'account': r.account||'',
+    'branch': r.branch||'',
+    'type': r.type==='modern' ? 'الثاني' : 'الأول',
+    'status': statusMap[r.status||'pending'],
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
@@ -10202,7 +10488,7 @@ function chqExportXL(){
 /* ── Toast ── */
 function chqExportWord(){
   if(!chqRecords.length){ chqFsToast('لا توجد بيانات','error'); return; }
-  const headers=['التاريخ','رقم الشيك','المستفيد','المبلغ','المبلغ كتابة','اسم الحساب','رقم الحساب','رقم الفرع','النوع','الحالة'];
+  const headers=['date','num','payto','amount','words','name','account','branch','type','status'];
   const keys  =['date','num','payto','amount','words','name','account','branch','type','status'];
   const rows  = chqRecords.map((r,i)=>[i+1,...keys.map(k=>r[k]||'—')]);
   gpmExportWord({ title:'سجل الشيكات', titleEn:'Cheques Register', headers, rows, filename:'cheques', toast:chqFsToast });
@@ -10211,25 +10497,40 @@ function chqExportWord(){
 function chqImportXL(input){
   const file=input.files[0]; if(!file) return;
   const headers=['date','num','payto','amount','words','name','account','branch','type','status'];
-  gpmReadXLFile(file, headers, (rows, err)=>{
+  gpmReadXLFile(file, headers, async (rows, err)=>{
     if(err){ chqFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ chqFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
-    // also handle Arabic header names from export
+    // also handle Arabic header names from export (نفس الأعمدة التي ينتجها زر Excel)
     const colMap={'التاريخ':'date','رقم الشيك':'num','المستفيد':'payto','المبلغ بالأرقام':'amount','المبلغ بالكلمات':'words','اسم الحساب':'name','رقم الحساب':'account','رقم الفرع':'branch','النموذج':'type','الحالة':'status'};
-    let added=0, skipped=0;
-    rows.forEach(r=>{
-      const rec={id: Date.now()+Math.random(), status:'pending'};
+    const statusRevMap={'قيد الطباعة':'pending','مطبوع':'printed','ملغي':'void'};
+    const typeRevMap={'الثاني':'modern','الأول':'classic'};
+    let added=0, skipped=0, sbOk=0, sbFailed=0;
+    chqFsToast('⏳ جاري الاستيراد...', 'info');
+    for(const r of rows){
+      const rec={id: Date.now()+Math.floor(Math.random()*1000), status:'pending'};
       // map Arabic or English keys
       Object.keys(r).forEach(k=>{
         const mapped=colMap[k]||k;
         rec[mapped]=r[k];
       });
-      if(!rec['payto'] && !rec['num']){ skipped++; return; }
+      // تحويل نص الحالة/النموذج العربي (كما يصدّره زر Excel) إلى الكود الداخلي
+      if(rec.status && statusRevMap[rec.status]) rec.status = statusRevMap[rec.status];
+      if(rec.type && typeRevMap[rec.type]) rec.type = typeRevMap[rec.type];
+      if(!rec['payto'] && !rec['num']){ skipped++; continue; }
       chqRecords.push(rec); added++;
-    });
+      // حفظ فوري فى Supabase — كان مفقوداً سابقاً فتضيع بيانات الرفع بعد أي مزامنة/تحديث
+      if(window.sbUpsert){
+        try{
+          const realId = await window.sbUpsert('print_cheque', rec);
+          if(realId != null){ sbOk++; if(String(realId)!==String(rec.id)) rec.id = realId; }
+          else sbFailed++;
+        }catch(e){ sbFailed++; console.warn('chqImportXL sbUpsert failed:', e); }
+      }
+    }
     localStorage.setItem('gpm_cheques',JSON.stringify(chqRecords));
-    chqRender && chqRender();
-    chqFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    chqFsRender();
+    const sbMsg = window.sbUpsert ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`) : '';
+    chqFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
     input.value='';
   });
 }
@@ -10266,17 +10567,9 @@ function chqFsToast(msg, type='success'){
     <button class="fs-btn fs-btn-light" onclick="closeCostCenter()">✕ إغلاق</button>
   </div>
 
-  <!-- Stats -->
-  <div class="fs-stats" id="ccStats">
-    <div class="fs-stat"><span class="fs-stat-ico">🏗️</span><div><div class="fs-stat-val" id="ccStatCount">0</div><div class="fs-stat-lbl">مركز تكلفة</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">🏢</span><div><div class="fs-stat-val" id="ccStatCompanies">—</div><div class="fs-stat-lbl">شركات</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">👤</span><div><div class="fs-stat-val" id="ccStatPersons">—</div><div class="fs-stat-lbl">مسؤولون</div></div></div>
-  </div>
-
-  <!-- Toolbar -->
+  <!-- Toolbar (يضم البحث فقط الآن — الإجماليات دُمجت مع شريط الصفحات بالأسفل) -->
   <div class="fs-toolbar">
     <input class="fs-search" id="ccFsSearch" type="text" placeholder="🔍 بحث بالكود أو الاسم أو الشركة..." oninput="ccFsRender()">
-    <span class="fs-count" id="ccFsCount">0 مركز</span>
   </div>
 
   <!-- Sheet -->
@@ -10374,23 +10667,24 @@ function closeCostCenter(){
 
 /* Render full table */
 /* ccVal: يقرأ من الاسمين PascalCase و lowercase (Supabase) */
+const _ccKeyMap = {
+  'Cost_Ctr_Code':'cost_ctr_code',
+  'Company_Ar':'company_ar',
+  'Company_Code':'company_code',
+  'CCtC':'cctc',
+  'Person_Responsible':'person_responsible',
+  'User_Resp':'user_resp',
+  'Short_text':'short_text',
+  'Language':'language',
+  'Valid_From':'valid_from',
+  'To':'to',
+  'Content_Type':'content_type'
+};
+const _ccKeyMapRev = Object.fromEntries(Object.entries(_ccKeyMap).map(([a,e])=>[e,a]));
 function ccVal(r, key){
   if(!r) return '';
   if(r[key] != null && r[key] !== '') return r[key];
-  const map = {
-    'Cost_Ctr_Code':'cost_ctr_code',
-    'Company_Ar':'company_ar',
-    'Company_Code':'company_code',
-    'CCtC':'cctc',
-    'Person_Responsible':'person_responsible',
-    'User_Resp':'user_resp',
-    'Short_text':'short_text',
-    'Language':'language',
-    'Valid_From':'valid_from',
-    'To':'to',
-    'Content_Type':'content_type'
-  };
-  const alt = map[key];
+  const alt = _ccKeyMap[key] || _ccKeyMapRev[key];
   return (alt && r[alt] != null && r[alt] !== '') ? r[alt] : '';
 }
 
@@ -10400,19 +10694,19 @@ function ccFsRender(){
   // Use dynamic schema if synced, else use defaults
   const dynFields = window._spSchema && window._spSchema['cc'];
   const searchFields = dynFields || ['Cost_Ctr_Code','Company_Ar','Company_Code','Short_text','Person_Responsible'];
-  const recs = ccRecords.filter(r => !q || searchFields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
+  const recs = ccRecords.filter(r => !q || searchFields.some(f => ccVal(r,f).toString().toLowerCase().includes(q)));
 
   // Stats
   const companyKey = dynFields ? (dynFields.find(f => /comp.*code|company_code/i.test(f)) || dynFields[1]) : 'Company_Code';
   const personKey  = dynFields ? (dynFields.find(f => /person|resp/i.test(f)) || dynFields[2] || dynFields[1]) : 'Person_Responsible';
-  const companies = new Set(ccRecords.map(r=>r[companyKey]).filter(Boolean)).size;
-  const persons   = new Set(ccRecords.map(r=>r[personKey]).filter(Boolean)).size;
-  const elCount = document.getElementById('ccStatCount');     if(elCount) elCount.textContent = ccRecords.length;
-  const elComp  = document.getElementById('ccStatCompanies'); if(elComp)  elComp.textContent  = companies||'—';
-  const elPers  = document.getElementById('ccStatPersons');   if(elPers)  elPers.textContent   = persons||'—';
-  const elFsCount = document.getElementById('ccFsCount');     if(elFsCount) elFsCount.textContent = recs.length+' مركز';
+  const companies = new Set(ccRecords.map(r=>ccVal(r,companyKey)).filter(Boolean)).size;
+  const persons   = new Set(ccRecords.map(r=>ccVal(r,personKey)).filter(Boolean)).size;
   GPMPager.init('cc', recs.length, ccFsRender);
   const pagedRecs = GPMPager.slice('cc', recs);
+  GPMPager.setSummary('cc', `
+    <span class="fs-pg-sum-item">🏢 <b>${companies||'—'}</b> شركات</span>
+    <span class="fs-pg-sum-item">👤 <b>${persons||'—'}</b> مسؤولون</span>
+  `);
 
   const tbody=document.getElementById('ccFsTbody');
   if(!tbody) return;
@@ -10439,7 +10733,7 @@ function ccFsRender(){
       : `<input value="${(rec[f]||'').toString().replace(/"/g,'&quot;')}" style="width:100%;border:none;background:transparent">`);
 
     if(dynFields){
-      tbody.innerHTML = recs.map((r,i) => {
+      tbody.innerHTML = pagedRecs.map((r,i) => {
         const cells = dynFields.map(f => {
           const isDate = /date|تاريخ|valid_from|^to$/i.test(f);
           return `<td>${inp(r, f, isDate?'date':'text')}</td>`;
@@ -10448,7 +10742,7 @@ function ccFsRender(){
       }).join('');
       return;
     }
-    tbody.innerHTML = recs.map((r,i) => `
+    tbody.innerHTML = pagedRecs.map((r,i) => `
       <tr><td>${i+1}</td>
         <td>${inp(r,'Cost_Ctr_Code')}</td><td>${inp(r,'Company_Ar')}</td>
         <td>${inp(r,'Company_Code')}</td><td>${inp(r,'CCtC')}</td>
@@ -10465,8 +10759,8 @@ function ccFsRender(){
 
   // Read-only mode
   if(dynFields){
-    tbody.innerHTML = recs.map((r,i) => {
-      const cells = dynFields.map(f => `<td>${r[f]||'—'}</td>`).join('');
+    tbody.innerHTML = pagedRecs.map((r,i) => {
+      const cells = dynFields.map(f => `<td>${ccVal(r,f)||'—'}</td>`).join('');
       return `<tr class="${String(r.id)===String(ccCurrentId)?'fs-row-active':''}" onclick="ccOpenDrawer(${r.id})">
         <td>${i+1}</td>${cells}
         <td onclick="event.stopPropagation()"><div class="fs-row-btns">
@@ -10706,41 +11000,74 @@ function ccQuickDelete(id){
   })();
 }
 
+/* مصدر واحد للأعمدة يستخدمه كل من زر Excel وزر Upload — كانت أعمدة Upload
+   سابقاً بأسماء إنجليزية (Cost_Ctr_Code..) بينما ملف Excel المُصدَّر يحمل
+   عناوين عربية، فكان الرفع يفشل في مطابقة أي عمود. الآن يُبنى columnMap
+   من نفس exportCols المستخدمة في زر Excel لضمان رفع نفس الشيت بنجاح. */
+function ccExportCols(){
+  // label = نفس اسم عمود Supabase بالظبط (English) — لضمان تطابق تام بين
+  // التصدير والرفع ومنع أي خطأ مطابقة أسماء مستقبلاً
+  return [
+    {label:'cost_ctr_code',      ar:'Cost_Ctr_Code',      en:'cost_ctr_code'},
+    {label:'company_ar',         ar:'Company_Ar',          en:'company_ar'},
+    {label:'company_code',       ar:'Company_Code',        en:'company_code'},
+    {label:'cctc',               ar:'CCtC',                en:'cctc'},
+    {label:'person_responsible', ar:'Person_Responsible',  en:'person_responsible'},
+    {label:'user_resp',          ar:'User_Resp',           en:'user_resp'},
+    {label:'short_text',         ar:'Short_text',          en:'short_text'},
+    {label:'language',           ar:'Language',            en:'language'},
+    {label:'valid_from',         ar:'Valid_From',          en:'valid_from'},
+    {label:'to',                 ar:'To',                  en:'to'},
+    {label:'content_type',       ar:'Content_Type',        en:'content_type'},
+  ];
+}
+
 function ccExportXL(){
   if(!ccRecords.length){ ccFsToast('لا توجد بيانات','error'); return; }
-  const headers=['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'];
-  const rows=ccRecords.map(r=>headers.map(h=>r[h]||'').join('\t'));
-  const blob=new Blob(['\uFEFF'+headers.join('\t')+'\n'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cost_centers_'+new Date().toISOString().slice(0,10)+'.xls';a.click();
+  if(typeof XLSX === 'undefined'){ ccFsToast('❌ مكتبة Excel غير محملة','error'); return; }
+  const exportCols = ccExportCols();
+  const san = v => String(v||'').replace(/[\r\n\t]+/g,' ').trim();
+  const getVal = (r, col) => san(r[col.ar] || r[col.en] || '');
+  const aoa = [
+    exportCols.map(c=>c.label),
+    ...ccRecords.map(r => exportCols.map(c => getVal(r,c)))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [18,20,14,10,20,14,20,8,14,14,16].map(w=>({wch:w}));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'مراكز التكلفة');
+  XLSX.writeFile(wb, 'cost_centers_'+new Date().toISOString().slice(0,10)+'.xlsx');
   ccFsToast('📊 تم التصدير','success');
 }
 
 function ccDrawerPrint(){
   const rec=ccCollectDrawer();
-  const code=rec['Cost_Ctr_Code']||'—';
+  const gv=(col)=>rec[col.en]||rec[col.ar]||'—'; // rec من ccCollectDrawer دايماً lowercase، لكن نضيف fallback للأمان
+  const cols=ccExportCols(); const byEn=en=>cols.find(c=>c.en===en);
+  const code=gv(byEn('cost_ctr_code'));
   const w=window.open('','_blank','width=800,height=600');
   w.document.write(`<html><head><title>Cost Center — ${code}</title>
     <style>body{font-family:'Tajawal',sans-serif;padding:28px;color:#1e293b;direction:rtl}.header{background:linear-gradient(135deg,#15803d,#16a34a);color:#fff;border-radius:12px;padding:20px 24px;margin-bottom:20px}.header h1{font-size:1.2rem;margin:0 0 5px}.header p{font-size:.8rem;opacity:.8;margin:0}h2{font-size:.88rem;color:#15803d;margin:16px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.row{display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden}.row label{background:#f0fdf4;color:#15803d;font-weight:700;font-size:.78rem;padding:8px 12px;min-width:160px;border-left:1px solid #e2e8f0}.row span{padding:8px 12px;font-size:.85rem;flex:1}footer{margin-top:20px;font-size:.72rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:10px;text-align:center}</style></head><body>
-    <div class="header"><h1>${rec['Short_text']||code}</h1><p>Cost Center Code: ${code} · Company: ${rec['Company_Code']||'—'} — ${rec['Company_Ar']||'—'}</p></div>
+    <div class="header"><h1>${gv(byEn('short_text'))}</h1><p>Cost Center Code: ${code} · Company: ${gv(byEn('company_code'))} — ${gv(byEn('company_ar'))}</p></div>
     <h2>🏗️ بيانات مركز التكلفة</h2>
     <div class="grid">
-      <div class="row"><label>Cost_Ctr_Code</label><span>${rec['Cost_Ctr_Code']||'—'}</span></div>
-      <div class="row"><label>Short_text</label><span>${rec['Short_text']||'—'}</span></div>
-      <div class="row"><label>Company_Ar</label><span>${rec['Company_Ar']||'—'}</span></div>
-      <div class="row"><label>Company_Code</label><span>${rec['Company_Code']||'—'}</span></div>
-      <div class="row"><label>CCtC</label><span>${rec['CCtC']||'—'}</span></div>
-      <div class="row"><label>Language</label><span>${rec['Language']||'—'}</span></div>
-      <div class="row"><label>Content Type</label><span>${rec['Content_Type']||'—'}</span></div>
+      <div class="row"><label>Cost_Ctr_Code</label><span>${code}</span></div>
+      <div class="row"><label>Short_text</label><span>${gv(byEn('short_text'))}</span></div>
+      <div class="row"><label>Company_Ar</label><span>${gv(byEn('company_ar'))}</span></div>
+      <div class="row"><label>Company_Code</label><span>${gv(byEn('company_code'))}</span></div>
+      <div class="row"><label>CCtC</label><span>${gv(byEn('cctc'))}</span></div>
+      <div class="row"><label>Language</label><span>${gv(byEn('language'))}</span></div>
+      <div class="row"><label>Content Type</label><span>${gv(byEn('content_type'))}</span></div>
     </div>
     <h2>👤 المسؤوليات</h2>
     <div class="grid">
-      <div class="row"><label>Person_Responsible</label><span>${rec['Person_Responsible']||'—'}</span></div>
-      <div class="row"><label>User_Resp</label><span>${rec['User_Resp']||'—'}</span></div>
+      <div class="row"><label>Person_Responsible</label><span>${gv(byEn('person_responsible'))}</span></div>
+      <div class="row"><label>User_Resp</label><span>${gv(byEn('user_resp'))}</span></div>
     </div>
     <h2>📅 الصلاحية الزمنية</h2>
     <div class="grid">
-      <div class="row"><label>Valid_From</label><span>${rec['Valid_From']||'—'}</span></div>
-      <div class="row"><label>To</label><span>${rec['To']||'—'}</span></div>
+      <div class="row"><label>Valid_From</label><span>${gv(byEn('valid_from'))}</span></div>
+      <div class="row"><label>To</label><span>${gv(byEn('to'))}</span></div>
     </div>
     <footer>Golf Porto Marina Accounting · طُبع بتاريخ ${new Date().toLocaleDateString('ar-EG')}</footer>
     </body></html>`);
@@ -10749,27 +11076,41 @@ function ccDrawerPrint(){
 
 function ccExportWord(){
   if(!ccRecords.length){ ccFsToast('لا توجد بيانات','error'); return; }
-  const headers=['كود المركز','الشركة عربي','كود الشركة','CCtC','المسئول','المستخدم','الوصف','اللغة','من تاريخ','إلى تاريخ','النوع'];
-  const keys  =['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'];
-  const rows  = ccRecords.map((r,i)=>[i+1,...keys.map(k=>r[k]||'—')]);
+  const exportCols = ccExportCols();
+  const headers = exportCols.map(c=>c.label);
+  const rows = ccRecords.map((r,i)=>[i+1,...exportCols.map(c=>r[c.en]||r[c.ar]||'—')]);
   gpmExportWord({ title:'مراكز التكلفة', titleEn:'Cost Centers', headers, rows, filename:'cost_centers', toast:ccFsToast });
 }
 
 function ccImportXL(input){
   const file=input.files[0]; if(!file) return;
-  const headers=['Cost_Ctr_Code','Company_Ar','Company_Code','CCtC','Person_Responsible','User_Resp','Short_text','Language','Valid_From','To','Content_Type'];
-  gpmReadXLFile(file, headers, (rows, err)=>{
+  // نفس أعمدة زر Excel، لكن المفتاح النهائي = اسم عمود Supabase الفعلي (lowercase)
+  // مباشرة — بنفس تحويل ccCollectDrawer، عشان السجلات تتوافق مع الجدول فوراً
+  // (المخطط الديناميكي dynFields بيستخدم أسماء lowercase بعد تحميل الصفحة، فلو
+  // خزّنا بأسماء مختلفة هتظهر الصفوف فارغة لحد ما يتم عمل refresh كامل للموقع)
+  const columnMap = ccExportCols().map(c => ({label:c.label, key:c.en}));
+  gpmReadXLFile(file, columnMap, async (rows, err)=>{
     if(err){ ccFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ ccFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
-    let added=0, skipped=0;
-    rows.forEach(r=>{
-      if(!r['Cost_Ctr_Code'] && !r['Short_text']){ skipped++; return; }
-      const rec={...r, id: Date.now()+Math.random()};
+    let added=0, skipped=0, sbOk=0, sbFailed=0;
+    ccFsToast('⏳ جاري الاستيراد...', 'info');
+    for(const r of rows){
+      if(!r['cost_ctr_code'] && !r['short_text']){ skipped++; continue; }
+      const rec={...r, id: Date.now()+Math.floor(Math.random()*1000)};
       ccRecords.push(rec); added++;
-    });
+      // حفظ فوري فى Supabase — rec أصلاً بنفس أسماء أعمدة الجدول، لا يحتاج تحويل إضافي
+      if(window.sbUpsert){
+        try{
+          const realId = await window.sbUpsert('cost_center', rec);
+          if(realId != null){ sbOk++; if(String(realId)!==String(rec.id)) rec.id = realId; }
+          else sbFailed++;
+        }catch(e){ sbFailed++; console.warn('ccImportXL sbUpsert failed:', e); }
+      }
+    }
     localStorage.setItem('gpm_cc_records',JSON.stringify(ccRecords));
     ccFsRender();
-    ccFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}`, 'success');
+    const sbMsg = window.sbUpsert ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`) : '';
+    ccFsToast(`✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
     input.value='';
   });
 }
@@ -10784,7 +11125,7 @@ function ccFsToast(msg,type='success'){
 
 <!-- ══ PAGE: Opening Balance ══ -->
 <div id="logOutPage" style="display:none;position:fixed;top:52px;left:52px;right:0;bottom:0;z-index:800;background:#f4f6fb;direction:ltr;font-family:'Tajawal',sans-serif">
-<div class="fs-page">
+<div class="fs-page" id="logOutFsPage">
   <div class="fs-topbar">
     <span class="fs-topbar-ico">🚪</span>
     <div class="fs-topbar-title">تسجيل الخروج <small>— Log Out</small></div>
@@ -10796,14 +11137,8 @@ function ccFsToast(msg,type='success'){
     <input type="file" id="logOutUploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="logOutImportXL(this)">
     <button class="fs-btn fs-btn-light" onclick="closeLogOutPage()">✕ إغلاق</button>
   </div>
-  <div class="fs-stats">
-    <div class="fs-stat"><span class="fs-stat-ico">🚪</span><div><div class="fs-stat-val" id="logOutStatCount">0</div><div class="fs-stat-lbl">سجل</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">💰</span><div><div class="fs-stat-val" id="logOutStatTotal">0</div><div class="fs-stat-lbl">إجمالي EGP</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">📅</span><div><div class="fs-stat-val" id="logOutStatDates">0</div><div class="fs-stat-lbl">أيام</div></div></div>
-  </div>
   <div class="fs-toolbar">
     <input class="fs-search" id="logOutSearch" type="text" placeholder="🔍 بحث بالتاريخ أو المرجع..." oninput="logOutFsRender()">
-    <span class="fs-count" id="logOutFsCount">0 سجل</span>
   </div>
   <div class="fs-body">
     <table class="fs-table">
@@ -10863,11 +11198,10 @@ function closeLogOutPage(){
 function logOutFsRender(){
   const q=(document.getElementById('logOutSearch')?.value||'').toLowerCase();
   const recs=logOutRecords.filter(r=>!q||(r['Description']||'').toLowerCase().includes(q)||(r['Ref_No']||'').toLowerCase().includes(q));
-  document.getElementById('logOutFsCount').textContent=recs.length+' سجل';
-    document.getElementById('logOutStatCount').textContent = logOutRecords.length || '—';
-  document.getElementById('logOutStatTotal').textContent = logOutRecords.length ? logOutRecords.reduce((s,r)=>s+parseFloat(r['Amount']||r['Total']||r['Debit']||r['Net_Pay']||r['Loan_Amount']||r['Depreciation_Amount']||r['Tax_Amount']||r['Monthly_Insurance']||0),0).toLocaleString('en',{maximumFractionDigits:0}) : '—';
-  document.getElementById('logOutStatDates').textContent = logOutRecords.length || '—';
-  document.getElementById('logOutStatCount').textContent=logOutRecords.length;
+  GPMPager.init('logOut', recs.length, logOutFsRender);
+  const pagedRecs = GPMPager.slice('logOut', recs);
+  const totalAmt = logOutRecords.reduce((s,r)=>s+parseFloat(r['Amount']||r['Total']||r['Debit']||r['Net_Pay']||r['Loan_Amount']||r['Depreciation_Amount']||r['Tax_Amount']||r['Monthly_Insurance']||0),0);
+  GPMPager.setSummary('logOut', totalAmt ? `<span class="fs-pg-sum-item">💰 <b>${totalAmt.toLocaleString('en',{maximumFractionDigits:0})}</b> EGP</span>` : '');
   const tbody=document.getElementById('logOutTbody');
   if(!recs.length){ tbody.innerHTML='<tr><td colspan="10" class="fs-empty">لا توجد نتائج</td></tr>'; return; }
   tbody.innerHTML=pagedRecs.map((r,i)=>`
@@ -10972,27 +11306,52 @@ function logOutQuickDel(id){
   logOutFsToast('🗑️ تم الحذف','success'); logOutFsRender();
 }
 
+/* مصدر واحد للأعمدة يستخدمه كل من زر Excel وزر Upload */
+function logOutExportCols(){
+  // label = نفس المفتاح الداخلي المخزّن به السجل بالضبط — لضمان تطابق تام
+  // بين التصدير والرفع ومنع أي خطأ مطابقة أسماء مستقبلاً
+  return [
+    {label:'Ref_No',       ar:'Ref_No'},
+    {label:'Date',         ar:'Date'},
+    {label:'Description',  ar:'Description'},
+    {label:'Cost_Center',  ar:'Cost_Center'},
+    {label:'Amount',       ar:'Amount'},
+    {label:'Tax',          ar:'Tax'},
+    {label:'Total',        ar:'Total'},
+    {label:'Status',       ar:'Status'},
+    {label:'Notes',        ar:'Notes'},
+  ];
+}
+
 function logOutExportXL(){
   if(!logOutRecords.length){ logOutFsToast('لا توجد بيانات','error'); return; }
-  const headers=['Ref_No','Date','Description','Cost_Center','Amount','Tax','Total','Status','Notes'];
-  const rows=logOutRecords.map(r=>headers.map(h=>r[h]||'').join('\t'));
-  const blob=new Blob(['\uFEFF'+headers.join('\t')+'\n'+rows.join('\n')],{type:'text/tab-separated-values;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='logOut_'+new Date().toISOString().slice(0,10)+'.xls';a.click();
+  if(typeof XLSX === 'undefined'){ logOutFsToast('❌ مكتبة Excel غير محملة','error'); return; }
+  const exportCols = logOutExportCols();
+  const san = v => String(v??'').replace(/[\r\n\t]+/g,' ').trim();
+  const aoa = [
+    exportCols.map(c=>c.label),
+    ...logOutRecords.map(r => exportCols.map(c => san(r[c.ar])))
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'المصروفات');
+  XLSX.writeFile(wb, 'logOut_'+new Date().toISOString().slice(0,10)+'.xlsx');
   logOutFsToast('📊 تم التصدير','success');
 }
 
 function logOutExportWord(){
   if(!logOutRecords.length){ logOutFsToast('لا توجد بيانات','error'); return; }
-  const headers=['رقم المرجع','التاريخ','الوصف','مركز التكلفة','المبلغ','الضريبة','الإجمالي','الحالة','ملاحظات'];
-  const keys  =['Ref_No','Date','Description','Cost_Center','Amount','Tax','Total','Status','Notes'];
-  const rows  = logOutRecords.map((r,i)=>[i+1,...keys.map(k=>r[k]||'—')]);
+  const exportCols = logOutExportCols();
+  const headers = exportCols.map(c=>c.label);
+  const rows  = logOutRecords.map((r,i)=>[i+1,...exportCols.map(c=>r[c.ar]||'—')]);
   gpmExportWord({ title:'سجل المصروفات', titleEn:'Log Out Records', headers, rows, filename:'logOut', toast:logOutFsToast });
 }
 
 function logOutImportXL(input){
   const file=input.files[0]; if(!file) return;
-  const headers=['Ref_No','Date','Description','Cost_Center','Amount','Tax','Total','Status','Notes'];
-  gpmReadXLFile(file, headers, (rows, err)=>{
+  // نفس أعمدة زر Excel بالضبط لضمان رفع نفس الشيت المُصدَّر
+  const columnMap = logOutExportCols().map(c => ({label:c.label, key:c.ar}));
+  gpmReadXLFile(file, columnMap, (rows, err)=>{
     if(err){ logOutFsToast('❌ خطأ في قراءة الملف: '+err,'error'); input.value=''; return; }
     if(!rows.length){ logOutFsToast('⚠️ لم يتم العثور على بيانات','error'); input.value=''; return; }
     let added=0, skipped=0;
@@ -11173,22 +11532,21 @@ function logOutFsToast(msg,type='success'){
 .gpm-sidebar.collapsed #gpmDrillWrap{ display:none; }
 .gpm-sidebar.collapsed .gpm-sb-header{ justify-content:center; padding:13px 8px; }
 
-/* ── MOBILE: Full-screen pages must take entire viewport ── */
+/* ── MOBILE: Full-screen pages must take entire viewport (below the 52px header) ── */
 @media(max-width:768px){
-  /* All full-screen pages (those with inline position:fixed) take the whole viewport */
+  /* All full-screen pages (those with inline position:fixed) take the whole viewport,
+     starting BELOW the mobile top bar (52px) — not top:0, or their own topbar buttons
+     render hidden behind the fixed header (z-index 997 > page's 800). */
   [id$="Page"][style*="position:fixed"],
   [id$="Page"][style*="position: fixed"]{
     margin-left:0 !important;
     margin-right:0 !important;
     left:0 !important;
     right:0 !important;
-    top:0 !important;
+    top:52px !important;
     bottom:0 !important;
     width:100vw !important;
     max-width:100vw !important;
-    height:100vh !important;
-    height:100dvh !important;
-    min-height:100vh !important;
   }
 }
 </style>
@@ -11719,11 +12077,19 @@ window.GPMPager = (function(){
       </span>
       <button class="fs-pg-btn" title="التالي" onclick="GPMPager._go('${px}',${p+1})"      ${p>=totalPages?'disabled':''}>&#8250;</button>
       <button class="fs-pg-btn" title="الأخير" onclick="GPMPager._go('${px}',${totalPages})" ${p>=totalPages?'disabled':''}>&#187;</button>
+      ${s.summaryHtml ? `<span class="fs-pg-summary">${s.summaryHtml}</span>` : ''}
       <span class="fs-pg-label">عرض</span>
       <select class="fs-pg-select" onchange="GPMPager._size('${px}',+this.value)">
         ${[50,100,200].map(n=>`<option value="${n}" ${s.pageSize===n?'selected':''}>${n} سجل</option>`).join('')}
       </select>
     `;
+  }
+
+  /* setSummary: يمرر بيانات الإجماليات (سجل/💰 إلخ) لتُدمج داخل شريط الترقيم بالأسفل */
+  function setSummary(px, html){
+    const s = _state_of(px);
+    s.summaryHtml = html || '';
+    _render_bar(px);
   }
 
   function _go(px, page){
@@ -11773,7 +12139,7 @@ window.GPMPager = (function(){
     if(_state[px]) _state[px].page = 1;
   }
 
-  return { init, slice, reset, _go, _size };
+  return { init, slice, reset, _go, _size, setSummary };
 })();
 
 const GPM_PAGES = {
@@ -16310,13 +16676,8 @@ const GPM_PAGES = {
     <input type="file" id="${px}UploadInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="GPM.importXL('${pid}', this)">
     <button class="fs-btn fs-btn-light" onclick="GPM.closePage('${pid}')">✕ إغلاق</button>
   </div>
-  <div class="fs-stats">
-    <div class="fs-stat"><span class="fs-stat-ico">${cfg.icon}</span><div><div class="fs-stat-val" id="${px}StatCount">0</div><div class="fs-stat-lbl">سجل</div></div></div>
-    <div class="fs-stat"><span class="fs-stat-ico">💰</span><div><div class="fs-stat-val" id="${px}StatTotal">0</div><div class="fs-stat-lbl">إجمالي EGP</div></div></div>
-  </div>
   <div class="fs-toolbar">
     <input class="fs-search" id="${px}Search" type="text" placeholder="🔍 بحث..." oninput="GPM.render('${pid}')">
-    <span class="fs-count" id="${px}FsCount">0 سجل</span>
   </div>
   <div class="fs-body">
     <table class="fs-table">
@@ -16421,18 +16782,11 @@ const GPM_PAGES = {
     const q = (document.getElementById(px + 'Search')?.value || '').toLowerCase();
     const recs = records.filter(r => !q || cfg.fields.some(f => (r[f]||'').toString().toLowerCase().includes(q)));
     if(q) GPMPager.reset(px); // عند البحث نرجع للصفحة الأولى
-    
-    const countEl = document.getElementById(px + 'FsCount');
-    if(countEl) countEl.textContent = recs.length + ' سجل';
-    const statCount = document.getElementById(px + 'StatCount');
-    if(statCount) statCount.textContent = records.length || '0';
-    
-    const totalEl = document.getElementById(px + 'StatTotal');
-    if(totalEl){
-      const tot = records.reduce((s, r) => s + (parseFloat(r['Amount']||r['Total']||r['Debit']||r['Net_Pay']||0) || 0), 0);
-      totalEl.textContent = tot ? tot.toLocaleString('en', {maximumFractionDigits:0}) : '0';
-    }
-    
+
+    // إجمالي القيمة المالية — يُدمج الآن داخل شريط الترقيم بالأسفل بدل صندوق منفصل بالأعلى
+    const _tot = records.reduce((s, r) => s + (parseFloat(r['Amount']||r['Total']||r['Debit']||r['Net_Pay']||0) || 0), 0);
+    GPMPager.setSummary(px, _tot ? `<span class="fs-pg-sum-item">💰 <b>${_tot.toLocaleString('en',{maximumFractionDigits:0})}</b> EGP</span>` : '');
+
     const tbody = document.getElementById(px + 'Tbody');
     if(!tbody) return;
 
@@ -16793,9 +17147,11 @@ const GPM_PAGES = {
     const records = _loadRecords(px, cfg.lsKey);
     if(!records.length){ _toast(px, '⚠️ لا توجد بيانات', 'error'); return; }
     if(typeof XLSX === 'undefined'){ _toast(px, 'مكتبة Excel غير محملة', 'error'); return; }
+    // اسم العمود فى ملف Excel = نفس اسم الحقل الداخلي (عمود Supabase) بالظبط،
+    // بدون أي تحويل، لضمان تطابق تام بين التصدير والرفع ومنع أي أخطاء مطابقة
     const data = records.map((r, i) => {
       const row = {'#': i+1};
-      cfg.fields.forEach(f => row[f.replace(/_/g, ' ')] = r[f] || '');
+      cfg.fields.forEach(f => row[f] = r[f] || '');
       return row;
     });
     const ws = XLSX.utils.json_to_sheet(data);
@@ -16810,8 +17166,8 @@ const GPM_PAGES = {
     const px  = cfg.prefix;
     const records = _loadRecords(px, cfg.lsKey);
     if(!records.length){ _toast(px, '⚠️ لا توجد بيانات', 'error'); return; }
-    const cols = cfg.columns || cfg.fields.map(f => f.replace(/_/g,' '));
-    const headers = cols;
+    // نفس اسم الحقل الداخلي بالظبط فى عناوين أعمدة Word، بدون أي تحويل
+    const headers = cfg.fields;
     const rows = records.map((r, i) => [i+1, ...cfg.fields.map(f => r[f]||'—')]);
     gpmExportWord({
       title: cfg.titleAr,
@@ -16828,48 +17184,83 @@ const GPM_PAGES = {
     const px = cfg.prefix;
     const file = input.files[0]; if(!file) return;
 
-    // تأكد من sync الـ schema أولاً لمعرفة أسماء الأعمدة الحقيقية في Supabase
+    // جلب schema حقيقي من Supabase لمعرفة أسماء الأعمدة الفعلية
     if(cfg.sbTable && !_schemaSynced[pid]){
       _toast(px, '⏳ جاري تحديد أعمدة قاعدة البيانات...', 'info');
       await _syncPageSchema(pid);
     }
 
-    const fields = cfg.fields;
-    gpmReadXLFile(file, fields, async (rows, err)=>{
+    // أسماء الأعمدة الحقيقية في Supabase (من schema detection)
+    const sbColumns = (cfg.fields && cfg.fields.length) ? cfg.fields : [];
+
+    // نمرر array فارغ حتى يقرأ gpmReadXLFile كل الأعمدة كما هي من الملف
+    gpmReadXLFile(file, [], async (rows, err)=>{
       if(err){ _toast(px, '❌ خطأ في قراءة الملف: '+err, 'error'); input.value=''; return; }
       if(!rows.length){ _toast(px, '⚠️ لم يتم العثور على بيانات', 'error'); input.value=''; return; }
 
-      // قراءة headers من أول صف لتحديد أسماء الأعمدة الفعلية في الملف
       const fileFields = Object.keys(rows[0] || {});
+
+      // بناء خريطة تلقائية: header الملف → عمود Supabase
+      // المنطق: نطابق بعدة طرق (exact, lowercase, _sbFieldMap, تشابه)
+      const globalMap = window._sbFieldMap || {};
+      const autoMap = {}; // fileHeader → sbColumn
+      fileFields.forEach(fh => {
+        // 1. مباشر في _sbFieldMap
+        if(globalMap[fh]){ autoMap[fh] = globalMap[fh]; return; }
+        // 2. lowercase مطابق لعمود Supabase
+        const fhLow = fh.toLowerCase().replace(/\s+/g,'_');
+        const directMatch = sbColumns.find(c => c.toLowerCase() === fhLow || c === fh);
+        if(directMatch){ autoMap[fh] = directMatch; return; }
+        // 3. بدون مسافات أو _ مطابق
+        const fhClean = fhLow.replace(/_/g,'');
+        const fuzzyMatch = sbColumns.find(c => c.toLowerCase().replace(/_/g,'') === fhClean);
+        if(fuzzyMatch){ autoMap[fh] = fuzzyMatch; return; }
+        // 4. احتفظ بالاسم الأصلي (قد يتطابق مع Supabase مباشرة)
+        autoMap[fh] = fh;
+      });
+
+      console.log('[importXL] Column mapping:', autoMap);
+
       const records = _loadRecords(px, cfg.lsKey);
-      let added=0, skipped=0, sbFailed=0;
+      let added=0, skipped=0, sbFailed=0, sbOk=0;
 
       for(const r of rows){
-        // تخطي الصفوف الفارغة
-        const hasData = fileFields.some(f => r[f] && String(r[f]).trim());
+        // تخطي الصفوف الفارغة تماماً
+        const hasData = fileFields.some(f => r[f] != null && String(r[f]).trim() !== '');
         if(!hasData){ skipped++; continue; }
 
+        // السجل المحلي بأسماء أعمدة Supabase الفعلية (بعد المطابقة) — وليس نص
+        // عنوان الملف كما هو، لضمان تطابق العرض فوراً مع أي صيغة ملف قديمة/مختلفة
         const rec = {id: Date.now()+Math.floor(Math.random()*1000)};
-        fileFields.forEach(f => { if(r[f] !== undefined) rec[f] = r[f]; });
+        fileFields.forEach(f => { if(r[f] !== undefined) rec[autoMap[f] || f] = r[f]; });
         records.push(rec);
         added++;
 
-        // رفع كل سجل لـ Supabase مباشرة
+        // السجل لـ Supabase بالأسماء المحولة
         if(cfg.sbTable && window.sbUpsert){
           try {
-            const realId = await window.sbUpsert(cfg.sbTable, rec);
-            if(realId != null && String(realId) !== String(rec.id)){
-              rec.id = realId;
-            }
-          } catch(e){ sbFailed++; }
+            const sbRec = {id: rec.id};
+            fileFields.forEach(fh => {
+              const sbCol = autoMap[fh];
+              if(sbCol && r[fh] !== undefined && String(r[fh]).trim() !== ''){
+                sbRec[sbCol] = r[fh];
+              }
+            });
+            const realId = await window.sbUpsert(cfg.sbTable, sbRec);
+            if(realId != null){
+              sbOk++;
+              if(String(realId) !== String(rec.id)) rec.id = realId;
+            } else { sbFailed++; }
+          } catch(e){ sbFailed++; console.warn('importXL sbUpsert failed:', e); }
         }
       }
 
       try { localStorage.setItem(cfg.lsKey, JSON.stringify(records)); } catch(e){}
-      const stored = _loadRecords(px, cfg.lsKey);
-      window['_gpmRecords_'+px] = stored;
+      _records[px] = _loadRecords(px, cfg.lsKey);
       render(pid);
-      const sbMsg = cfg.sbTable ? (sbFailed ? ` — ⚠️ ${sbFailed} فشل في Supabase` : ' — ✅ Supabase') : '';
+      const sbMsg = cfg.sbTable
+        ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`)
+        : '';
       _toast(px, `✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
       input.value='';
     });
