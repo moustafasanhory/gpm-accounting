@@ -1634,13 +1634,13 @@ window._tursoSelect = async function(table, opts) {
   return await window._tursoExec(sql, args);
 };
 
-/* ── INSERT helper ── */
+/* ── INSERT helper (بيرجع الصف المُضاف مع الـ id الحقيقي فى نفس الطلب) ── */
 window._tursoInsert = async function(table, record) {
   var keys = Object.keys(record);
   var cols = keys.map(function(k) { return '"' + k + '"'; }).join(', ');
   var placeholders = keys.map(function() { return '?'; }).join(', ');
   var vals = keys.map(function(k) { return record[k]; });
-  var sql  = 'INSERT INTO "' + table + '" (' + cols + ') VALUES (' + placeholders + ')';
+  var sql  = 'INSERT INTO "' + table + '" (' + cols + ') VALUES (' + placeholders + ') RETURNING id';
   return await window._tursoExec(sql, vals);
 };
 
@@ -1770,12 +1770,391 @@ window.gpmAddArchiveBtn = function(topbarId, table, onData) {
   bar.appendChild(btn);
 };
 
+/* ══════════════════════════════════════════════════════════
+   ATTENDANCE SHEET → TURSO
+   إنشاء جدول attendance_sheet (لو مش موجود) وتحميل بيانات كشف
+   الحضور المرفوع أول مرة بس — بيتأكد إن الجدول فاضي الأول عشان
+   ميكررش نفس البيانات فى كل مرة يفتح فيها البرنامج
+══════════════════════════════════════════════════════════ */
+window._gpmSeedAttendanceSheet = async function(){
+  if(!window._tursoCreateTable || !window._tursoCount || !window._tursoInsert) return;
+  try {
+    await window._tursoCreateTable('attendance_sheet', [
+      'Person_ID TEXT', 'Name TEXT', 'Department TEXT', 'Time TEXT',
+      'Attendance_Status TEXT', 'Attendance_Check_Point TEXT',
+      'Data_Source TEXT', 'Handling_Type TEXT', 'Temperature TEXT',
+      'Excess_Temperature TEXT'
+    ]);
+    const existing = await window._tursoCount('attendance_sheet');
+    if(existing > 0){
+      console.log('[Turso] attendance_sheet already has', existing, 'rows — تخطي التحميل الأولي');
+      return;
+    }
+    const seed = [
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-01 10:19:01",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source IN_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-01 10:19:28",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source IN_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-01 10:19:30",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-02 10:03:54",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-03 09:21:23",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-04 10:28:07",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-05 10:35:55",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-06 14:59:37",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-07 10:41:28",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-08 10:20:01",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-09 09:28:44",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-10 09:34:38",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-11 10:29:00",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-12 09:39:59",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-13 10:12:53",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1337",
+            "Name": "fathy Hessan Moawad farahan",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-14 08:07:34",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-14 11:28:30",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-15 13:00:50",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-16 13:43:57",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-17 12:52:24",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-18 10:34:32",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-20 12:49:55",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "Yes"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-21 10:03:20",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "Yes"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-22 15:17:50",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "Yes"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-23 10:36:14",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-24 16:58:05",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-26 16:13:57",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-27 15:48:30",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      },
+      {
+            "Person_ID": "1365",
+            "Name": "Mohamed Magde Mohamed Taema",
+            "Department": "Golf Marina Outsource/Elevators Company/Elmotaheda",
+            "Time": "2026-02-28 14:34:34",
+            "Attendance_Status": "",
+            "Attendance_Check_Point": "Face Out Source Out_Door1_Entrance Card Reader1",
+            "Data_Source": "Original Records",
+            "Handling_Type": "--",
+            "Temperature": "°C",
+            "Excess_Temperature": "No"
+      }
+];
+    for(const rec of seed){
+      await window._tursoInsert('attendance_sheet', rec);
+    }
+    console.log('[Turso] ✅ attendance_sheet seeded with', seed.length, 'rows');
+  } catch(e){
+    console.warn('[Turso] attendance_sheet seed failed:', e.message);
+  }};
+
 /* اختبار الاتصال عند تحميل الصفحة */
 document.addEventListener('DOMContentLoaded', function() {
   // اختبار الاتصال بـ Turso عند تحميل الصفحة
   setTimeout(async function() {
     try {
-      await window._tursoTest();
+      const ok = await window._tursoTest();
+      if(ok) await window._gpmSeedAttendanceSheet();
     } catch(e) {
       console.warn('[Turso] اتصال فاشل — تحقق من الـ Token أو الـ URL:', e.message);
     }
@@ -13575,16 +13954,18 @@ const GPM_PAGES = {
     "color2": "#2563eb",
     "lsKey": "gpm_attendanceSheet_records",
     "prefix": "attendanceSheet",
+    "tursoTable": "attendance_sheet",
     "fields": [
-      "Employee_Code",
-      "Employee_Name",
+      "Person_ID",
+      "Name",
       "Department",
-      "Date",
-      "Time_In",
-      "Time_Out",
-      "Total_Hours",
-      "OT_Hours",
-      "Status"
+      "Time",
+      "Attendance_Status",
+      "Attendance_Check_Point",
+      "Data_Source",
+      "Handling_Type",
+      "Temperature",
+      "Excess_Temperature"
     ],
     "sections": [
       [
@@ -13593,15 +13974,16 @@ const GPM_PAGES = {
       ]
     ],
     "columns": [
-      "Employee Code",
-      "Employee Name",
+      "Person ID",
+      "Name",
       "Department",
-      "Date",
-      "Time In",
-      "Time Out",
-      "Total Hours",
-      "OT Hours",
-      "Status"
+      "Time",
+      "Attendance Status",
+      "Attendance Check Point",
+      "Data Source",
+      "Handling Type",
+      "Temperature",
+      "Excess Temperature"
     ]
   },
   "contractSocialInsurancePage": {
@@ -16598,16 +16980,36 @@ const GPM_PAGES = {
     localStorage.setItem(lsKey, JSON.stringify(_records[prefix] || []));
   }
 
-  // ─── Supabase sync helpers ───────────────────────────────────────────
-  // Each page config can carry a "sbTable" (Supabase table name). When
+  // ─── Supabase / Turso sync helpers ────────────────────────────────────
+  // Each page config can carry a "sbTable" (Supabase table name) OR a
+  // "tursoTable" (Turso/libSQL archive table name) — not both. When
   // present, records are also pulled/pushed from/to that table.
   // Tables are expected to have at least: id (bigint/numeric primary key)
   // and a "data" (jsonb) column that holds the full record.
   // If the schema differs, we fall back to upserting flat columns.
   async function _sbPullRecords(pid){
-    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
-    if(typeof _sb === 'undefined' || !_sb) return;
+    const cfg = GPM_PAGES[pid]; if(!cfg || (!cfg.sbTable && !cfg.tursoTable)) return;
     if(_sbLoaded[cfg.prefix]) return;
+
+    // ── Turso-backed page ──
+    if(cfg.tursoTable){
+      if(!window._tursoSelect){ _sbLoaded[cfg.prefix] = true; return; }
+      try {
+        const res = await window._tursoSelect(cfg.tursoTable, { orderBy: { col: 'id', dir: 'ASC' } });
+        const recs = (res && Array.isArray(res.rows)) ? res.rows : [];
+        if(recs.length){
+          _records[cfg.prefix] = recs;
+          try { localStorage.setItem(cfg.lsKey, JSON.stringify(recs)); } catch(e){}
+        }
+        _sbLoaded[cfg.prefix] = true;
+      } catch(e){
+        console.warn('[Turso] pull error:', e); _sbLoaded[cfg.prefix] = true;
+      }
+      return;
+    }
+
+    // ── Supabase-backed page ──
+    if(typeof _sb === 'undefined' || !_sb) return;
     try {
       // Use the shared sbPullAll helper so the same schema-detection /
       // key-remapping logic applies here too. cfg.fields tells the helper
@@ -16634,7 +17036,36 @@ const GPM_PAGES = {
   }
 
   async function _sbPushRecord(pid, rec){
-    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return null;
+    const cfg = GPM_PAGES[pid]; if(!cfg || (!cfg.sbTable && !cfg.tursoTable)) return null;
+
+    // ── Turso-backed page ──
+    if(cfg.tursoTable){
+      if(!window._tursoInsert || !window._tursoUpdate) return null;
+      try {
+        // نفلتر السجل لأعمدة الصفحة المعروفة (cfg.fields) بس قبل الإرسال —
+        // لو فيه عمود زيادة مش موجود فعلياً فى جدول Turso (مثلاً عنوان عمود
+        // غريب من ملف الرفع مطابقتوش صح)، الإدراج كله كان بيفشل بصمت لأن
+        // SQLite بيرفض أي عمود مش موجود فى الجدول
+        const known = new Set(cfg.fields || []);
+        const cleanFields = {};
+        Object.keys(rec).forEach(k => {
+          if(k === 'id' || known.has(k)) cleanFields[k] = rec[k];
+        });
+        // id مؤقت (اتولّد من Date.now()) لسه محتاج إدراج جديد؛ id حقيقي (رقم صغير
+        // من AUTOINCREMENT) معناه السجل موجود بالفعل ومحتاج تحديث بس
+        const isTemp = !rec.id || Number(rec.id) > 1e12;
+        if(isTemp){
+          const { id, ...fields } = cleanFields;
+          const res = await window._tursoInsert(cfg.tursoTable, fields);
+          return (res && res.rows && res.rows[0]) ? Number(res.rows[0].id) : null;
+        } else {
+          await window._tursoUpdate(cfg.tursoTable, cleanFields, 'id', rec.id);
+          return rec.id;
+        }
+      } catch(e){ console.warn('[Turso] push error:', e); return null; }
+    }
+
+    // ── Supabase-backed page ──
     if(typeof _sb === 'undefined' || !_sb) return null;
     if(window.sbUpsert){
       return await window.sbUpsert(cfg.sbTable, rec);
@@ -16643,7 +17074,17 @@ const GPM_PAGES = {
   }
 
   async function _sbDeleteRecord(pid, id){
-    const cfg = GPM_PAGES[pid]; if(!cfg || !cfg.sbTable) return;
+    const cfg = GPM_PAGES[pid]; if(!cfg || (!cfg.sbTable && !cfg.tursoTable)) return;
+
+    // ── Turso-backed page ──
+    if(cfg.tursoTable){
+      if(!window._tursoDelete) return;
+      try { await window._tursoDelete(cfg.tursoTable, 'id', id); }
+      catch(e){ console.warn('[Turso] delete error:', e); }
+      return;
+    }
+
+    // ── Supabase-backed page ──
     if(typeof _sb === 'undefined' || !_sb) return;
     try { await _sb.from(cfg.sbTable).delete().eq('id', id); }
     catch(e){ console.warn('[Supabase] delete error:', e); }
@@ -16746,12 +17187,12 @@ const GPM_PAGES = {
       clearTimeout(_saveTimers[evtKey]);
       _saveTimers[evtKey] = setTimeout(() => {
         // لا نرسل لـ Supabase إلا إذا كان السجل يحتوي على بيانات فعلية
-        if(cfg.sbTable && _recHasData(rec, cfg.fields)) _sbPushRecord(pid, rec);
+        if((cfg.sbTable || cfg.tursoTable) && _recHasData(rec, cfg.fields)) _sbPushRecord(pid, rec);
         inp.classList.remove('saving');
         inp.classList.add('saved');
         setTimeout(() => inp.classList.remove('saved'), 1200);
       }, 500);
-    } else if(cfg.sbTable && _recHasData(rec, cfg.fields)){
+    } else if((cfg.sbTable || cfg.tursoTable) && _recHasData(rec, cfg.fields)){
       _sbPushRecord(pid, rec);
     }
   };
@@ -16996,8 +17437,8 @@ const GPM_PAGES = {
     }
     _save(px, cfg.lsKey);
 
-    // Push to Supabase — on insert, patch local id with real Supabase id
-    if(cfg.sbTable){
+    // Push to Supabase/Turso — on insert, patch local id with real id
+    if(cfg.sbTable || cfg.tursoTable){
       _sbPushRecord(pid, data).then(realId => {
         if(realId != null && String(realId) !== String(data.id)){
           // Replace temp id with real id in memory and localStorage
@@ -17055,7 +17496,7 @@ const GPM_PAGES = {
       if(!ok){ _toast(px, '🚫 سجل مرتبط — لا يمكن الحذف', 'error'); return; }
       _records[px] = _loadRecords(px, cfg.lsKey).filter(r => String(r.id) !== String(delId));
       _save(px, cfg.lsKey);
-      if(cfg.sbTable) _sbDeleteRecord(pid, delId);
+      if(cfg.sbTable || cfg.tursoTable) _sbDeleteRecord(pid, delId);
       _curId[px] = null;
       _toast(px, '🗑️ تم الحذف', 'success');
       // Invalidate master cache if this was a master record
@@ -17079,7 +17520,7 @@ const GPM_PAGES = {
       if(!ok){ _toast(px, '🚫 سجل مرتبط — لا يمكن الحذف', 'error'); return; }
       _records[px] = _loadRecords(px, cfg.lsKey).filter(r => String(r.id) !== String(id));
       _save(px, cfg.lsKey);
-      if(cfg.sbTable) _sbDeleteRecord(pid, id);
+      if(cfg.sbTable || cfg.tursoTable) _sbDeleteRecord(pid, id);
       if(_curId[px] === id) _curId[px] = null;
       _toast(px, '🗑️ تم الحذف', 'success');
       if(window.MasterLookup){
@@ -17236,30 +17677,24 @@ const GPM_PAGES = {
         records.push(rec);
         added++;
 
-        // السجل لـ Supabase بالأسماء المحولة
-        if(cfg.sbTable && window.sbUpsert){
+        // حفظ السجل فى قاعدة البيانات السحابية (Supabase أو Turso حسب الصفحة)
+        if((cfg.sbTable || cfg.tursoTable)){
           try {
-            const sbRec = {id: rec.id};
-            fileFields.forEach(fh => {
-              const sbCol = autoMap[fh];
-              if(sbCol && r[fh] !== undefined && String(r[fh]).trim() !== ''){
-                sbRec[sbCol] = r[fh];
-              }
-            });
-            const realId = await window.sbUpsert(cfg.sbTable, sbRec);
+            const realId = await _sbPushRecord(pid, rec);
             if(realId != null){
               sbOk++;
               if(String(realId) !== String(rec.id)) rec.id = realId;
             } else { sbFailed++; }
-          } catch(e){ sbFailed++; console.warn('importXL sbUpsert failed:', e); }
+          } catch(e){ sbFailed++; console.warn('importXL push failed:', e); }
         }
       }
 
       try { localStorage.setItem(cfg.lsKey, JSON.stringify(records)); } catch(e){}
       _records[px] = _loadRecords(px, cfg.lsKey);
       render(pid);
-      const sbMsg = cfg.sbTable
-        ? (sbFailed ? ` — ❌ ${sbFailed} فشل في Supabase` : ` — ✅ ${sbOk} في Supabase`)
+      const dbLabel = cfg.tursoTable ? 'Turso' : 'Supabase';
+      const sbMsg = (cfg.sbTable || cfg.tursoTable)
+        ? (sbFailed ? ` — ❌ ${sbFailed} فشل في ${dbLabel}` : ` — ✅ ${sbOk} في ${dbLabel}`)
         : '';
       _toast(px, `✅ تم استيراد ${added} سجل${skipped?' (تخطي '+skipped+')':''}${sbMsg}`, 'success');
       input.value='';
@@ -17372,7 +17807,7 @@ const GPM_PAGES = {
     _buildPage(pid, cfg);
     _showPage(pid);
     render(pid);
-    if(cfg.sbTable && !_sbLoaded[cfg.prefix]){
+    if((cfg.sbTable || cfg.tursoTable) && !_sbLoaded[cfg.prefix]){
       _sbPullRecords(pid).then(() => render(pid));
     }
   }
