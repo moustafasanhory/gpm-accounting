@@ -17177,7 +17177,8 @@ const GPM_PAGES = {
     const records = _loadRecords(px, cfg.lsKey);
     const rec = records.find(r => String(r.id) === String(id));
     if(!rec) return;
-    rec[field] = value;
+    const isDateTime = !/Date|تاريخ/i.test(field) && /(^|_)Time($|_)|وقت/i.test(field);
+    rec[field] = isDateTime ? _gpmFromDatetimeLocal(value) : value;
     _save(px, cfg.lsKey);
     // Visual feedback
     const evtKey = px + '_' + id + '_' + field;
@@ -17267,10 +17268,11 @@ const GPM_PAGES = {
       tbody.innerHTML = pagedRecs.map((r, i) => {
         const cells = cfg.fields.map(f => {
           const v = (r[f] == null ? '' : r[f]);
-          const escVal = String(v).replace(/"/g,'&quot;');
           const isDate = /Date|تاريخ/i.test(f);
+          const isDateTime = !isDate && /(^|_)Time($|_)|وقت/i.test(f);
           const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
-          const type = isDate ? 'date' : (isNumeric ? 'number' : 'text');
+          const type = isDate ? 'date' : (isDateTime ? 'datetime-local' : (isNumeric ? 'number' : 'text'));
+          const escVal = isDateTime ? _gpmToDatetimeLocal(v) : String(v).replace(/"/g,'&quot;');
           const cellKey = px + '_' + r.id + '_' + f;
           // Detect master-data field — use a searchable combobox
           const masterKey = window.MasterLookup && window.MasterLookup.detectMaster(f);
@@ -17330,6 +17332,24 @@ const GPM_PAGES = {
   }
 
   // ─── Build form (drawer body) ───
+  /* تحويل أي صيغة تاريخ/وقت مخزّنة (نصية) لصيغة datetime-local عشان تتعرض
+     صح فى حقل الإدخال (date + time) — بيتعامل مع أي صيغة يقدر JS يفهمها */
+  function _gpmToDatetimeLocal(val){
+    if(!val) return '';
+    const d = new Date(val);
+    if(isNaN(d.getTime())) return '';
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  /* تحويل قيمة datetime-local (اللي جاية من الفورم) لصيغة تخزين ثابتة ومرتبة */
+  function _gpmFromDatetimeLocal(val){
+    if(!val) return '';
+    const d = new Date(val);
+    if(isNaN(d.getTime())) return val;
+    const pad = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
   function _buildForm(pid, rec){
     const cfg = GPM_PAGES[pid];
     const px = cfg.prefix;
@@ -17354,11 +17374,12 @@ const GPM_PAGES = {
       secFields.forEach(f => {
         const label = f.replace(/_/g, ' ');
         const isDate = /Date|تاريخ/i.test(f);
+        const isDateTime = !isDate && /(^|_)Time($|_)|وقت/i.test(f);
         const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
         const isCode = /No$|_No|Code|كود|رقم/i.test(f);
         const cls = isNumeric ? 'money' : (isCode ? 'code' : '');
-        const type = isDate ? 'date' : (isNumeric ? 'number' : 'text');
-        const escVal = String(v(f)).replace(/"/g,'&quot;');
+        const type = isDate ? 'date' : (isDateTime ? 'datetime-local' : (isNumeric ? 'number' : 'text'));
+        const escVal = isDateTime ? _gpmToDatetimeLocal(v(f)) : String(v(f)).replace(/"/g,'&quot;');
         // Detect master-data field — use a searchable combobox
         const masterKey = window.MasterLookup && window.MasterLookup.detectMaster(f);
         if(masterKey && !isDate && !isNumeric){
@@ -17425,6 +17446,7 @@ const GPM_PAGES = {
       if(!el) return;
       const combo = el.closest && el.closest('.ml-combo');
       if(combo){ data[f] = combo.dataset.code || el.value; }
+      else if(el.type === 'datetime-local'){ data[f] = _gpmFromDatetimeLocal(el.value); }
       else { data[f] = el.value; }
     });
     
