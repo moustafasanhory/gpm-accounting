@@ -461,6 +461,8 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 .gpm-sb-title{
   font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;
   color:#ffffff;white-space:nowrap;overflow:hidden;flex:1;line-height:1.3;
+  opacity:1;max-width:180px;
+  transition:opacity .18s ease .06s, max-width .24s cubic-bezier(.4,0,.2,1);
 }
 .gpm-sb-title small{display:block;font-size:.62rem;color:rgba(255,255,255,.65);font-weight:400}
 .gpm-toggle{
@@ -524,10 +526,15 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
   box-shadow:inset 3px 0 0 #2563eb, 0 2px 8px rgba(37,99,235,.1);
 }
 .gpm-gb .gb-ico{font-size:16px;flex-shrink:0;width:22px;text-align:center}
-.gpm-gb .gb-lbl{flex:1;overflow:hidden;text-overflow:ellipsis}
+.gpm-gb .gb-lbl{
+  flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  opacity:1;max-width:180px;
+  transition:opacity .18s ease .06s, max-width .24s cubic-bezier(.4,0,.2,1);
+}
 .gpm-gb .gb-arr{
   font-size:.65rem;color:#94a3b8;flex-shrink:0;
-  transition:transform .22s;
+  opacity:1;max-width:20px;
+  transition:transform .22s, opacity .18s ease .06s, max-width .24s cubic-bezier(.4,0,.2,1);
 }
 .gpm-gb.active .gb-arr{transform:rotate(180deg);color:#2563eb}
 .gpm-gb.active::before{
@@ -631,15 +638,19 @@ header p{opacity:.8;font-size:.9rem;margin-top:6px;position:relative}
 ══════════════════════ */
 .gpm-sidebar.collapsed .gb-lbl,
 .gpm-sidebar.collapsed .gb-arr,
-.gpm-sidebar.collapsed .gpm-sub,
-.gpm-sidebar.collapsed .gpm-sb-title{display:none}
+.gpm-sidebar.collapsed .gpm-sb-title{
+  opacity:0;
+  max-width:0;
+  transition:opacity .12s ease, max-width .2s cubic-bezier(.4,0,.2,1);
+  pointer-events:none;
+}
+.gpm-sidebar.collapsed .gpm-sub{display:none}
 .gpm-sidebar.collapsed .gpm-dict-sb .dict-lbl{display:none}
 .gpm-sidebar.collapsed .gpm-dict-sb{padding:10px 6px;width:calc(100% - 12px);margin:10px 6px}
 .gpm-sidebar.collapsed .gpm-gb{justify-content:center;padding:13px 6px;border-bottom:1px solid #eef0f5}
 .gpm-sidebar.collapsed .gpm-gb::before{display:none}
 .gpm-sidebar.collapsed .gpm-gb.active{background:#e8f0fe}
 .gpm-sidebar.collapsed .gpm-sb-header{justify-content:center;padding:8px 6px;min-height:44px}
-.gpm-sidebar.collapsed .gpm-sb-title,.gpm-sidebar.collapsed .gpm-sb-header .gpm-sb-title{display:none}
 
 /* ══════════════════════
    FLYOUT POPUP (collapsed mode)
@@ -957,6 +968,13 @@ html, body {
 .gpm-sidebar::-webkit-scrollbar-thumb {
   background: rgba(100,140,220,0.3) !important;
 }
+/* عند الطي (سكة الأيقونات الضيقة) نخلي الخلفية صلبة بدل الشفافية الزجاجية —
+   الشفافية بتخلي الشريط الضيق يندمج مع خلفية الصفحة الملونة ويبان مختفي */
+.gpm-sidebar.collapsed {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
 
 /* هيدر السايدبار */
 .gpm-sb-header {
@@ -1029,9 +1047,7 @@ html, body {
 
 /* Flyout */
 .gpm-flyout {
-  background: var(--sb-glass) !important;
-  backdrop-filter: blur(var(--sb-blur)) !important;
-  -webkit-backdrop-filter: blur(var(--sb-blur)) !important;
+  background: #ffffff !important;
   border: 1px solid var(--sb-border) !important;
 }
 
@@ -2689,7 +2705,9 @@ window._sbProjectToColumns = function(rec, columns){
   return out;
 };
 
-/* Detect schema by attempting one row read. Result cached per table. */
+/* Detect schema by attempting one row read. Result cached per table.
+   For empty tables, delegates to _sbFetchColumns which has stronger
+   fallback strategies (OpenAPI spec, dummy insert) instead of giving up. */
 window._sbDetectSchema = async function(table){
   if(!_sb || !table) return 'unknown';
   if(window._sbSchemaCache[table]) return window._sbSchemaCache[table];
@@ -2711,7 +2729,12 @@ window._sbDetectSchema = async function(table){
       }
       return window._sbSchemaCache[table];
     }
-    // Empty table — try to peek at columns via a dummy filter
+    // Empty table — استخدم نفس استراتيجيات _sbFetchColumns الأقوى
+    // (OpenAPI spec، ثم إدراج تجريبي وحذفه) بدل ما نستسلم على طول
+    if(window._sbFetchColumns){
+      await window._sbFetchColumns(table);
+      if(window._sbSchemaCache[table]) return window._sbSchemaCache[table];
+    }
     window._sbSchemaCache[table] = 'unknown';
     return 'unknown';
   } catch(e){
@@ -2811,7 +2834,10 @@ window._sbIsTempId = function(id){
   return Number.isInteger(n) && n > 1500000000000; // > ~year 2017 timestamp = temp
 };
 
+window._sbLastError = null; // آخر خطأ حصل فى upsert — نستخدمه لعرض رسالة واضحة للمستخدم
+
 window.sbUpsert = async function(table, record){
+  window._sbLastError = null;
   if(!_sb || !table || !record) return null;
   const schema = await window._sbDetectSchema(table);
   const isTempId = window._sbIsTempId(record.id);
@@ -2825,7 +2851,7 @@ window.sbUpsert = async function(table, record){
         const dataClone = Object.assign({}, record);
         delete dataClone.id; // let Supabase generate id
         const { data, error } = await _sb.from(table).insert({ data: dataClone }).select('id').single();
-        if(error){ console.warn('[sbUpsert][jsonb][insert]', table, error.message); return null; }
+        if(error){ window._sbLastError = { table, message: error.message }; console.warn('[sbUpsert][jsonb][insert]', table, error.message); return null; }
         const realId = data?.id;
         if(realId != null) window._sbPatchTempId(table, tempId, realId);
         return realId;
@@ -2838,19 +2864,25 @@ window.sbUpsert = async function(table, record){
         const projected = window._sbProjectToColumns(normalized, columns);
         delete projected.id;
         const { data, error } = await _sb.from(table).insert(projected).select('id').single();
-        if(error){ console.warn('[sbUpsert][flat][insert]', table, error.message); return null; }
+        if(error){ window._sbLastError = { table, message: error.message }; console.warn('[sbUpsert][flat][insert]', table, error.message); return null; }
         const realId = data?.id;
         if(realId != null) window._sbPatchTempId(table, tempId, realId);
         return realId;
       }
 
-      // unknown schema — try flat insert first
+      // unknown schema (عادة جدول لسه فاضي ومفيش صف نقدر نستكشف أعمدته منه) —
+      // نجرب إدراج مباشر بنفس مفاتيح السجل (اللي المفروض مطابقة لأعمدة الصفحة)
       const bare = Object.assign({}, record); delete bare.id;
       let ins = await _sb.from(table).insert(bare).select('id').single();
-      if(!ins.error){ window._sbSchemaCache[table]='flat'; const rid=ins.data?.id; if(rid!=null) window._sbPatchTempId(table,tempId,rid); return rid; }
+      if(!ins.error){
+        window._sbSchemaCache[table]='flat';
+        window._sbColumnsCache[table] = new Set([...Object.keys(bare), 'id']); // نحفظ الأعمدة عشان العمليات الجاية
+        const rid=ins.data?.id; if(rid!=null) window._sbPatchTempId(table,tempId,rid); return rid;
+      }
       let ins2 = await _sb.from(table).insert({ data: bare }).select('id').single();
       if(!ins2.error){ window._sbSchemaCache[table]='jsonb'; const rid=ins2.data?.id; if(rid!=null) window._sbPatchTempId(table,tempId,rid); return rid; }
-      console.warn('[sbUpsert][insert] failed for', table, ins.error?.message);
+      window._sbLastError = { table, message: ins.error?.message || ins2.error?.message || 'فشل إدراج غير معروف' };
+      console.warn('[sbUpsert][insert] failed for', table, ins.error?.message, '|', ins2.error?.message);
       return null;
     }
 
@@ -2858,7 +2890,7 @@ window.sbUpsert = async function(table, record){
     if(schema === 'jsonb'){
       const dataClone = Object.assign({}, record);
       const { error } = await _sb.from(table).upsert({ id: record.id, data: dataClone }, { onConflict: 'id' });
-      if(error){ console.warn('[sbUpsert][jsonb][update]', table, error.message); }
+      if(error){ window._sbLastError = { table, message: error.message }; console.warn('[sbUpsert][jsonb][update]', table, error.message); return null; }
       return record.id;
     }
     if(schema === 'flat'){
@@ -2866,7 +2898,7 @@ window.sbUpsert = async function(table, record){
       const columns = window._sbColumnsCache[table];
       const projected = window._sbProjectToColumns(normalized, columns);
       const { error } = await _sb.from(table).upsert(projected, { onConflict: 'id' });
-      if(error){ console.warn('[sbUpsert][flat][update]', table, error.message); }
+      if(error){ window._sbLastError = { table, message: error.message }; console.warn('[sbUpsert][flat][update]', table, error.message); return null; }
       return record.id;
     }
     // unknown
@@ -2874,9 +2906,10 @@ window.sbUpsert = async function(table, record){
     if(!p1.error){ window._sbSchemaCache[table]='jsonb'; return record.id; }
     let p2 = await _sb.from(table).upsert(window._sbNormalizeRecord(record), { onConflict: 'id' });
     if(!p2.error){ window._sbSchemaCache[table]='flat'; return record.id; }
+    window._sbLastError = { table, message: p1.error?.message || p2.error?.message || 'فشل تحديث غير معروف' };
     console.warn('[sbUpsert][update] all failed for', table, p1.error?.message);
     return null;
-  } catch(e){ console.warn('[sbUpsert]', table, e); return null; }
+  } catch(e){ window._sbLastError = { table, message: e.message || String(e) }; console.warn('[sbUpsert]', table, e); return null; }
 };
 
 /* After Supabase returns a real auto-increment id for a newly inserted row,
@@ -3020,6 +3053,12 @@ window.spSyncSchema = async function(ctx){
       for(const f of fields) ths.push('<th style="color:#fff">'+f+'</th>');
       ths.push('<th style="color:#fff">إجراء</th>');
       tr.innerHTML = ths.join('');
+      // إعادة إضافة مقابض تكبير الأعمدة والأعراض المحفوظة بعد إعادة بناء
+      // الرأس هنا — كانت بتضيع لأن الرأس اتبنى من جديد بعد ما اتضافت أول مرة
+      if(window._gpmReapplyColResize){
+        const table = tr.closest('table');
+        if(table) window._gpmReapplyColResize(table);
+      }
     }
   }
   if(typeof ctx.rerender === 'function') ctx.rerender();
@@ -5923,14 +5962,23 @@ function gpmReadXLFile(file, columnMap, callback){
       const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       if(aoa.length < 2){ callback([], null); return; }
       const fileHeaders = aoa[0].map(h => String(h||'').trim());
+      // خلايا التاريخ بترجع من SheetJS ككائن Date حقيقي (cellDates:true) —
+      // لازم نحوّلها لصيغة نظيفة بدل String(date) اللي بتطلع صيغة مطوّلة
+      // زي "Sun Dec 14 2025 23:59:51 GMT+0000..." مش مفهومة لقاعدة البيانات
+      const fmtCell = v => {
+        if(v instanceof Date && !isNaN(v.getTime())){
+          const pad = n => String(n).padStart(2,'0');
+          return `${v.getFullYear()}-${pad(v.getMonth()+1)}-${pad(v.getDate())} ${pad(v.getHours())}:${pad(v.getMinutes())}:${pad(v.getSeconds())}`;
+        }
+        return v !== undefined && v !== null ? String(v).trim() : '';
+      };
       const rows = [];
       for(let i=1; i<aoa.length; i++){
         const vals = aoa[i];
         if(vals.every(v => v==='' || v===null || v===undefined)) continue;
         const row = {};
         fileHeaders.forEach((h,j) => {
-          const val = vals[j] !== undefined ? String(vals[j]).trim() : '';
-          row[resolveKey(h)] = val;
+          row[resolveKey(h)] = fmtCell(vals[j]);
         });
         rows.push(row);
       }
@@ -17062,7 +17110,7 @@ const GPM_PAGES = {
           await window._tursoUpdate(cfg.tursoTable, cleanFields, 'id', rec.id);
           return rec.id;
         }
-      } catch(e){ console.warn('[Turso] push error:', e); return null; }
+      } catch(e){ window._sbLastError = { table: cfg.tursoTable, message: e.message || String(e) }; console.warn('[Turso] push error:', e); return null; }
     }
 
     // ── Supabase-backed page ──
@@ -17178,7 +17226,10 @@ const GPM_PAGES = {
     const rec = records.find(r => String(r.id) === String(id));
     if(!rec) return;
     const isDateTime = !/Date|تاريخ/i.test(field) && /(^|_)Time($|_)|وقت/i.test(field);
-    rec[field] = isDateTime ? _gpmFromDatetimeLocal(value) : value;
+    const isNumeric = /Amount|Total|Debit|Credit|Balance|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(field);
+    if(isDateTime) rec[field] = _gpmFromDatetimeLocal(value);
+    else if(isNumeric) rec[field] = (value === '' ? null : value);
+    else rec[field] = value;
     _save(px, cfg.lsKey);
     // Visual feedback
     const evtKey = px + '_' + id + '_' + field;
@@ -17270,7 +17321,7 @@ const GPM_PAGES = {
           const v = (r[f] == null ? '' : r[f]);
           const isDate = /Date|تاريخ/i.test(f);
           const isDateTime = !isDate && /(^|_)Time($|_)|وقت/i.test(f);
-          const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
+          const isNumeric = /Amount|Total|Debit|Credit|Balance|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
           const type = isDate ? 'date' : (isDateTime ? 'datetime-local' : (isNumeric ? 'number' : 'text'));
           const escVal = isDateTime ? _gpmToDatetimeLocal(v) : String(v).replace(/"/g,'&quot;');
           const cellKey = px + '_' + r.id + '_' + f;
@@ -17375,7 +17426,7 @@ const GPM_PAGES = {
         const label = f.replace(/_/g, ' ');
         const isDate = /Date|تاريخ/i.test(f);
         const isDateTime = !isDate && /(^|_)Time($|_)|وقت/i.test(f);
-        const isNumeric = /Amount|Total|Debit|Credit|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
+        const isNumeric = /Amount|Total|Debit|Credit|Balance|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(f);
         const isCode = /No$|_No|Code|كود|رقم/i.test(f);
         const cls = isNumeric ? 'money' : (isCode ? 'code' : '');
         const type = isDate ? 'date' : (isDateTime ? 'datetime-local' : (isNumeric ? 'number' : 'text'));
@@ -17447,6 +17498,7 @@ const GPM_PAGES = {
       const combo = el.closest && el.closest('.ml-combo');
       if(combo){ data[f] = combo.dataset.code || el.value; }
       else if(el.type === 'datetime-local'){ data[f] = _gpmFromDatetimeLocal(el.value); }
+      else if(el.type === 'number'){ data[f] = el.value === '' ? null : el.value; }
       else { data[f] = el.value; }
     });
     
@@ -17461,19 +17513,28 @@ const GPM_PAGES = {
 
     // Push to Supabase/Turso — on insert, patch local id with real id
     if(cfg.sbTable || cfg.tursoTable){
+      const dbLabel = cfg.tursoTable ? 'Turso' : 'قاعدة البيانات';
+      _toast(px, '✅ تم الحفظ محلياً — جاري المزامنة مع ' + dbLabel + '...', 'success');
       _sbPushRecord(pid, data).then(realId => {
-        if(realId != null && String(realId) !== String(data.id)){
-          // Replace temp id with real id in memory and localStorage
-          const recs = _loadRecords(px, cfg.lsKey);
-          const row = recs.find(r => String(r.id) === String(data.id));
-          if(row){ row.id = Number(realId); _save(px, cfg.lsKey); }
-          _curId[px] = Number(realId);
-          render(pid);
+        if(realId != null){
+          if(String(realId) !== String(data.id)){
+            // Replace temp id with real id in memory and localStorage
+            const recs = _loadRecords(px, cfg.lsKey);
+            const row = recs.find(r => String(r.id) === String(data.id));
+            if(row){ row.id = Number(realId); _save(px, cfg.lsKey); }
+            _curId[px] = Number(realId);
+            render(pid);
+          }
+          _toast(px, '✅ اتحفظ فى ' + dbLabel + ' بنجاح', 'success');
+        } else {
+          const err = window._sbLastError;
+          const detail = (err && err.message) ? (' — ' + err.message) : '';
+          _toast(px, '⚠️ اتحفظ محلياً بس فشل الحفظ فى ' + dbLabel + detail, 'error');
         }
       });
+    } else {
+      _toast(px, '✅ تم الحفظ', 'success');
     }
-
-    _toast(px, '✅ تم الحفظ', 'success');
     render(pid);
     closeDrawer(pid);
   }
@@ -17696,6 +17757,15 @@ const GPM_PAGES = {
         // عنوان الملف كما هو، لضمان تطابق العرض فوراً مع أي صيغة ملف قديمة/مختلفة
         const rec = {id: Date.now()+Math.floor(Math.random()*1000)};
         fileFields.forEach(f => { if(r[f] !== undefined) rec[autoMap[f] || f] = r[f]; });
+        // الحقول الرقمية الفارغة (زي debit/credit فى كشف حساب بنكي، كل حركة
+        // ليها واحد منهم بس) لازم تتحول لـ null مش نص فاضي "" — قاعدة البيانات
+        // بترفض "" لأي عمود رقمي (كانت بتفشل كل صفوف كشف الحساب بسبب كده)
+        Object.keys(rec).forEach(k => {
+          if(k === 'id') return;
+          if(rec[k] === '' && /Amount|Total|Debit|Credit|Balance|Tax|Net_Pay|Rate|Loan|Stock|Qty|Price/i.test(k)){
+            rec[k] = null;
+          }
+        });
         records.push(rec);
         added++;
 
@@ -17881,6 +17951,157 @@ const GPM_PAGES = {
 })();
 </script>
 
+<!-- ══════════════════════════════════════════════════════════
+     COLUMN RESIZE — سحب حد العمود لتوسيعه فى أي جدول فى البرنامج
+     الأعرض المخصصة بتتحفظ محلياً وترجع تلقائي فى كل مرة تفتح
+     فيها نفس الصفحة (حتى بعد إغلاق المتصفح)
+═════════════════════════════════════════════════════════════ -->
+<style>
+.fs-table thead th{ position:relative; }
+.fs-table thead th .col-resize-handle{
+  position:absolute; top:0; bottom:0; right:0; width:8px;
+  cursor:col-resize; z-index:6; touch-action:none;
+}
+.fs-table thead th .col-resize-handle:hover,
+.fs-table thead th .col-resize-handle.resizing{
+  background:rgba(255,255,255,.3);
+}
+body.gpm-col-resizing{ cursor:col-resize !important; user-select:none !important; }
+body.gpm-col-resizing *{ cursor:col-resize !important; }
+</style>
+<script>
+(function(){
+  const MIN_W = 50;
+  let drag = null; // {th, table, startX, startWidth}
+
+  function pageIdFor(table){
+    const pageEl = table.closest('[id$="Page"]');
+    return pageEl ? pageEl.id : 'global';
+  }
+  function colKeyFor(th){
+    // ترتيب العمود (index) كمفتاح ثابت — نص العنوان ممكن يتغيّر (زي تحويل
+    // العنوان من عربي مؤقت للاسم الحقيقي بعد مزامنة أعمدة Supabase)، لكن
+    // ترتيب العمود فى الصف بيفضل ثابت
+    return 'col' + Array.prototype.indexOf.call(th.parentElement.children, th);
+  }
+  function storageKey(table){
+    return 'gpm_col_widths_' + pageIdFor(table);
+  }
+  function loadWidths(table){
+    try { return JSON.parse(localStorage.getItem(storageKey(table)) || '{}'); }
+    catch(e){ return {}; }
+  }
+  function saveWidth(table, key, width){
+    try {
+      const widths = loadWidths(table);
+      widths[key] = width;
+      localStorage.setItem(storageKey(table), JSON.stringify(widths));
+    } catch(e){}
+  }
+  function applyWidths(table){
+    if(!table) return;
+    ensureHandles(table);
+    const widths = loadWidths(table);
+    if(!Object.keys(widths).length) return;
+    table.querySelectorAll('thead th').forEach(th => {
+      const key = colKeyFor(th);
+      if(widths[key]){
+        th.style.width = widths[key] + 'px';
+        th.style.minWidth = widths[key] + 'px';
+        th.style.maxWidth = widths[key] + 'px';
+      }
+    });
+  }
+  function ensureHandles(table){
+    // فحص لكل عمود لوحده (مش للجدول كله) — عشان لو الرأس اتبنى من جديد
+    // (زي بعد مزامنة أعمدة Supabase) نضيف المقابض للأعمدة الجديدة برضه
+    table.querySelectorAll('thead th').forEach(th => {
+      if(th.querySelector('.col-resize-handle')) return;
+      const handle = document.createElement('span');
+      handle.className = 'col-resize-handle';
+      th.appendChild(handle);
+    });
+  }
+  // يُستخدم من أي كود تاني (زي spSyncSchema) لإعادة تطبيق المقابض
+  // والأعراض المحفوظة بعد ما يعيد بناء صف رأس الجدول
+  window._gpmReapplyColResize = applyWidths;
+
+  function startDrag(th, table, clientX){
+    const rect = th.getBoundingClientRect();
+    drag = { th, table, startX: clientX, startWidth: rect.width };
+    document.body.classList.add('gpm-col-resizing');
+    const handle = th.querySelector('.col-resize-handle');
+    if(handle) handle.classList.add('resizing');
+  }
+  function moveDrag(clientX){
+    if(!drag) return;
+    const delta = clientX - drag.startX;
+    const newWidth = Math.max(MIN_W, Math.round(drag.startWidth + delta));
+    drag.th.style.width = newWidth + 'px';
+    drag.th.style.minWidth = newWidth + 'px';
+    drag.th.style.maxWidth = newWidth + 'px';
+  }
+  function endDrag(){
+    if(!drag) return;
+    const { th, table } = drag;
+    const key = colKeyFor(th);
+    const width = parseInt(th.style.width, 10);
+    if(width) saveWidth(table, key, width);
+    const handle = th.querySelector('.col-resize-handle');
+    if(handle) handle.classList.remove('resizing');
+    document.body.classList.remove('gpm-col-resizing');
+    drag = null;
+  }
+
+  // Mouse
+  document.addEventListener('mousedown', function(e){
+    const handle = e.target.closest('.col-resize-handle');
+    if(!handle) return;
+    const th = handle.closest('th');
+    const table = th.closest('table.fs-table');
+    if(!th || !table) return;
+    startDrag(th, table, e.clientX);
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e){ if(drag) moveDrag(e.clientX); });
+  document.addEventListener('mouseup', endDrag);
+
+  // Touch (موبايل)
+  document.addEventListener('touchstart', function(e){
+    const handle = e.target.closest('.col-resize-handle');
+    if(!handle) return;
+    const th = handle.closest('th');
+    const table = th.closest('table.fs-table');
+    if(!th || !table) return;
+    startDrag(th, table, e.touches[0].clientX);
+  }, { passive: true });
+  document.addEventListener('touchmove', function(e){
+    if(!drag) return;
+    moveDrag(e.touches[0].clientX);
+  }, { passive: true });
+  document.addEventListener('touchend', endDrag);
+
+  // أي جدول جديد يتضاف للصفحة (فتح صفحة جديدة، تبديل صفحات...) نضيفله
+  // مقابض السحب ونطبّق عليه أي أعرض محفوظة له قبل كده
+  const mo = new MutationObserver(muts => {
+    muts.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if(node.nodeType !== 1) return;
+        if(node.matches && node.matches('table.fs-table')) applyWidths(node);
+        if(node.querySelectorAll){
+          node.querySelectorAll('table.fs-table').forEach(applyWidths);
+        }
+      });
+    });
+  });
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  // طبّق على أي جدول موجود بالفعل وقت تحميل الصفحة
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('table.fs-table').forEach(applyWidths);
+  });
+})();
+</script>
 
 </body>
 </html>
