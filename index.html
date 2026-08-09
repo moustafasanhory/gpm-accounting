@@ -1061,6 +1061,51 @@ html, body {
   background: rgba(255,255,255,0.72) !important;
 }
 
+/* ══════════════════════════════════════════════════════════
+   COLLAPSED RAIL + FLYOUT POPUP — flat/plain look
+   (matches the reference file: white rows, no gradient pill,
+   only used for the icon-only sidebar and its flyout popup —
+   the expanded sidebar keeps its gradient pill style above)
+══════════════════════════════════════════════════════════ */
+.gpm-sidebar.collapsed .gpm-gb,
+.gpm-flyout .gpm-si,
+.gpm-flyout .gpm-nsi {
+  background: none !important;
+  color: #1e293b !important;
+  border: none !important;
+  border-bottom: 1px solid #eef0f5 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  box-shadow: none !important;
+  transform: none !important;
+  text-shadow: none !important;
+}
+.gpm-sidebar.collapsed .gpm-gb:hover,
+.gpm-flyout .gpm-si:hover,
+.gpm-flyout .gpm-nsi:hover {
+  background: #f0f6ff !important;
+  color: #2563eb !important;
+  transform: none !important;
+}
+.gpm-sidebar.collapsed .gpm-gb.active {
+  background: #e8f0fe !important;
+  color: #1a3a6e !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+.gpm-flyout .gpm-sl {
+  background: #edf2ff !important;
+  border-top: 1px solid #c7d7f9 !important;
+  border-bottom: 1px solid #c7d7f9 !important;
+  color: #2563eb !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+}
+.gpm-flyout .gpm-sl:hover { background: #dbeafe !important; }
+.gpm-flyout .gpm-sdiv, .gpm-flyout .gpm-gdiv { background: #dde3f0 !important; }
+
 /* ══ 3. الصفحات والمحتوى ════════════════════════════════════ */
 [id$="Page"] {
   background: rgba(241,248,255,0.55) !important;
@@ -11909,12 +11954,12 @@ function logOutFsToast(msg,type='success'){
 /* Bottom dictionary button stays at bottom of root panel only */
 .gpm-dpanel-root .gpm-dict-sb{ margin:10px; flex-shrink:0; }
 
-/* ── DESKTOP: hide flyout (we don't use it anymore) and original groups ── */
+/* ── DESKTOP EXPANDED: hide flyout and original groups (drill system takes over) ──
+   ── DESKTOP COLLAPSED: keep original groups (icon rail) + flyout, drill wrap hidden ── */
 @media(min-width:769px){
-  .gpm-flyout{ display:none !important; }
-  .gpm-sidebar > .gpm-group,
-  .gpm-sidebar > .gpm-gdiv,
-  .gpm-sidebar > .gpm-dict-sb{ display:none !important; }
+  .gpm-sidebar:not(.collapsed) > .gpm-group,
+  .gpm-sidebar:not(.collapsed) > .gpm-gdiv,
+  .gpm-sidebar:not(.collapsed) > .gpm-dict-sb{ display:none !important; }
 }
 
 /* ── MOBILE: sidebar slides in from the LEFT (page-wrap is LTR) ── */
@@ -11955,8 +12000,11 @@ function logOutFsToast(msg,type='success'){
   }
 }
 
-/* On desktop when sidebar collapsed (52px), drill panels hidden */
+/* On desktop when sidebar collapsed (52px), drill panels hidden, original icon-only
+   group list shown instead — restore scrolling since .gpm-sidebar{overflow:hidden}
+   above (needed for the drill panels) would otherwise clip the icon rail. */
 .gpm-sidebar.collapsed #gpmDrillWrap{ display:none; }
+.gpm-sidebar.collapsed{ overflow-y:auto !important; overflow-x:hidden !important; }
 .gpm-sidebar.collapsed .gpm-sb-header{ justify-content:center; padding:13px 8px; }
 
 /* ── MOBILE: Full-screen pages must take entire viewport (below the 52px header) ── */
@@ -12163,9 +12211,29 @@ function logOutFsToast(msg,type='success'){
     }
   };
 
-  // ── Disable old accordion handlers ──
-  window.gpmGb = function(){};
-  window.gpmSlToggle = function(){};
+  // ── Keep old flyout/accordion handlers alive for COLLAPSED desktop (icon rail)
+  //    and MOBILE (drill panels are used there via the mobile trigger instead,
+  //    but gpmGb must stay a no-op only for the EXPANDED desktop case, where the
+  //    drill panels replace the accordion) ──
+  const _origGpmGb = window.gpmGb;
+  const _origGpmSlToggle = window.gpmSlToggle;
+  window.gpmGb = function(btn){
+    const sb = document.getElementById('gpmSidebar');
+    const collapsed = sb && sb.classList.contains('collapsed');
+    const mobile = window.innerWidth <= 768;
+    if((collapsed || mobile) && typeof _origGpmGb === 'function'){
+      _origGpmGb(btn);
+    }
+    // expanded desktop: no-op, drill panels handle it
+  };
+  window.gpmSlToggle = function(el){
+    const sb = document.getElementById('gpmSidebar');
+    const collapsed = sb && sb.classList.contains('collapsed');
+    const mobile = window.innerWidth <= 768;
+    if((collapsed || mobile) && typeof _origGpmSlToggle === 'function'){
+      _origGpmSlToggle(el);
+    }
+  };
 
   // ── Build on DOM ready ──
   if(document.readyState === 'loading'){
