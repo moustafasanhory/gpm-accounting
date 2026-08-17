@@ -9310,6 +9310,10 @@ function vndBuildForm(rec){
           <div class="fd-field code"><label>كود المورد SAP</label><input id="vf_كود_المورد_ساب" placeholder="SAP-XXXX" value="${v('كود_المورد_ساب')}"></div>
         </div>
         <div class="fd-field" style="margin-bottom:10px"><label><span class="req">*</span>اسم الشركة</label><input id="vf_اسم_الشركة" placeholder="الاسم الكامل للشركة" value="${v('اسم_الشركة')}"></div>
+        <div class="fd-field" style="margin-bottom:10px">
+          <label>الاسم في الشيك <small style="color:#94a3b8;font-weight:400">(لو فاضي، هيتاخد اسم الشركة أعلاه)</small></label>
+          <input id="vf_nameinchq" placeholder="الاسم اللي هيتطبع في متن الشيك" value="${rec?.nameinchq||''}">
+        </div>
         <div class="fd-grid-2" style="margin-bottom:10px">
           <div class="fd-field"><label>اسم المسئول</label><input id="vf_اسم_المسئول" placeholder="اسم مسئول الاتصال" value="${v('اسم_المسئول')}"></div>
           <div class="fd-field"><label>التليفون</label><input id="vf_التليفون" type="tel" placeholder="01XXXXXXXXX" value="${v('التليفون')}" style="direction:ltr;text-align:left;font-family:'Space Mono',monospace"></div>
@@ -9373,6 +9377,8 @@ function vndCollectDrawer(){
     const el = document.getElementById('vf_' + arKey);
     if(el) rec[enKey] = el.value;
   });
+  const nicEl = document.getElementById('vf_nameinchq');
+  if(nicEl) rec.nameinchq = nicEl.value;
   return rec;
 }
 
@@ -10321,6 +10327,22 @@ body.chq-blank-print #chqPrintBlank{display:block!important}
 .cpb-page .cpb-payto,.cpb-page .cpb-words,.cpb-page .cpb-ac-payee{font-family:'Cairo','Tajawal',sans-serif;unicode-bidi:plaintext;text-align:right;font-weight:700}
 .cpb-page .cpb-amount{font-weight:700;letter-spacing:.5px}
 .cpb-page .cpb-date{font-family:'Cairo','Tajawal',sans-serif;font-weight:700;direction:ltr;unicode-bidi:plaintext;text-align:right}
+/* المبلغ بالكلمات ممكن يبقى طويل (تفقيط كبير)، فلو مش هيتظبط في سطر واحد
+   يسمح بسطرين بدل ما يمتد ويتصادم مع باقي بيانات الشيك — بالظبط زي مربع
+   المعاينة "المبلغ بالكلمات" في شاشة إدخال البيانات */
+.cpb-page .cpb-words{white-space:normal;max-width:130mm;line-height:1.2}
+/* قايمة اقتراحات الموردين لخانة "ادفعوا لأمر" — بتقترح من جدول الموردين
+   وتملأ العمود بقيمة nameinchq (الاسم المخصص للطباعة على الشيك) */
+.chq-payto-suggest{position:absolute;top:100%;right:0;left:0;z-index:50;background:#fff;
+  border:1px solid #e2c4c4;border-radius:8px;box-shadow:0 8px 24px rgba(122,0,0,.15);
+  margin-top:4px;max-height:220px;overflow-y:auto;display:none}
+.chq-payto-suggest.open{display:block}
+.chq-payto-suggest-item{padding:8px 12px;cursor:pointer;border-bottom:1px solid #f5eaea;font-size:.82rem}
+.chq-payto-suggest-item:last-child{border-bottom:none}
+.chq-payto-suggest-item:hover,.chq-payto-suggest-item.active{background:#fff5f5}
+.chq-payto-suggest-item .vname{font-weight:700;color:#333}
+.chq-payto-suggest-item .vnic{font-size:.72rem;color:#7a0000;margin-top:2px}
+.chq-payto-suggest-empty{padding:10px 12px;font-size:.78rem;color:#94a3b8;text-align:center}
 /* لوحة معايرة المطابقة (شاشة بس، مش بتتطبع) */
 .chq-calib-section{margin-top:14px;border:1px dashed #f3b8b8;border-radius:10px;padding:12px;background:#fff8f8}
 .chq-calib-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none}
@@ -10544,9 +10566,13 @@ body.chq-blank-print #chqPrintBlank{display:block!important}
           <label>A/C Payee</label>
           <input type="text" id="chq_ac_payee" placeholder="يصرف للمستفيد الاول" oninput="chqUpdatePreview()">
         </div>
-        <div class="fd-field" style="margin-top:10px">
+        <div class="fd-field" style="margin-top:10px;position:relative">
           <label><span class="req">*</span>ادفعوا لأمر / Pay To</label>
-          <input type="text" id="chq_payto" placeholder="اسم المستفيد" oninput="chqUpdatePreview()">
+          <input type="text" id="chq_payto" placeholder="اسم المستفيد" autocomplete="off"
+                 oninput="chqUpdatePreview(); chqPaytoSuggest()"
+                 onfocus="chqPaytoSuggest()"
+                 onblur="setTimeout(()=>chqPaytoHideSuggest(),150)">
+          <div id="chqPaytoSuggestBox" class="chq-payto-suggest"></div>
         </div>
         <div class="fd-grid-2" style="margin-top:10px">
           <div class="fd-field money">
@@ -10957,7 +10983,17 @@ function chqUpdateCalibPreview(data){
   if(ptEl){ ptEl.textContent = payto || 'اسم المستفيد'; ptEl.classList.toggle('ccp-placeholder', !payto); place(ptEl, F.payto.x, F.payto.y, F.payto.fs); }
 
   const wdEl = document.getElementById('ccpWords');
-  if(wdEl){ const w = words && words!=='—' ? words : ''; wdEl.textContent = w || 'المبلغ بالكلمات'; wdEl.classList.toggle('ccp-placeholder', !w); place(wdEl, F.words.x, F.words.y, F.words.fs); }
+  if(wdEl){
+    const w = words && words!=='—' ? words : '';
+    wdEl.textContent = w || 'المبلغ بالكلمات';
+    wdEl.classList.toggle('ccp-placeholder', !w);
+    place(wdEl, F.words.x, F.words.y, F.words.fs);
+    // نفس أقصى عرض 130مم المستخدم فعليًا في الطباعة، مترجم لبكسلات المعاينة،
+    // عشان لو التفقيط طويل يبان بسطرين هنا بالظبط زي ما هيتطبع فعليًا
+    wdEl.style.maxWidth = (130 * SCALE) + 'px';
+    wdEl.style.whiteSpace = 'normal';
+    wdEl.style.lineHeight = '1.2';
+  }
 
   const amEl = document.getElementById('ccpAmount');
   if(amEl){ amEl.textContent = amtFmt || '0.00'; amEl.classList.toggle('ccp-placeholder', !amtFmt); place(amEl, F.amount.x, F.amount.y, F.amount.fs); }
@@ -11025,6 +11061,11 @@ function openChequePage(){
       chqRecords = recs.map(chqFromSupabaseRow);
       chqFsRender();
     });
+  }
+  // نجيب بيانات الموردين في الخلفية (لو لسه ما اتحمّلتش في الجلسة دي) عشان
+  // اقتراحات "ادفعوا لأمر" تشتغل حتى لو المستخدم ما فتحش صفحة الموردين قبل كده
+  if(window.sbHydrate){
+    window.sbHydrate('gpm_vnd_records', 'vendors_list', recs => { vndRecords = recs; });
   }
 }
 function closeChequePage(){
@@ -11320,6 +11361,52 @@ function chqUpdatePreview(){
    إرسال لقاعدة البيانات. عمود created_at له قيمة افتراضية جاهزة في
    الجدول (default now())، وعمود updated_at بيتحدّث تلقائيًا بـ trigger،
    فمفيش داعي نبعت 'created' من عندنا أصلاً. */
+/* اقتراحات الموردين لخانة "ادفعوا لأمر" — بتدور في vndRecords بالاسم،
+   وتملأ الخانة بقيمة nameinchq (لو موجودة) أو اسم الشركة كـ fallback */
+function chqPaytoVendorLabel(v){
+  return vndVal ? (vndVal(v,'اسم_الشركة') || v.vendor_name || '') : (v.vendor_name || v['اسم_الشركة'] || '');
+}
+function chqPaytoSuggest(){
+  const box = document.getElementById('chqPaytoSuggestBox');
+  const input = document.getElementById('chq_payto');
+  if(!box || !input) return;
+  const q = (input.value || '').trim().toLowerCase();
+  const list = (typeof vndRecords !== 'undefined' ? vndRecords : []);
+  if(!list.length){ box.classList.remove('open'); return; }
+  const matches = list.filter(v => {
+    const name = chqPaytoVendorLabel(v).toLowerCase();
+    const nic = (v.nameinchq||'').toLowerCase();
+    return !q || name.includes(q) || nic.includes(q);
+  }).slice(0, 8);
+  if(!matches.length){
+    box.innerHTML = q ? `<div class="chq-payto-suggest-empty">لا يوجد مورد مطابق</div>` : '';
+    box.classList.toggle('open', !!q);
+    return;
+  }
+  box.innerHTML = matches.map((v,i)=>{
+    const name = chqPaytoVendorLabel(v) || '—';
+    const nic = v.nameinchq || '';
+    return `<div class="chq-payto-suggest-item" data-idx="${i}" onmousedown="event.preventDefault();chqPaytoSelect(${i})">
+      <div class="vname">${name}</div>
+      ${nic && nic!==name ? `<div class="vnic">هيتطبع: ${nic}</div>` : ''}
+    </div>`;
+  }).join('');
+  window._chqPaytoMatches = matches;
+  box.classList.add('open');
+}
+function chqPaytoSelect(i){
+  const v = (window._chqPaytoMatches||[])[i];
+  if(!v) return;
+  const val = v.nameinchq && v.nameinchq.trim() ? v.nameinchq : chqPaytoVendorLabel(v);
+  const input = document.getElementById('chq_payto');
+  if(input){ input.value = val; chqUpdatePreview(); }
+  chqPaytoHideSuggest();
+}
+function chqPaytoHideSuggest(){
+  const box = document.getElementById('chqPaytoSuggestBox');
+  if(box) box.classList.remove('open');
+}
+
 function chqToSupabaseRow(rec){
   if(!rec) return rec;
   const out = {};
