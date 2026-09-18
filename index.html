@@ -11510,22 +11510,27 @@ async function chqDrawerSave(){
 }
 
 /* ── Print (drawer) ── */
-function chqDrawerPrint(){
+async function chqDrawerPrint(){
   const payto=document.getElementById('chq_payto')?.value;
   const amount=document.getElementById('chq_amount')?.value;
   if(!payto||!amount){
     chqFsToast('⚠️ يرجى ملء المستفيد والمبلغ','error');
     return;
   }
-  // Auto-save before printing
-  chqDrawerSave();
+  // Auto-save before printing — لازم ننتظر (await) اكتمال الحفظ فعلياً قبل ما نكمل.
+  // لو شيك جديد، الـ id بيبدأ مؤقت (Date.now()) وبيتبدّل بالـ id الحقيقي من
+  // Supabase بعد ما الإدراج (INSERT) يخلص. من غير الانتظار ده، الكود تحت كان
+  // بينفّذ فوراً وهو لسه شايف نفس الـ id المؤقت، فبيعمل sbUpsert تاني وهو كمان
+  // بيتعامل معاه كـ "شيك جديد" (INSERT) بدل ما يحدّث (UPDATE) نفس السطر —
+  // ونتيجته سطرين في قاعدة البيانات لنفس الشيك (واحد قيد الطباعة وواحد مطبوع)
+  await chqDrawerSave();
   // Mark as printed
   if(chqCurrentId){
     const idx = chqRecords.findIndex(r=>String(r.id) === String(chqCurrentId));
     if(idx>=0){
       chqRecords[idx].status='printed';
       localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
-      if(window.sbUpsert) window.sbUpsert('print_cheque', chqToSupabaseRow(chqRecords[idx]));
+      if(window.sbUpsert) await window.sbUpsert('print_cheque', chqToSupabaseRow(chqRecords[idx]));
       chqFsRender();
     }
   }
