@@ -6143,13 +6143,22 @@ function gpmSpecialExportPDF(pageId){
 }
 
 // Sync all full-screen pages when sidebar collapses/expands
+//
+// ملاحظة مهمة: كانت الدالة دي بتشتغل على قايمة IDs ثابتة (مكتوبة يدوي) —
+// أي صفحة اتضافت بعدين (زي صفحات نظام GPM_PAGES الموحّد الجديد، مثلاً
+// "profitCenterPage" أو "chequePage") مكانتش موجودة في القايمة دي، فلما
+// تفتح الصفحة وتقفل/تفتح القائمة الجانبية وهي فاضية، موضعها (left) مكنش
+// بيتحدّث خالص — فتفضل عالقة في نفس المكان اللي اتفتحت فيه أول مرة وتبان
+// "مش مظبوطة" مع الشريط الجانبي، بعكس الصفحات القديمة اللي كانت في القايمة.
+// الحل: بدل قايمة ثابتة، بندوّر على أي عنصر full-screen page فعلاً ظاهر
+// (position:fixed + مش display:none) أياً كان الـ id بتاعه، فالإصلاح ده
+// بيغطي الصفحات القديمة والجديدة، وأي صفحة تتضاف في المستقبل كمان.
 function syncPageMargins(){
   const sidebar = document.getElementById('gpmSidebar');
   const w = isMobile() ? 0
           : sidebar.classList.contains('collapsed') ? 52 : 240;
-  ['posPage','apPage','scPage','empPage','vendorPage','custPage','ccPage','openingBalancePage','chartOfAccountsPage','currencyExchangePage','itemsPage','journalVoucherPage','accountStatementPage','accountBalancePage','interCompanyPage','assetRegisterPage','runDepreciationPage','assetsHistoryPage','albarakaBankStmtPage','cib1BankStmtPage','cib2BankStmtPage','cib3BankStmtPage','qnb1BankStmtPage','qnb2BankStmtPage','qnb3BankStmtPage','qnb4BankStmtPage','qnb5BankStmtPage','adib1BankStmtPage','adib2BankStmtPage','bankReconciliationPage','bankJournalVoucherPage','bankPositionPage','outgoingChequePage','vendorsInvoicePage','vendorsContractsPage','downPaymentPage','expensesAccrualPage','vendorStatementPage','vendorBalancePage','attendanceSheetPage','contractSocialInsurancePage','fnbAuditPage','addDeductionTaxPage','salaryStatementPage','salaryPayslipPage','employeeLoanPage','outOfSourceIBSPage','socialInsurancePage','incomeTaxPage','uploadDataPage','dailyInvoicePage','electricityInvoicePage','waterInvoicePage','headOfficeCollectionPage','customerSearchPage','cashWitnessPage','creditCardReceiptPage','generalCashierPage','creditCardByDatePage','creditCardByCashierPage','creditCardDiffByBankPage','checkUnderCollectionPage','depositPage','salesTaxPage','incentivePage','miscellaneousPage','proShopPage','laundryPage','cashReceiptPage','dutyPage','maintenanceRequestPage','ticket25Page','ticket20Page','ticket10Page','purchasingOrderPage','purchasingRequestPage','goodsReceiptPage','goodsIssuePage','itemMovementPage','storesMovementPage','storesConsumptionPage','transferItemPage','storesBalancePage','cashRevenuePage','cashDepositAtBankPage','otherCashReceiptPage','duesFromOwnerPage','houseFundPage','cashExpensesPage','advancedPaymentCashPage','employeeLoanCashPage','distributionPage','cashInventoryPage','denominationOfCurrencyPage','backUpPage','compactRepairPage','shiftPage','trialBalancePage','dailyWorkSheetPage','sisterCompanyPage','otherActivityPage','logOutPage'].forEach(id=>{
-    const pg = document.getElementById(id);
-    if(pg && pg.style.display !== 'none'){
+  document.querySelectorAll('[id$="Page"]').forEach(pg=>{
+    if(pg.style.position === 'fixed' && pg.style.display !== 'none' && pg.style.display !== ''){
       // Use `left` instead of marginLeft because position:fixed + inset:0 needs left/right not margins
       pg.style.left = w + 'px';
       pg.style.right = '0';
