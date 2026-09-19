@@ -10452,7 +10452,7 @@ body.chq-blank-print #chqPrintBlank{display:block!important}
   </div>
   <div class="fs-drawer-actions">
     <button class="fs-btn fs-btn-primary" onclick="chqDrawerSave()">💾 حفظ</button>
-    <button class="fs-btn fs-btn-print" onclick="chqDrawerPrint()">🖨️ طباعة</button>
+    <button class="fs-btn fs-btn-print" id="chqPrintBtn" onclick="chqDrawerPrint()">🖨️ طباعة</button>
     <button class="fs-btn fs-btn-danger" onclick="chqDrawerVoid()">🚫 إلغاء الشيك</button>
     <button class="fs-btn fs-btn-light" onclick="chqCloseDrawer()">إلغاء</button>
   </div>
@@ -10741,6 +10741,11 @@ let chqRecords    = JSON.parse(localStorage.getItem('gpm_cheques')||'[]');
 let chqCurrentId  = null;
 let chqType       = 'classic';
 let chqStatusFilter = '';
+// دبل-كليك (أو أي نداء متزامن تاني) على زرار "طباعة" كان بيعمل نفس مشكلة
+// تسجيل الشيك مرتين — لأن النداء التاني كان بيبدأ قبل ما الأول يخلص حفظه
+// ويكون عنده الـ id الحقيقي، فيتعامل معاه كـ "شيك جديد" هو كمان. الفلاج ده
+// بيمنع أي نداء تاني لـ chqDrawerPrint لحد ما الأول يخلص خالص.
+let chqPrinting   = false;
 
 /* ══════════════════════════════════════════════
    طباعة على شيك فارغ (Blank-cheque overlay printing)
@@ -11520,38 +11525,49 @@ async function chqDrawerSave(){
 
 /* ── Print (drawer) ── */
 async function chqDrawerPrint(){
+  // لو فيه نداء شغّال بالفعل (دبل-كليك على "طباعة" مثلاً)، اتجاهل النداء
+  // ده تماماً بدل ما يعمل حفظ/إدراج تاني لنفس الشيك
+  if(chqPrinting) return;
   const payto=document.getElementById('chq_payto')?.value;
   const amount=document.getElementById('chq_amount')?.value;
   if(!payto||!amount){
     chqFsToast('⚠️ يرجى ملء المستفيد والمبلغ','error');
     return;
   }
-  // Auto-save before printing — لازم ننتظر (await) اكتمال الحفظ فعلياً قبل ما نكمل.
-  // لو شيك جديد، الـ id بيبدأ مؤقت (Date.now()) وبيتبدّل بالـ id الحقيقي من
-  // Supabase بعد ما الإدراج (INSERT) يخلص. من غير الانتظار ده، الكود تحت كان
-  // بينفّذ فوراً وهو لسه شايف نفس الـ id المؤقت، فبيعمل sbUpsert تاني وهو كمان
-  // بيتعامل معاه كـ "شيك جديد" (INSERT) بدل ما يحدّث (UPDATE) نفس السطر —
-  // ونتيجته سطرين في قاعدة البيانات لنفس الشيك (واحد قيد الطباعة وواحد مطبوع)
-  await chqDrawerSave();
-  // Mark as printed
-  if(chqCurrentId){
-    const idx = chqRecords.findIndex(r=>String(r.id) === String(chqCurrentId));
-    if(idx>=0){
-      chqRecords[idx].status='printed';
-      localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
-      if(window.sbUpsert) await window.sbUpsert('print_cheque', chqToSupabaseRow(chqRecords[idx]));
-      chqFsRender();
+  chqPrinting = true;
+  const btn = document.getElementById('chqPrintBtn');
+  if(btn) btn.disabled = true;
+  try{
+    // Auto-save before printing — لازم ننتظر (await) اكتمال الحفظ فعلياً قبل ما نكمل.
+    // لو شيك جديد، الـ id بيبدأ مؤقت (Date.now()) وبيتبدّل بالـ id الحقيقي من
+    // Supabase بعد ما الإدراج (INSERT) يخلص. من غير الانتظار ده، الكود تحت كان
+    // بينفّذ فوراً وهو لسه شايف نفس الـ id المؤقت، فبيعمل sbUpsert تاني وهو كمان
+    // بيتعامل معاه كـ "شيك جديد" (INSERT) بدل ما يحدّث (UPDATE) نفس السطر —
+    // ونتيجته سطرين في قاعدة البيانات لنفس الشيك (واحد قيد الطباعة وواحد مطبوع)
+    await chqDrawerSave();
+    // Mark as printed
+    if(chqCurrentId){
+      const idx = chqRecords.findIndex(r=>String(r.id) === String(chqCurrentId));
+      if(idx>=0){
+        chqRecords[idx].status='printed';
+        localStorage.setItem('gpm_cheques', JSON.stringify(chqRecords));
+        if(window.sbUpsert) await window.sbUpsert('print_cheque', chqToSupabaseRow(chqRecords[idx]));
+        chqFsRender();
+      }
     }
+    chqUpdatePreview();
+    if(chqType==='classic'){
+      // النموذج الأول: طباعة البيانات المتغيرة فقط، مضبوطة فوق الشيك الفعلي الفاضي
+      chqPreparePrintBlank();
+      document.body.classList.add('chq-blank-print');
+    } else {
+      document.body.classList.remove('chq-blank-print');
+    }
+    setTimeout(()=>window.print(), 100);
+  } finally {
+    chqPrinting = false;
+    if(btn) btn.disabled = false;
   }
-  chqUpdatePreview();
-  if(chqType==='classic'){
-    // النموذج الأول: طباعة البيانات المتغيرة فقط، مضبوطة فوق الشيك الفعلي الفاضي
-    chqPreparePrintBlank();
-    document.body.classList.add('chq-blank-print');
-  } else {
-    document.body.classList.remove('chq-blank-print');
-  }
-  setTimeout(()=>window.print(), 100);
 }
 
 /* ── Void (drawer) ── */
